@@ -2,7 +2,6 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:background="@color/background_gray">
 
@@ -16,9 +15,9 @@
             android:id="@+id/tvAppName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="JVS Glass"
+            android:text="@string/app_name"
             android:textSize="20sp"
-            android:textColor="@color/white"
+            android:textColor="@color/button_text"
             android:layout_centerVertical="true"
             android:layout_marginStart="16dp"/>
 
@@ -51,7 +50,7 @@
                 android:layout_marginTop="10dp"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
-                android:text="Bluetooth Reconnecting\nPlease wait a moment"
+                android:text="@string/connect_status"
                 android:textColor="@color/button_text"
                 android:textSize="20sp"
                 android:textAllCaps="false"
