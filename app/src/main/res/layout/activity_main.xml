@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="@color/background_gray">
+
+    <!-- 顶部栏 -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="30dp">
+
+        <TextView
+            android:id="@+id/tvAppName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="JVS Glass"
+            android:textSize="20sp"
+            android:textColor="@color/white"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="16dp"/>
+
+        <ImageView
+            android:id="@+id/btnSettings"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_centerVertical="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="16dp"
+            android:src="@drawable/ic_settings"
+            android:background="@null"/>
+    </RelativeLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- 蓝牙连接状态 -->
+            <Button
+                android:id="@+id/btnBluetooth"
+                android:layout_width="match_parent"
+                android:layout_height="230dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:text="Bluetooth Reconnecting\nPlease wait a moment"
+                android:textColor="@color/button_text"
+                android:textSize="20sp"
+                android:textAllCaps="false"
+                android:background="@drawable/rounded_button"/>
+
+            <GridLayout
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:columnCount="2"
+                android:rowCount="1"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginTop="6dp"
+                android:columnOrderPreserved="false" >
+
+                <!-- 左列区域 -->
+                <LinearLayout
+                    android:id="@+id/disconnected"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_columnWeight="1"
+                    android:orientation="vertical"
+                    android:layout_marginEnd="3dp"
+                    android:background="@drawable/rounded_button">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:layout_marginStart="20dp"
+                        android:text="Disconnected"
+                        android:textColor="@color/button_text"
+                        android:textSize="15sp"/>
+
+                    <ImageView
+                        android:layout_width="110dp"
+                        android:layout_height="80dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_glasses"
+                        android:layout_marginTop="10dp"/>
+                </LinearLayout>
+
+                <!-- 右列区域 -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_columnWeight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="3dp">
+
+                    <!-- 上半部分 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/rounded_button">
+
+                        <ImageView
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:layout_gravity="center_vertical"
+                            android:layout_marginStart="20dp"
+                            android:src="@drawable/ic_warning"/>
+
+                    </LinearLayout>
+
+                    <!-- 下半部分 -->
+                    <LinearLayout
+                        android:id="@+id/silentMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center_vertical"
+                        android:background="@drawable/rounded_button">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginStart="20dp"
+                            android:src="@drawable/ic_slient_mode"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Slient Mode"
+                            android:textColor="@color/button_text"
+                            android:textSize="16sp"
+                            android:layout_marginStart="8dp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </GridLayout>
+
+            <!-- 功能列表 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvFunctions"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingStart="13dp"
+                android:paddingEnd="13dp"/>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>
