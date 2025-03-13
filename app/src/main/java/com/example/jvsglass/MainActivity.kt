@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,13 +33,13 @@ class MainActivity : AppCompatActivity() {
 
         // 初始化功能列表
         val functions = listOf(
-            FunctionItem(R.drawable.ic_stub, "QuickNote", QuickNoteActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, "Translate", TranslateActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, "Navigate", NavigateActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, "Teleprompt", TelepromptActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, "JVS AI(beta)", JVSAIActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, "Transcribe", TranscribeActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, "Dashboard", DashboardActivity::class.java),
+            FunctionItem(R.drawable.ic_stub, getString(R.string.quick_note), QuickNoteActivity::class.java),
+            FunctionItem(R.drawable.ic_stub, getString(R.string.translate), TranslateActivity::class.java),
+            FunctionItem(R.drawable.ic_stub, getString(R.string.navigate), NavigateActivity::class.java),
+            FunctionItem(R.drawable.ic_stub, getString(R.string.teleprompt), TelepromptActivity::class.java),
+            FunctionItem(R.drawable.ic_stub, getString(R.string.ai_beta), JVSAIActivity::class.java),
+            FunctionItem(R.drawable.ic_stub, getString(R.string.transcribe), TranscribeActivity::class.java),
+            FunctionItem(R.drawable.ic_stub, getString(R.string.dashboard), DashboardActivity::class.java),
         )
 
         val recyclerView: RecyclerView = findViewById(R.id.rvFunctions)
@@ -47,19 +48,33 @@ class MainActivity : AppCompatActivity() {
 
         // 设置按钮点击
         findViewById<ImageView>(R.id.btnSettings).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+            showToast(getString(R.string.development_tips))
+            return@setOnClickListener
+//            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
         findViewById<Button>(R.id.btnBluetooth).setOnClickListener {
-            startActivity(Intent(this, BluetoothActivity::class.java))
+            showToast(getString(R.string.development_tips))
+            return@setOnClickListener
+//            startActivity(Intent(this, BluetoothActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.disconnected).setOnClickListener {
-            startActivity(Intent(this, DisconnectedActivity::class.java))
+            showToast(getString(R.string.development_tips))
+            return@setOnClickListener
+//            startActivity(Intent(this, DisconnectedActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.silentMode).setOnClickListener {
-            startActivity(Intent(this, SilentModeActivity::class.java))
+            showToast(getString(R.string.development_tips))
+            return@setOnClickListener
+//            startActivity(Intent(this, SilentModeActivity::class.java))
+        }
+    }
+
+    private fun showToast(message: String) {
+        runOnUiThread {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
     }
 }
