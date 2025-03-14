@@ -1,5 +1,6 @@
 package com.example.jvsglass
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.ImageView
@@ -11,11 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.jvsglass.activities.BluetoothConnectActivity
 import com.example.jvsglass.activities.DashboardActivity
 import com.example.jvsglass.activities.JVSAIActivity
 import com.example.jvsglass.activities.NavigateActivity
 import com.example.jvsglass.activities.QuickNoteActivity
-import com.example.jvsglass.activities.TelepromptActivity
+import com.example.jvsglass.activities.TeleprompterActivity
 import com.example.jvsglass.activities.TranscribeActivity
 import com.example.jvsglass.activities.TranslateActivity
 import com.example.jvsglass.ui.theme.JVSGlassTheme
@@ -31,7 +33,7 @@ class MainActivity : AppCompatActivity() {
             FunctionItem(R.drawable.ic_quicknote, getString(R.string.quick_note), QuickNoteActivity::class.java),
             FunctionItem(R.drawable.ic_translate, getString(R.string.translate), TranslateActivity::class.java),
             FunctionItem(R.drawable.ic_navigate, getString(R.string.navigate), NavigateActivity::class.java),
-            FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompt), TelepromptActivity::class.java),
+            FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompter), TeleprompterActivity::class.java),
             FunctionItem(R.drawable.ic_ai, getString(R.string.ai_beta), JVSAIActivity::class.java),
             FunctionItem(R.drawable.ic_transcribe, getString(R.string.transcribe), TranscribeActivity::class.java),
             FunctionItem(R.drawable.ic_stub, getString(R.string.dashboard), DashboardActivity::class.java),
@@ -54,10 +56,10 @@ class MainActivity : AppCompatActivity() {
 //            startActivity(Intent(this, BluetoothActivity::class.java))
         }
 
-        findViewById<LinearLayout>(R.id.disconnected).setOnClickListener {
-            ToastUtils.show(this, getString(R.string.development_tips))
-            return@setOnClickListener
-//            startActivity(Intent(this, DisconnectedActivity::class.java))
+        findViewById<LinearLayout>(R.id.bluetoothConnect).setOnClickListener {
+//            ToastUtils.show(this, getString(R.string.development_tips))
+//            return@setOnClickListener
+            startActivity(Intent(this, BluetoothConnectActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.silentMode).setOnClickListener {
@@ -83,4 +85,3 @@ fun GreetingPreview() {
         Greeting("Android")
     }
 }
-
