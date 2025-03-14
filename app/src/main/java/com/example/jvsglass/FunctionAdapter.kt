@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.example.jvsglass.activities.TelepromptActivity
+import com.example.jvsglass.activities.TeleprompterActivity
 import com.example.jvsglass.utils.ToastUtils
 
 class FunctionAdapter(private val items: List<FunctionItem>) :
@@ -35,8 +35,8 @@ class FunctionAdapter(private val items: List<FunctionItem>) :
         // 点击事件处理
         holder.itemView.setOnClickListener {
             when (item.targetActivity) {
-                TelepromptActivity::class.java -> {
-                    // Teleprompt 正常跳转
+                TeleprompterActivity::class.java -> {
+                    // Teleprompter 正常跳转
                     context.startActivity(Intent(context, item.targetActivity))
                 }
                 else -> {

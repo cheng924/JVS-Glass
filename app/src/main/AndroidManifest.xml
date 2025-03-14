@@ -1,14 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Android 12+ 权限 -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- 蓝牙LE硬件特性 -->
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true" />
 
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.JVSGlass"
-        tools:targetApi="31">
+        android:theme="@style/Theme.JVSGlass" >
         <activity
             android:name=".activities.TextDisplayActivity"
             android:exported="false" />
@@ -22,7 +38,7 @@
             android:name=".activities.JVSAIActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.TelepromptActivity"
+            android:name=".activities.TeleprompterActivity"
             android:exported="false" />
         <activity
             android:name=".activities.NavigateActivity"
@@ -40,17 +56,15 @@
             android:name=".activities.SilentModeActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.DisconnectedActivity"
+            android:name=".activities.BluetoothConnectActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTop"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.JVSGlass">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

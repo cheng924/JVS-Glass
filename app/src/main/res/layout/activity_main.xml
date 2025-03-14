@@ -68,7 +68,7 @@
 
                 <!-- 左列区域 -->
                 <LinearLayout
-                    android:id="@+id/disconnected"
+                    android:id="@+id/bluetoothConnect"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_columnWeight="1"

@@ -1,0 +1,18 @@
+package com.example.jvsglass.ble
+
+import java.util.UUID
+
+object BLEConstants {
+    // 自定义UUID（正式项目应使用唯一生成的UUID）
+    val SERVICE_UUID: UUID = UUID.fromString("00001111-0000-1000-8000-00805F9B34FB")
+    val CHARACTERISTIC_UUID: UUID = UUID.fromString("00002222-0000-1000-8000-00805F9B34FB")
+    val DESCRIPTOR_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
+
+    var CURRENT_MTU = 517   // MTU值，可根据实际情况调整，此处设置为517字节（最大值）
+
+    const val REQUEST_ENABLE_BT = 1001 // 蓝牙启用请求码
+    const val REQUEST_CODE_BLE_PERMISSIONS = 1002 // 权限请求码
+
+    const val MAX_MESSAGE_HISTORY = 100 // 消息显示区域：最多保留100条消息
+    const val SCAN_TIMEOUT = 10000L // 10秒超时
+}
