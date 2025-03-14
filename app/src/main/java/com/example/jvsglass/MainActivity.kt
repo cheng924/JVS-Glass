@@ -1,6 +1,5 @@
 package com.example.jvsglass
 
-import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.ImageView
@@ -12,14 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.jvsglass.activities.BluetoothActivity
 import com.example.jvsglass.activities.DashboardActivity
-import com.example.jvsglass.activities.DisconnectedActivity
 import com.example.jvsglass.activities.JVSAIActivity
 import com.example.jvsglass.activities.NavigateActivity
 import com.example.jvsglass.activities.QuickNoteActivity
-import com.example.jvsglass.activities.SettingsActivity
-import com.example.jvsglass.activities.SilentModeActivity
 import com.example.jvsglass.activities.TelepromptActivity
 import com.example.jvsglass.activities.TranscribeActivity
 import com.example.jvsglass.activities.TranslateActivity
@@ -33,12 +28,12 @@ class MainActivity : AppCompatActivity() {
 
         // 初始化功能列表
         val functions = listOf(
-            FunctionItem(R.drawable.ic_stub, getString(R.string.quick_note), QuickNoteActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, getString(R.string.translate), TranslateActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, getString(R.string.navigate), NavigateActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, getString(R.string.teleprompt), TelepromptActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, getString(R.string.ai_beta), JVSAIActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, getString(R.string.transcribe), TranscribeActivity::class.java),
+            FunctionItem(R.drawable.ic_quicknote, getString(R.string.quick_note), QuickNoteActivity::class.java),
+            FunctionItem(R.drawable.ic_translate, getString(R.string.translate), TranslateActivity::class.java),
+            FunctionItem(R.drawable.ic_navigate, getString(R.string.navigate), NavigateActivity::class.java),
+            FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompt), TelepromptActivity::class.java),
+            FunctionItem(R.drawable.ic_ai, getString(R.string.ai_beta), JVSAIActivity::class.java),
+            FunctionItem(R.drawable.ic_transcribe, getString(R.string.transcribe), TranscribeActivity::class.java),
             FunctionItem(R.drawable.ic_stub, getString(R.string.dashboard), DashboardActivity::class.java),
         )
 
@@ -88,3 +83,4 @@ fun GreetingPreview() {
         Greeting("Android")
     }
 }
+
