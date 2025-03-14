@@ -10,16 +10,18 @@
     <string name="transcribe">语音转文字</string>
     <string name="dashboard">数据看板</string>
     <string name="development_tips">功能尚未开放，敬请期待</string>
+    <string name="search_hint">搜索</string>
 
     <!--    英文-->
-<!--    <string name="app_name">JVS Glass</string>-->
-<!--    <string name="connect_status">Bluetooth Reconnecting\nPlease wait a moment</string>-->
-<!--    <string name="quick_note">QuickNote</string>-->
-<!--    <string name="translate">Translate</string>-->
-<!--    <string name="navigate">Navigate</string>-->
-<!--    <string name="teleprompt">Teleprompt</string>-->
-<!--    <string name="ai_beta">JVS AI</string>-->
-<!--    <string name="transcribe">Transcribe</string>-->
-<!--    <string name="dashboard">Dashboard</string>-->
-<!--    <string name="development_tips">The feature is not yet available,\nStay tuned</string>-->
+    <!--    <string name="app_name">JVS Glass</string>-->
+    <!--    <string name="connect_status">Bluetooth Reconnecting\nPlease wait a moment</string>-->
+    <!--    <string name="quick_note">QuickNote</string>-->
+    <!--    <string name="translate">Translate</string>-->
+    <!--    <string name="navigate">Navigate</string>-->
+    <!--    <string name="teleprompt">Teleprompt</string>-->
+    <!--    <string name="ai_beta">JVS AI</string>-->
+    <!--    <string name="transcribe">Transcribe</string>-->
+    <!--    <string name="dashboard">Dashboard</string>-->
+    <!--    <string name="development_tips">The feature is not yet available,\nStay tuned</string>-->
+    <!--    <string name="search_hint">Search</string>-->
 </resources>
