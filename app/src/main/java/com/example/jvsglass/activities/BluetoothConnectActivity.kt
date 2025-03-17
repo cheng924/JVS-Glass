@@ -14,7 +14,6 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.ParcelUuid
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -23,7 +22,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.jvsglass.R
-import com.example.jvsglass.ble.BLEConstants
 import com.example.jvsglass.ble.BLEConstants.REQUEST_ENABLE_BT
 import com.example.jvsglass.ble.BLEConstants.REQUEST_CODE_BLE_PERMISSIONS
 import com.example.jvsglass.ble.BLEConstants.SCAN_TIMEOUT
@@ -52,17 +50,13 @@ class BluetoothConnectActivity : AppCompatActivity() {
         .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
         .build()
 
-    private val filters = listOf(
-        ScanFilter.Builder()
-            .setServiceUuid(ParcelUuid(BLEConstants.SERVICE_UUID))
-            .build()
-    )
+    private val filters: List<ScanFilter>? = null
 
     private val leScanCallback = object : ScanCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             result.device?.let { device ->
-                val localName = result.scanRecord?.deviceName ?: "N/A"
+                val addName = result.scanRecord?.deviceName
                 val address = device.address
 
                 // 去重逻辑：使用设备地址作为唯一标识
@@ -73,10 +67,10 @@ class BluetoothConnectActivity : AppCompatActivity() {
                         filteredDevicesList.clear()
                         filteredDevicesList.addAll(
                             scannedDevices.values.filter { device ->
-                                device.name?.isNotBlank() ?: false // 仅过滤空名称
+                                device.name?.isNotBlank() ?: false
                             }
                         )
-                        LogUtils.debug("发现设备：系统名称：${device.name ?: "null"} 广告名称：$localName 地址：$address")
+                        LogUtils.debug("发现设备：系统名称：${device.name ?: "null"} 广告名称：$addName 地址：$address")
 
                         deviceListAdapter.clear()
                         deviceListAdapter.addAll(filteredDevicesList.map {"${it.name} (${it.address})"})
@@ -93,8 +87,8 @@ class BluetoothConnectActivity : AppCompatActivity() {
             val errorMsg = when (errorCode) {
                 SCAN_FAILED_ALREADY_STARTED -> "扫描已在进行中"
                 SCAN_FAILED_APPLICATION_REGISTRATION_FAILED -> "应用注册失败"
-                SCAN_FAILED_FEATURE_UNSUPPORTED -> "不支持该功能"
                 SCAN_FAILED_INTERNAL_ERROR -> "内部错误"
+                SCAN_FAILED_FEATURE_UNSUPPORTED -> "不支持该功能"
                 else -> "未知错误"
             }
             LogUtils.error("[BLE Scan] $errorMsg (代码:$errorCode)")
