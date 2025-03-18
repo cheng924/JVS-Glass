@@ -18,6 +18,7 @@ class BLEGattClient(context: Context) {
     private var connectedDevice: BluetoothDevice? = null // 设备引用
     private val contextRef = WeakReference(context)
     private var bluetoothGatt: BluetoothGatt? = null
+    private var isDisconnecting = false // 断联状态标记
 
     private val sendQueue = ConcurrentLinkedQueue<ByteArray>()
     private var isSending = false
@@ -44,9 +45,15 @@ class BLEGattClient(context: Context) {
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         LogUtils.info("[BLE] 已连接到设备 ${gatt.device.address}")
                         gatt.requestMtu(CURRENT_MTU)    // 连接成功时请求MTU
+                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                        LogUtils.info("[BLE] 连接已断开")
+                        disconnect() // 主动释放资源
                     }
                 }
-                else -> LogUtils.error("[BLE] 连接失败，错误码：$status")
+                else -> {
+                    LogUtils.error("[BLE] 连接失败，错误码：$status")
+                    disconnect() // 连接失败时立即清理资源
+                }
             }
         }
 
@@ -58,14 +65,6 @@ class BLEGattClient(context: Context) {
             }
 
             LogUtils.info("[BLE] 服务发现成功，发现服务数量：${gatt.services.size}")
-
-            // 打印所有服务详情
-//            gatt.services.forEach { service ->
-//                LogUtils.debug("[BLE] 服务 UUID: ${service.uuid}")
-//                service.characteristics.forEach { char ->
-//                    LogUtils.debug("[BLE]   └─ 特征值 UUID: ${char.uuid}")
-//                }
-//            }
 
             // 获取服务
             val service = gatt.getService(BLEConstants.SERVICE_UUID)
@@ -171,7 +170,6 @@ class BLEGattClient(context: Context) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 CURRENT_MTU = mtu
                 LogUtils.info("[BLE] MTU更新为：$mtu")
-                // MTU517：蓝牙低功耗BLE通信中最大传输单元MTU的值，表示客户端和服务端协商后允许单次传输的最大数据量
                 // MTU 协商成功后发起服务发现
                 val success = gatt.discoverServices()
                 LogUtils.debug("[BLE] 服务发现请求结果：$success")
@@ -183,7 +181,7 @@ class BLEGattClient(context: Context) {
             }
         }
 
-        // 写入确认回调（关键修改点）
+        // 写入确认回调
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onCharacteristicWrite(
             gatt: BluetoothGatt,
@@ -201,11 +199,11 @@ class BLEGattClient(context: Context) {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connectToDevice(device: BluetoothDevice) {
+        disconnect() // 先关闭旧连接
         LogUtils.info("[BLE] 尝试连接设备 ${device.address}")
         connectedDevice = device // 保存设备对象
         val ctx = contextRef.get() ?: return
-        bluetoothGatt?.disconnect()
-        bluetoothGatt = device.connectGatt(ctx, false, gattClientCallback)
+        bluetoothGatt = device.connectGatt(ctx, true, gattClientCallback, BluetoothDevice.TRANSPORT_LE)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -221,19 +219,29 @@ class BLEGattClient(context: Context) {
         }
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun disconnect() {
-        try {
-            connectedDevice = null // 清除设备引用
-            bluetoothGatt?.disconnect()
-            bluetoothGatt?.close()
-            bluetoothGatt = null
-            sendQueue.clear() // 清空发送队列
-            isSending = false // 重置发送状态
-            LogUtils.info("[BLE] 连接已主动断开")
-        } catch (e: SecurityException) {
-            // 处理权限被拒绝的情况
-            LogUtils.error("[BLE] 断开连接失败：缺少 BLUETOOTH_CONNECT 权限", e)
+        if (isDisconnecting) return // 避免重复调用
+
+        bluetoothGatt?.let { gatt ->
+            isDisconnecting = true
+            try {
+                gatt.disconnect()
+                Handler(Looper.getMainLooper()).postDelayed({
+                    gatt.close()
+                    bluetoothGatt = null
+                    isDisconnecting = false
+                    sendQueue.clear() // 清空发送队列
+                    isSending = false // 重置发送状态
+                    LogUtils.debug("[BLE] 资源完全释放完成")
+                }, 500) // 增加延迟确保异步操作完成
+                LogUtils.info("[BLE] 连接已主动断开")
+            } catch (e: Exception) {
+                // 处理权限被拒绝的情况
+                LogUtils.error("[BLE] 断开异常: ${e.javaClass.simpleName}")
+            }
         }
+        connectedDevice = null // 清除设备引用
     }
 
     // 分包发送逻辑
