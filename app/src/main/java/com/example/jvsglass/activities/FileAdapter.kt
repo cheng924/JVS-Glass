@@ -5,14 +5,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
-import com.example.jvsglass.utils.ToastUtils
-import java.text.SimpleDateFormat
-import java.util.Locale
 
-class FileAdapter(private val items: List<FileItem>) :
-    RecyclerView.Adapter<FileAdapter.ViewHolder>() {
+class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCallback()) {
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val fileName: TextView = view.findViewById(R.id.tvFileName)
@@ -26,7 +24,7 @@ class FileAdapter(private val items: List<FileItem>) :
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = items[position]
+        val item = getItem(position)
         val context = holder.itemView.context
 
         // 设置图标和文本
@@ -35,20 +33,22 @@ class FileAdapter(private val items: List<FileItem>) :
 
         // 点击事件处理
         holder.itemView.setOnClickListener {
-//            ToastUtils.show(context, "已选中文本："+item.fileName)
-            Intent(context, TextDisplayActivity::class.java).apply {
-                putExtra("filename", item.fileName)
-                putExtra("filedate", item.fileDate)
-                putExtra("filecontent", item.fileContent)
+            Intent(context, TeleprompterDisplayActivity::class.java).apply {
+                putExtra("fileName", item.fileName)
+                putExtra("fileDate", item.fileDate)
+                putExtra("fileContent", item.fileContent)
                 context.startActivity(this)
             }
         }
-
-//        val file = files[position]
-//        holder.fileName.text = file.name
-//        holder.fileDate.text = SimpleDateFormat("yyyy/M/d HH:mm", Locale.getDefault())
-//            .format(file.date)
     }
 
-    override fun getItemCount() = items.size
+    class FileItemDiffCallback : DiffUtil.ItemCallback<FileItem>() {
+        override fun areItemsTheSame(oldItem: FileItem, newItem: FileItem): Boolean {
+            return oldItem.fileName == newItem.fileName
+        }
+
+        override fun areContentsTheSame(oldItem: FileItem, newItem: FileItem): Boolean {
+            return oldItem == newItem
+        }
+    }
 }

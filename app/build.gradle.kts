@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("kotlin-kapt") // 关键：声明 kapt 插件
 }
 
 android {
@@ -63,4 +64,9 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.greenrobot.eventbus)
+    implementation(libs.room.ktx)
+    kapt(libs.room.compiler)
+    implementation(libs.lifecycle.viewmodel.ktx)
+    implementation(libs.activity.ktx)
 }

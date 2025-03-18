@@ -15,14 +15,14 @@ import com.example.jvsglass.R
 import com.example.jvsglass.ble.BLEManager
 import com.example.jvsglass.utils.ToastUtils
 
-class TextDisplayActivity : AppCompatActivity() {
+class TeleprompterDisplayActivity : AppCompatActivity() {
     private val bleClient by lazy { BLEManager.getClient(this) }
 
     @SuppressLint("MissingInflatedId")
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState : Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_text_display)
+        setContentView(R.layout.activity_teleprompter_display)
 
         // 检查是否有保存的设备地址，并尝试自动连接
         val prefs = getSharedPreferences("ble_prefs", Context.MODE_PRIVATE)
@@ -34,9 +34,9 @@ class TextDisplayActivity : AppCompatActivity() {
         }
 
         // 获取传递数据
-        val fileName = intent.getStringExtra("filename") ?: ""
-        val fileDate = intent.getStringExtra("filedate") ?: ""
-        val fileContent = intent.getStringExtra("filecontent") ?: ""
+        val fileName = intent.getStringExtra("fileName") ?: ""
+        val fileDate = intent.getStringExtra("fileDate") ?: ""
+        val fileContent = intent.getStringExtra("fileContent") ?: ""
 
         // 初始化视图
         findViewById<TextView>(R.id.tvTitle).text = fileName
