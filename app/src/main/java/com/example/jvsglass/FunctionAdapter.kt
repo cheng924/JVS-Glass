@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.example.jvsglass.activities.TeleprompterActivity
+import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.utils.ToastUtils
 
 class FunctionAdapter(private val items: List<FunctionItem>) :

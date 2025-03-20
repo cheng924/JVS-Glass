@@ -106,7 +106,7 @@ object LogUtils {
         )
 
         // 输出到控制台
-        println(logMessage)
+        android.util.Log.println(levelToPriority(level), "APP_LOG", logMessage)
         // 添加回调通知
         logCallback?.onLog(logMessage + "\n")
         if (level == Level.ERROR && throwable != null) {
@@ -129,6 +129,15 @@ object LogUtils {
             } catch (e: IOException) {
                 System.err.println("Failed to write log to file: " + e.message)
             }
+        }
+    }
+
+    private fun levelToPriority(level: Level): Int {
+        return when (level) {
+            Level.DEBUG -> android.util.Log.DEBUG
+            Level.INFO -> android.util.Log.INFO
+            Level.WARN -> android.util.Log.WARN
+            Level.ERROR -> android.util.Log.ERROR
         }
     }
 

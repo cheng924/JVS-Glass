@@ -1,4 +1,4 @@
-package com.example.jvsglass.activities
+package com.example.jvsglass.activities.teleprompter
 
 import android.content.Intent
 import android.view.LayoutInflater

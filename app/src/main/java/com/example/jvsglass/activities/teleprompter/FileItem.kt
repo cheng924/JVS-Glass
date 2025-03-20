@@ -1,4 +1,4 @@
-package com.example.jvsglass.activities
+package com.example.jvsglass.activities.teleprompter
 
 data class FileItem(
     val fileName: String,

@@ -15,6 +15,8 @@
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
 
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
     <application
         android:name=".MyApp"
         android:icon="@mipmap/ic_launcher"
@@ -23,10 +25,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
-            android:name=".activities.TeleprompterNewFileActivity"
+            android:name=".activities.teleprompter.TeleprompterNewFileActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.TeleprompterDisplayActivity"
+            android:name=".activities.teleprompter.TeleprompterDisplayActivity"
             android:exported="false" />
         <activity
             android:name=".activities.DashboardActivity"
@@ -38,7 +40,7 @@
             android:name=".activities.JVSAIActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.TeleprompterActivity"
+            android:name=".activities.teleprompter.TeleprompterActivity"
             android:exported="false" />
         <activity
             android:name=".activities.NavigateActivity"

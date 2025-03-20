@@ -1,4 +1,4 @@
-package com.example.jvsglass.activities
+package com.example.jvsglass.activities.teleprompter
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -7,7 +7,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.example.jvsglass.MyApp
 import com.example.jvsglass.R
 import com.example.jvsglass.database.AppDatabase
 import com.example.jvsglass.database.AppDatabaseProvider

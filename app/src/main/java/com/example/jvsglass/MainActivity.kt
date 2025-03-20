@@ -17,7 +17,7 @@ import com.example.jvsglass.activities.DashboardActivity
 import com.example.jvsglass.activities.JVSAIActivity
 import com.example.jvsglass.activities.NavigateActivity
 import com.example.jvsglass.activities.QuickNoteActivity
-import com.example.jvsglass.activities.TeleprompterActivity
+import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.TranscribeActivity
 import com.example.jvsglass.activities.TranslateActivity
 import com.example.jvsglass.ui.theme.JVSGlassTheme

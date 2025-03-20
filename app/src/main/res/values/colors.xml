@@ -9,6 +9,8 @@
     <color name="background">#2A2A2A</color>
     <color name="button_background">#232323</color>
     <color name="background2">#262626</color>
+    <color name="background2_mask">#CC262626</color>
     <color name="button_text">#C0C0C0</color>
+    <color name="teleprompter_text">#CCD7D7D7</color>
     <color name="white">#FFFFFFFF</color>
 </resources>
