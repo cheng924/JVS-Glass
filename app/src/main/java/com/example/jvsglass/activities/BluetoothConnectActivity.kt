@@ -8,7 +8,6 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -26,7 +25,6 @@ import com.example.jvsglass.ble.BLEConstants.REQUEST_ENABLE_BT
 import com.example.jvsglass.ble.BLEConstants.REQUEST_CODE_BLE_PERMISSIONS
 import com.example.jvsglass.ble.BLEConstants.SCAN_TIMEOUT
 import com.example.jvsglass.ble.BLEGattClient
-import com.example.jvsglass.ble.BLEManager
 import com.example.jvsglass.databinding.ActivityBluetoothConnectBinding
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
@@ -110,7 +108,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
     // 初始化BLE组件
     @SuppressLint("MissingPermission")
     private fun initializeBleComponents() {
-        bleClient = BLEManager.getClient(this)
+        bleClient = BLEGattClient.getInstance(this)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -136,8 +134,6 @@ class BluetoothConnectActivity : AppCompatActivity() {
                 bleClient.connectToDevice(selectedDevice)
                 binding.tvDevices.text = "已连接：" + selectedDevice.name
                 binding.lvDevices.visibility = View.GONE
-                val prefs = getSharedPreferences("ble_prefs", Context.MODE_PRIVATE)
-                prefs.edit().putString("last_connected_device", selectedDevice.address).apply()
             } else {
                 LogUtils.error("无效的列表位置: $position")
             }

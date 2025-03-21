@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,8 +21,13 @@ import com.example.jvsglass.activities.QuickNoteActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.TranscribeActivity
 import com.example.jvsglass.activities.TranslateActivity
+import com.example.jvsglass.ble.HeartbeatDetectorManager
 import com.example.jvsglass.ui.theme.JVSGlassTheme
+import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,6 +73,23 @@ class MainActivity : AppCompatActivity() {
             return@setOnClickListener
 //            startActivity(Intent(this, SilentModeActivity::class.java))
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        EventBus.getDefault().register(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        EventBus.getDefault().unregister(this)
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
+    fun onConnectionEvent(event: HeartbeatDetectorManager.ConnectionEvent) {
+        LogUtils.info("Event received: ${event.isConnected}")
+        val statusText = if (event.isConnected) "Connected" else "Disconnected"
+        findViewById<TextView>(R.id.tvBluetoothStatus).text = statusText
     }
 }
 

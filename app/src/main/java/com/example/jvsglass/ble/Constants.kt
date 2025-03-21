@@ -16,6 +16,8 @@ object BLEConstants {
     const val REQUEST_ENABLE_BT = 1001 // 蓝牙启用请求码
     const val REQUEST_CODE_BLE_PERMISSIONS = 1002 // 权限请求码
 
-    const val MAX_MESSAGE_HISTORY = 100 // 消息显示区域：最多保留100条消息
-    const val SCAN_TIMEOUT = 10000L // 10秒超时
+    const val MAX_RETRY = 3 // 重试次数
+    const val RETRY_INTERVAL = 2_000L   // 重连间隔
+    const val HEART_INTERVAL = 10_000L  // 心跳监测间隔
+    const val SCAN_TIMEOUT = 10_000L // 10秒超时
 }

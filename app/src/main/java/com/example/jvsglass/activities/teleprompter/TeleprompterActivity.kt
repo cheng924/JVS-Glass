@@ -1,7 +1,7 @@
-package com.example.jvsglass.activities.teleprompter;
+package com.example.jvsglass.activities.teleprompter
 
 import android.content.Intent
-import android.os.Bundle;
+import android.os.Bundle
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -22,8 +22,8 @@ class TeleprompterActivity : AppCompatActivity() {
     private val adapter = FileAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_teleprompter);
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_teleprompter)
 
         val recyclerView: RecyclerView = findViewById(R.id.rvFiles)
         recyclerView.layoutManager = GridLayoutManager(this, 1)

@@ -14,14 +14,14 @@ import android.widget.TextView
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
-import com.example.jvsglass.ble.BLEManager
+import com.example.jvsglass.ble.BLEGattClient
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import kotlin.math.abs
 
 class TeleprompterDisplayActivity : AppCompatActivity() {
 
-    private val bleClient by lazy { BLEManager.getClient(this) }
+    private val bleClient by lazy { BLEGattClient.getInstance(this) }
     private val vibrator by lazy { getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
     private var totalLines = 0
     private var scrollLines = 0
