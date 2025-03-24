@@ -16,16 +16,20 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.database.AppDatabase
 import com.example.jvsglass.database.AppDatabaseProvider
+import com.example.jvsglass.database.TeleprompterArticle
 import com.example.jvsglass.database.toFileItem
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
-class TeleprompterActivity : AppCompatActivity() {
+class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultCallback {
     private val db: AppDatabase by lazy { AppDatabaseProvider.db }
     private lateinit var adapter: FileAdapter
+    private lateinit var textFileReader: TextFileReader
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,7 +79,7 @@ class TeleprompterActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.btnImport).setOnClickListener {
-            ToastUtils.show(this, "导入文本")
+            textFileReader.openFilePicker(this)
         }
 
         findViewById<LinearLayout>(R.id.ll_delete_bar).setOnClickListener {
@@ -92,6 +96,8 @@ class TeleprompterActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tv_select_all).setOnClickListener {
             adapter.selectAll()
         }
+
+        textFileReader = TextFileReader(this)
     }
 
     private fun deleteFiles(selectedFiles: List<String>) {
@@ -108,6 +114,52 @@ class TeleprompterActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 LogUtils.info("删除失败: ${e.message}")
+            }
+        }
+    }
+
+    override fun onSuccess(fileName: String, content: String) {
+        LogUtils.info("成功加载文件: $fileName, $content")
+        // 将文件内容传递给提词器显示界面
+        startTeleprompterDisplay(fileName, content)
+    }
+
+    override fun onFailure(errorMessage: String) {
+        // 处理文件读取失败
+        LogUtils.error("错误: $errorMessage")
+    }
+
+    private fun startTeleprompterDisplay(name: String, content: String) {
+        val fileName = name.substringBeforeLast(".", missingDelimiterValue = name)
+        val fileDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/M/dd HH:mm"))
+
+        saveToDatabase(fileName, fileDate, content)
+        // 启动提词器显示界面，传递文件内容
+        val intent = Intent(this, TeleprompterDisplayActivity::class.java).apply {
+            putExtra("fileName", fileName)
+            putExtra("fileDate", fileDate)
+            putExtra("fileContent", content)
+        }
+        startActivity(intent)
+    }
+
+    private fun saveToDatabase(fileName: String, fileDate: String, fileContent: String) {
+        val article = TeleprompterArticle(
+            title = fileName,
+            createDate = fileDate,
+            content = fileContent
+        )
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                db.TeleprompterArticleDao().insert(article)
+                withContext(Dispatchers.Main) {
+                    ToastUtils.show(this@TeleprompterActivity, "保存成功")
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    ToastUtils.show(this@TeleprompterActivity, "保存失败：${e.message}")
+                }
             }
         }
     }

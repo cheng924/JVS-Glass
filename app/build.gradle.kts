@@ -43,7 +43,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -65,9 +64,11 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.androidx.recyclerview)
     implementation(libs.greenrobot.eventbus)
-    annotationProcessor("org.greenrobot:eventbus-annotation-processor:3.2.0") // 必须添加
+    annotationProcessor("org.greenrobot:eventbus-annotation-processor:3.2.0")
     implementation(libs.room.ktx)
     kapt(libs.room.compiler)
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.activity.ktx)
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.fragment.ktx)
 }
