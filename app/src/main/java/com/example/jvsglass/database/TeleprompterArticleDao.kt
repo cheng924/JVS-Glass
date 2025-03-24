@@ -13,6 +13,6 @@ interface TeleprompterArticleDao {
     @Query("SELECT * FROM teleprompter_articles ORDER BY id DESC")
     fun getAll(): Flow<List<TeleprompterArticle>>
 
-    @Query("DELETE FROM teleprompter_articles WHERE id = :articleId")
-    suspend fun delete(articleId: Long)
+    @Query("DELETE FROM teleprompter_articles WHERE create_date = :articleDate")
+    suspend fun delete(articleDate: String)
 }

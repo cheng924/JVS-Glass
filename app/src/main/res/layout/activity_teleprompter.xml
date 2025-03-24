@@ -8,9 +8,11 @@
     android:background="@color/background">
 
     <RelativeLayout
+        android:id="@+id/rl_teleprompter_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp">
+        android:layout_marginTop="50dp"
+        android:visibility="visible">
 
         <ImageView
             android:id="@+id/btnBack"
@@ -36,6 +38,36 @@
             android:layout_centerVertical="true"
             android:layout_marginEnd="15dp"
             android:src="@drawable/ic_teleprompter_settings"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/rl_select_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="53dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_select_all"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="20dp"
+            android:text="全部"
+            android:textSize="18sp"
+            android:textColor="@color/button_text"/>
+
+        <TextView
+            android:id="@+id/tv_select_done"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="15dp"
+            android:text="完成"
+            android:textSize="18sp"
+            android:textColor="@color/button_text"/>
 
     </RelativeLayout>
 
@@ -72,11 +104,13 @@
 
     <!-- 底部操作栏 -->
     <LinearLayout
+        android:id="@+id/ll_file_bar"
         android:layout_width="match_parent"
         android:layout_height="45dp"
         android:layout_marginHorizontal="20dp"
         android:layout_marginBottom="40dp"
-        android:orientation="horizontal" >
+        android:orientation="horizontal"
+        android:visibility="visible">
 
         <LinearLayout
             android:id="@+id/btnNew"
@@ -127,6 +161,28 @@
                 android:textColor="@color/button_text"
                 android:textAllCaps="false"/>
         </LinearLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_delete_bar"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginBottom="40dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingVertical="6dp"
+            android:gravity="center_horizontal"
+            android:text="删除"
+            android:textSize="18sp"
+            android:textColor="@color/red_400"
+            android:textAllCaps="false"
+            android:background="@drawable/rounded_button"/>
 
     </LinearLayout>
 
