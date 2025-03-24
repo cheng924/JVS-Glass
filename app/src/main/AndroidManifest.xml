@@ -58,7 +58,7 @@
             android:name=".activities.SilentModeActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.BluetoothConnectActivity"
+            android:name=".activities.connect.BluetoothConnectActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

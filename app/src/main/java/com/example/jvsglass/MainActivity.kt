@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.jvsglass.activities.BluetoothConnectActivity
+import com.example.jvsglass.activities.connect.BluetoothConnectActivity
 import com.example.jvsglass.activities.DashboardActivity
 import com.example.jvsglass.activities.JVSAIActivity
 import com.example.jvsglass.activities.NavigateActivity

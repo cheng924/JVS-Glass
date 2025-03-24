@@ -1,4 +1,4 @@
-package com.example.jvsglass.activities
+package com.example.jvsglass.activities.connect
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -14,12 +14,11 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.jvsglass.R
 import com.example.jvsglass.ble.BLEConstants.REQUEST_ENABLE_BT
 import com.example.jvsglass.ble.BLEConstants.REQUEST_CODE_BLE_PERMISSIONS
@@ -37,9 +36,9 @@ class BluetoothConnectActivity : AppCompatActivity() {
     private val context = this
     private lateinit var bleClient: BLEGattClient
 
-    private var isScanning = false // 扫描状态标记
+    private var isScanning = false
     private val scannedDevices = mutableMapOf<String, BluetoothDevice>()
-    private lateinit var deviceListAdapter: ArrayAdapter<String>    // 设备列表适配器
+    private lateinit var deviceListAdapter: DeviceAdapter    // 设备列表适配器
     private val filteredDevicesList = mutableListOf<BluetoothDevice>()
     private val scanHandler = Handler(Looper.getMainLooper())
 
@@ -60,20 +59,22 @@ class BluetoothConnectActivity : AppCompatActivity() {
                 // 去重逻辑：使用设备地址作为唯一标识
                 if (!scannedDevices.containsKey(device.address)) {
                     scannedDevices[device.address] = device
-                    runOnUiThread {
-                        // 过滤逻辑：仅显示有名称且不是未知设备的
-                        filteredDevicesList.clear()
-                        filteredDevicesList.addAll(
-                            scannedDevices.values.filter { device ->
-                                device.name?.isNotBlank() ?: false
-                            }
-                        )
-                        LogUtils.debug("发现设备：系统名称：${device.name ?: "null"} 广告名称：$addName 地址：$address")
 
-                        deviceListAdapter.clear()
-                        deviceListAdapter.addAll(filteredDevicesList.map {"${it.name} (${it.address})"})
-                        deviceListAdapter.notifyDataSetChanged()
-                        binding.lvDevices.visibility = View.VISIBLE
+                    if (device.name?.isNotBlank() == true) {
+                        runOnUiThread {
+                            // 过滤逻辑：仅显示有名称且不是未知设备的
+                            filteredDevicesList.add(device)
+                            LogUtils.debug("发现设备：系统名称：${device.name ?: "null"} 广告名称：$addName 地址：$address")
+
+                            val deviceItems = filteredDevicesList.map {
+                                DeviceItem(
+//                                    deviceName = "${it.name} (${it.address})"
+                                    deviceName = it.name
+                                )
+                            }
+                            deviceListAdapter.submitList(deviceItems)
+                            binding.lvDevices.visibility = View.VISIBLE
+                        }
                     }
                     LogUtils.debug("[BLE Scan] 发现新设备：${device.address}")
                 }
@@ -121,13 +122,14 @@ class BluetoothConnectActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initDeviceList() {
-        deviceListAdapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_list_item_1,
-            ArrayList()
-        )
-        binding.lvDevices.adapter = deviceListAdapter
-        binding.lvDevices.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
+        deviceListAdapter = DeviceAdapter()
+        binding.lvDevices.apply {
+            layoutManager = LinearLayoutManager(this@BluetoothConnectActivity)  // 必须设置LayoutManager
+            adapter = deviceListAdapter
+            setHasFixedSize(true)
+        }
+
+        deviceListAdapter.setOnItemClickListener { position ->
             if (position < filteredDevicesList.size) {
                 val selectedDevice = filteredDevicesList[position]
                 ToastUtils.show(context, "已选择设备：${selectedDevice.name}")
@@ -137,6 +139,12 @@ class BluetoothConnectActivity : AppCompatActivity() {
             } else {
                 LogUtils.error("无效的列表位置: $position")
             }
+        }
+    }
+
+    private fun DeviceAdapter.setOnItemClickListener(onItemClick: (Int) -> Unit) {
+        this.onItemClick = { position ->
+            onItemClick(position)
         }
     }
 
@@ -231,7 +239,8 @@ class BluetoothConnectActivity : AppCompatActivity() {
 
         runOnUiThread {
             scannedDevices.clear()
-            deviceListAdapter.clear()
+            filteredDevicesList.clear()
+            deviceListAdapter.submitList(emptyList())
             binding.lvDevices.visibility = View.VISIBLE
         }
 
