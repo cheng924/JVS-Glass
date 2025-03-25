@@ -7,10 +7,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.activities.connect.BluetoothConnectActivity
@@ -22,7 +18,6 @@ import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.TranscribeActivity
 import com.example.jvsglass.activities.TranslateActivity
 import com.example.jvsglass.ble.HeartbeatDetectorManager
-import com.example.jvsglass.ui.theme.JVSGlassTheme
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import org.greenrobot.eventbus.EventBus
@@ -63,8 +58,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_bluetooth_connect).setOnClickListener {
-//            ToastUtils.show(this, getString(R.string.development_tips))
-//            return@setOnClickListener
             startActivity(Intent(this, BluetoothConnectActivity::class.java))
         }
 
@@ -90,21 +83,5 @@ class MainActivity : AppCompatActivity() {
         LogUtils.info("Event received: ${event.isConnected}")
         val statusText = if (event.isConnected) "Connected" else "Disconnected"
         findViewById<TextView>(R.id.tv_bluetooth_status).text = statusText
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    JVSGlassTheme {
-        Greeting("Android")
     }
 }
