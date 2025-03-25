@@ -15,4 +15,7 @@ interface TeleprompterArticleDao {
 
     @Query("DELETE FROM teleprompter_articles WHERE create_date = :articleDate")
     suspend fun delete(articleDate: String)
+
+    @Query("SELECT COUNT(*) FROM teleprompter_articles")
+    fun getArticleCount(): Flow<Int>
 }

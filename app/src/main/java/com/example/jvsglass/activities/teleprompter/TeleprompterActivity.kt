@@ -40,18 +40,25 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
         val llFileBar: LinearLayout = findViewById(R.id.ll_file_bar)
         val llDeleteBar: LinearLayout = findViewById(R.id.ll_delete_bar)
         val recyclerView: RecyclerView = findViewById(R.id.rvFiles)
+        val rlTotalFileBar: RelativeLayout = findViewById(R.id.rl_total_file_bar)
+        val rlDeleteFileBar: RelativeLayout = findViewById(R.id.rl_delete_file_bar)
+
+        val tvTotalFiles: TextView = findViewById(R.id.tv_total_files)
+        val tvDeleteFiles: TextView = findViewById(R.id.tv_delete_files)
 
         adapter = FileAdapter().apply {
             onSelectionModeChangeListener = object : FileAdapter.OnSelectionModeChangeListener {
                 override fun onSelectionModeChanged(isActive: Boolean) {
                     rlTeleprompterBar.visibility = if (isActive) View.GONE else View.VISIBLE
                     llFileBar.visibility = if (isActive) View.GONE else View.VISIBLE
+                    rlTotalFileBar.visibility = if (isActive) View.GONE else View.VISIBLE
                     rlSelectBar.visibility = if (isActive) View.VISIBLE else View.GONE
                     llDeleteBar.visibility = if (isActive) View.VISIBLE else View.GONE
+                    rlDeleteFileBar.visibility = if (isActive) View.VISIBLE else View.GONE
                 }
 
                 override fun onSelectedItemsChanged(selectedCount: Int) {
-                    LogUtils.info("已经选中文件数量: $selectedCount")
+                    tvDeleteFiles.text = "$selectedCount"
                 }
             }
         }
@@ -93,11 +100,27 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
             adapter.exitSelectionMode()
         }
 
-        findViewById<TextView>(R.id.tv_select_all).setOnClickListener {
+        findViewById<TextView>(R.id.tv_select_all).setOnClickListener { view ->
             adapter.selectAll()
         }
 
         textFileReader = TextFileReader(this)
+        getFilesNum(tvTotalFiles)
+    }
+
+    private fun getFilesNum(tvTotalFiles: TextView) {
+        lifecycleScope.launch {
+            try {
+                db.TeleprompterArticleDao().getArticleCount()
+                    .collect { count -> // 持续监听数量变化
+                        withContext(Dispatchers.Main) {
+                            tvTotalFiles.text = "$count"
+                        }
+                    }
+            } catch (e: Exception) {
+                LogUtils.info("获取失败: ${e.message}")
+            }
+        }
     }
 
     private fun deleteFiles(selectedFiles: List<String>) {
@@ -118,29 +141,23 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
         }
     }
 
-    override fun onSuccess(fileName: String, content: String) {
-        LogUtils.info("成功加载文件: $fileName, $content")
-        // 将文件内容传递给提词器显示界面
-        startTeleprompterDisplay(fileName, content)
-    }
-
-    override fun onFailure(errorMessage: String) {
-        // 处理文件读取失败
-        LogUtils.error("错误: $errorMessage")
-    }
-
-    private fun startTeleprompterDisplay(name: String, content: String) {
+    override fun onSuccess(name: String, content: String) {
         val fileName = name.substringBeforeLast(".", missingDelimiterValue = name)
         val fileDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/M/dd HH:mm"))
 
         saveToDatabase(fileName, fileDate, content)
-        // 启动提词器显示界面，传递文件内容
+
         val intent = Intent(this, TeleprompterDisplayActivity::class.java).apply {
             putExtra("fileName", fileName)
             putExtra("fileDate", fileDate)
             putExtra("fileContent", content)
         }
         startActivity(intent)
+    }
+
+    override fun onFailure(errorMessage: String) {
+        // 处理文件读取失败
+        LogUtils.error("错误: $errorMessage")
     }
 
     private fun saveToDatabase(fileName: String, fileDate: String, fileContent: String) {

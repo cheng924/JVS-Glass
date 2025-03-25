@@ -26,6 +26,7 @@ class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCa
     var onSelectionModeChangeListener: OnSelectionModeChangeListener? = null
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val fileItemContainer: androidx.constraintlayout.widget.ConstraintLayout = view.findViewById(R.id.clFileItemContainer)
         val fileName: TextView = view.findViewById(R.id.tvFileName)
         val fileDate: TextView = view.findViewById(R.id.tvDate)
         val ivSelectionDot: ImageView = view.findViewById(R.id.ivSelectionDot)
@@ -47,6 +48,10 @@ class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCa
         holder.fileDate.text = item.fileDate
 
         val isSelected = selectedItems.contains(position)
+        holder.fileItemContainer.setBackgroundResource(
+            if (isSelected) R.drawable.rounded_button_selected
+            else R.drawable.rounded_button
+        )
         holder.ivSelectionDot.visibility = if (isSelectionMode) View.VISIBLE else View.GONE
         holder.ivSelectionDot.setImageResource(
             if (isSelected) R.drawable.ic_circle_selected

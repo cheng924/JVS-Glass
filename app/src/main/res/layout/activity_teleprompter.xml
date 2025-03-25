@@ -36,7 +36,7 @@
             android:layout_height="20dp"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:layout_marginEnd="15dp"
+            android:layout_marginEnd="20dp"
             android:src="@drawable/ic_teleprompter_settings"/>
 
     </RelativeLayout>
@@ -68,6 +68,60 @@
             android:text="完成"
             android:textSize="18sp"
             android:textColor="@color/button_text"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/rl_total_file_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="15dp"
+        android:paddingBottom="10dp"
+        android:visibility="visible">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="文本"
+            android:textSize="16sp"
+            android:textColor="@color/button_text"/>
+
+        <TextView
+            android:id="@+id/tv_total_files"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:textSize="16sp"
+            android:textColor="@color/button_text"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/rl_delete_file_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="15dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="已选中"
+            android:textSize="16sp"
+            android:textColor="@color/button_text"/>
+
+        <TextView
+            android:id="@+id/tv_delete_files"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:textSize="16sp"
+            android:textColor="@color/red_400"/>
 
     </RelativeLayout>
 
@@ -131,7 +185,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="New"
+                android:text="新建"
                 android:textSize="18sp"
                 android:textColor="@color/button_text"
                 android:textAllCaps="false"/>
@@ -156,7 +210,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Import"
+                android:text="导入"
                 android:textSize="18sp"
                 android:textColor="@color/button_text"
                 android:textAllCaps="false"/>

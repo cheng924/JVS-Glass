@@ -13,7 +13,7 @@ import java.io.InputStreamReader
 
 class TextFileReader(private val activity: AppCompatActivity) {
     interface FileReadResultCallback {
-        fun onSuccess(fileName: String, content: String)
+        fun onSuccess(name: String, content: String)
         fun onFailure(errorMessage: String)
     }
 
@@ -40,7 +40,7 @@ class TextFileReader(private val activity: AppCompatActivity) {
             )
 
             // 获取文件名
-            val fileName = activity.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val name = activity.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     when {
@@ -66,7 +66,7 @@ class TextFileReader(private val activity: AppCompatActivity) {
                 }
             } ?: throw IOException("无法打开文件输入流")
 
-            resultCallback?.onSuccess(fileName, content)
+            resultCallback?.onSuccess(name, content)
 
         } catch (e: IOException) {
             LogUtils.error("读取文件错误: ${e.message}")

@@ -9,6 +9,7 @@
     <color name="black">#FF000000</color>
     <color name="background">#2A2A2A</color>
     <color name="button_background">#232323</color>
+    <color name="button_background_selected">#3E3E3E</color>
     <color name="background2">#262626</color>
     <color name="background2_mask">#CC262626</color>
     <color name="button_text">#C0C0C0</color>
