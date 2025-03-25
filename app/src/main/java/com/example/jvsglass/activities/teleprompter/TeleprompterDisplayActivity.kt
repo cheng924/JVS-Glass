@@ -43,10 +43,6 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
         initBluetoothConnection()
         initView()
-
-//        fileContent = "这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。这是一段示例文本，用于演示如何在屏幕上显示。这段文字将展示在屏幕上，以便用户可以阅读。"
-//        fileContent = "这是一段示例文本，用于演示如何zjfhdnfhdbhgijcgfhbdkopewsngjf"
-//        fileContent = "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n48\n49"
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -78,11 +74,11 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
             sendMessage(fileContent)
         }
 
-        findViewById<TextView>(R.id.tvTitle).text = intent.getStringExtra("fileName") ?: ""
-        findViewById<TextView>(R.id.tvDate).text = intent.getStringExtra("fileDate") ?: ""
+        findViewById<TextView>(R.id.tv_title).text = intent.getStringExtra("fileName") ?: ""
+        findViewById<TextView>(R.id.tv_date).text = intent.getStringExtra("fileDate") ?: ""
         fileContent = intent.getStringExtra("fileContent") ?: ""
 
-        tvContent = findViewById(R.id.tvContent)
+        tvContent = findViewById(R.id.tv_content)
         val splitResult = SmartTextScroller.splitIntoBlocks(fileContent, 0)
         tvContent.text = splitResult.displayBlock
         totalLines = splitResult.totalLines

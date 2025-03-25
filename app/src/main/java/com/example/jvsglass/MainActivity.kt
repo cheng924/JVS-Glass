@@ -12,7 +12,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.activities.connect.BluetoothConnectActivity
 import com.example.jvsglass.activities.DashboardActivity
 import com.example.jvsglass.activities.JVSAIActivity
-import com.example.jvsglass.activities.NavigateActivity
 import com.example.jvsglass.activities.QuickNoteActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.TranscribeActivity
@@ -33,7 +32,6 @@ class MainActivity : AppCompatActivity() {
         val functions = listOf(
             FunctionItem(R.drawable.ic_quicknote, getString(R.string.quick_note), QuickNoteActivity::class.java),
             FunctionItem(R.drawable.ic_translate, getString(R.string.translate), TranslateActivity::class.java),
-            FunctionItem(R.drawable.ic_navigate, getString(R.string.navigate), NavigateActivity::class.java),
             FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompter), TeleprompterActivity::class.java),
             FunctionItem(R.drawable.ic_ai, getString(R.string.ai_beta), JVSAIActivity::class.java),
             FunctionItem(R.drawable.ic_transcribe, getString(R.string.transcribe), TranscribeActivity::class.java),
@@ -80,7 +78,7 @@ class MainActivity : AppCompatActivity() {
 
     @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     fun onConnectionEvent(event: HeartbeatDetectorManager.ConnectionEvent) {
-        LogUtils.info("Event received: ${event.isConnected}")
+        LogUtils.info("[MainActivity] Event received: ${event.isConnected}")
         val statusText = if (event.isConnected) "Connected" else "Disconnected"
         findViewById<TextView>(R.id.tv_bluetooth_status).text = statusText
     }

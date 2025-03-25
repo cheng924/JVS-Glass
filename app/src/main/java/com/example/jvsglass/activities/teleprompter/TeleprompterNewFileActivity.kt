@@ -26,7 +26,7 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_teleprompter_new_file)
 
-        findViewById<TextView>(R.id.tvDate).text = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/M/dd HH:mm"))
+        findViewById<TextView>(R.id.tv_date).text = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/M/dd HH:mm"))
         findViewById<ImageView>(R.id.iv_back).setOnClickListener {
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)

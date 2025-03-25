@@ -40,7 +40,7 @@
         android:background="@color/background2">
 
         <TextView
-            android:id="@+id/tvTitle"
+            android:id="@+id/tv_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="18sp"
@@ -50,7 +50,7 @@
             android:ellipsize="end"/>
 
         <TextView
-            android:id="@+id/tvDate"
+            android:id="@+id/tv_date"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="14sp"
@@ -73,7 +73,7 @@
             android:scrollbars="none">
 
             <TextView
-                android:id="@+id/tvContent"
+                android:id="@+id/tv_content"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@color/background2"

@@ -100,7 +100,7 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
             adapter.exitSelectionMode()
         }
 
-        findViewById<TextView>(R.id.tv_select_all).setOnClickListener { view ->
+        findViewById<TextView>(R.id.tv_select_all).setOnClickListener {
             adapter.selectAll()
         }
 

@@ -49,9 +49,6 @@
             android:name=".activities.teleprompter.TeleprompterActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.NavigateActivity"
-            android:exported="false" />
-        <activity
             android:name=".activities.QuickNoteActivity"
             android:exported="false" />
         <activity

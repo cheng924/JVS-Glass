@@ -110,10 +110,10 @@ class BLEGattClient private constructor(context: Context) {
             LogUtils.debug("[BLE] 启用通知结果：$enableNotify")
 
             val descriptor = characteristic.getDescriptor(BLEConstants.DESCRIPTOR_UUID)
-            if (descriptor == null) {
-                LogUtils.error("[BLE] 未找到描述符 UUID=${BLEConstants.DESCRIPTOR_UUID}")
-                return
-            }
+//            if (descriptor == null) {
+//                LogUtils.error("[BLE] 未找到描述符 UUID=${BLEConstants.DESCRIPTOR_UUID}")
+//                return
+//            }
 
             // 写入描述符值
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE

@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.widget.TextView
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -24,9 +25,13 @@ import com.example.jvsglass.ble.BLEConstants.REQUEST_ENABLE_BT
 import com.example.jvsglass.ble.BLEConstants.REQUEST_CODE_BLE_PERMISSIONS
 import com.example.jvsglass.ble.BLEConstants.SCAN_TIMEOUT
 import com.example.jvsglass.ble.BLEGattClient
+import com.example.jvsglass.ble.HeartbeatDetectorManager
 import com.example.jvsglass.databinding.ActivityBluetoothConnectBinding
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -124,7 +129,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
     private fun initDeviceList() {
         deviceListAdapter = DeviceAdapter()
         binding.lvDevices.apply {
-            layoutManager = LinearLayoutManager(this@BluetoothConnectActivity)  // 必须设置LayoutManager
+            layoutManager = LinearLayoutManager(this@BluetoothConnectActivity)
             adapter = deviceListAdapter
             setHasFixedSize(true)
         }
@@ -176,6 +181,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initButtons() {
+        binding.btnClient.visibility = if (bleClient.isConnected()) View.GONE else View.VISIBLE
         binding.btnClient.setOnClickListener {
             if (hasBluetoothPermissions()) {
                 startClientMode()
@@ -368,7 +374,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
             val direction = if (isSent) "发送" else "接收"
             val messageDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
             val formatted = "${messageDateFormat.format(Date())} [$direction] $content\n"
-            LogUtils.info("[BLE] Message: ${formatted}")
+            LogUtils.info("[BLE] Message: $formatted")
         }
     }
 
@@ -388,5 +394,26 @@ class BluetoothConnectActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopScan()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        EventBus.getDefault().register(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        EventBus.getDefault().unregister(this)
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
+    fun onConnectionEvent(event: HeartbeatDetectorManager.ConnectionEvent) {
+        LogUtils.info("[BluetoothConnectActivity] Event received: ${event.isConnected}")
+        val btnClient = findViewById<TextView>(R.id.btn_client)
+        if (event.isConnected) {
+            btnClient.visibility = View.GONE
+        } else {
+            btnClient.visibility = View.VISIBLE
+        }
     }
 }
