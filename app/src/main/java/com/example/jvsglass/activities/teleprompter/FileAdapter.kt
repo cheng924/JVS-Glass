@@ -25,6 +25,7 @@ class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCa
 
     var onSelectionModeChangeListener: OnSelectionModeChangeListener? = null
 
+    @SuppressLint("ClickableViewAccessibility")
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val fileItemContainer: androidx.constraintlayout.widget.ConstraintLayout = view.findViewById(R.id.clFileItemContainer)
         val fileName: TextView = view.findViewById(R.id.tvFileName)
