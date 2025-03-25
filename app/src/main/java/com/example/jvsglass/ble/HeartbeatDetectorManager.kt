@@ -38,7 +38,6 @@ object HeartbeatDetectorManager {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun checkConnectionState() {
         val currentState = bleClient.isConnected()
-
         // 状态变化处理
         if (currentState != lastConnectionState) {
             EventBus.getDefault().post(ConnectionEvent(currentState))
@@ -55,6 +54,8 @@ object HeartbeatDetectorManager {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun handleDisconnection() {
+        if (bleClient.isConnecting) return
+
         when {
             retryCount < MAX_RETRY -> {
                 retryCount++
