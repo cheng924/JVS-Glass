@@ -45,30 +45,30 @@ class MainActivity : AppCompatActivity() {
             FunctionItem(R.drawable.ic_stub, getString(R.string.dashboard), DashboardActivity::class.java),
         )
 
-        val recyclerView: RecyclerView = findViewById(R.id.rvFunctions)
+        val recyclerView: RecyclerView = findViewById(R.id.rv_functions)
         recyclerView.layoutManager = GridLayoutManager(this, 2)
         recyclerView.adapter = FunctionAdapter(functions)
 
         // 设置按钮点击
-        findViewById<ImageView>(R.id.btnSettings).setOnClickListener {
+        findViewById<ImageView>(R.id.iv_settings).setOnClickListener {
             ToastUtils.show(this, getString(R.string.development_tips))
             return@setOnClickListener
 //            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        findViewById<Button>(R.id.btnBluetooth).setOnClickListener {
+        findViewById<Button>(R.id.btn_bluetooth).setOnClickListener {
             ToastUtils.show(this, getString(R.string.development_tips))
             return@setOnClickListener
 //            startActivity(Intent(this, BluetoothActivity::class.java))
         }
 
-        findViewById<LinearLayout>(R.id.bluetoothConnect).setOnClickListener {
+        findViewById<LinearLayout>(R.id.ll_bluetooth_connect).setOnClickListener {
 //            ToastUtils.show(this, getString(R.string.development_tips))
 //            return@setOnClickListener
             startActivity(Intent(this, BluetoothConnectActivity::class.java))
         }
 
-        findViewById<LinearLayout>(R.id.silentMode).setOnClickListener {
+        findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {
             ToastUtils.show(this, getString(R.string.development_tips))
             return@setOnClickListener
 //            startActivity(Intent(this, SilentModeActivity::class.java))
@@ -89,7 +89,7 @@ class MainActivity : AppCompatActivity() {
     fun onConnectionEvent(event: HeartbeatDetectorManager.ConnectionEvent) {
         LogUtils.info("Event received: ${event.isConnected}")
         val statusText = if (event.isConnected) "Connected" else "Disconnected"
-        findViewById<TextView>(R.id.tvBluetoothStatus).text = statusText
+        findViewById<TextView>(R.id.tv_bluetooth_status).text = statusText
     }
 }
 

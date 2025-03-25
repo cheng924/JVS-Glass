@@ -27,11 +27,11 @@ class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCa
 
     @SuppressLint("ClickableViewAccessibility")
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val fileItemContainer: androidx.constraintlayout.widget.ConstraintLayout = view.findViewById(R.id.clFileItemContainer)
-        val fileName: TextView = view.findViewById(R.id.tvFileName)
-        val fileDate: TextView = view.findViewById(R.id.tvDate)
-        val ivSelectionDot: ImageView = view.findViewById(R.id.ivSelectionDot)
-        val ivRightIcon: ImageView = view.findViewById(R.id.ivRightIcon)
+        val fileItemContainer: androidx.constraintlayout.widget.ConstraintLayout = view.findViewById(R.id.cl_fileItem_container)
+        val fileName: TextView = view.findViewById(R.id.tv_file_name)
+        val fileDate: TextView = view.findViewById(R.id.tv_date)
+        val selectionDot: ImageView = view.findViewById(R.id.iv_selection_dot)
+        val rightIcon: ImageView = view.findViewById(R.id.iv_right_icon)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -53,12 +53,12 @@ class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCa
             if (isSelected) R.drawable.rounded_button_selected
             else R.drawable.rounded_button
         )
-        holder.ivSelectionDot.visibility = if (isSelectionMode) View.VISIBLE else View.GONE
-        holder.ivSelectionDot.setImageResource(
+        holder.selectionDot.visibility = if (isSelectionMode) View.VISIBLE else View.GONE
+        holder.selectionDot.setImageResource(
             if (isSelected) R.drawable.ic_circle_selected
             else R.drawable.ic_circle_unselected
         )
-        holder.ivRightIcon.visibility = if (isSelectionMode) View.GONE else View.VISIBLE
+        holder.rightIcon.visibility = if (isSelectionMode) View.GONE else View.VISIBLE
 
         // 点击事件处理
         holder.itemView.setOnClickListener {

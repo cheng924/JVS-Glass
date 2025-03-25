@@ -14,8 +14,8 @@ class FunctionAdapter(private val items: List<FunctionItem>) :
     RecyclerView.Adapter<FunctionAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val icon: ImageView = view.findViewById(R.id.ivIcon)
-        val title: TextView = view.findViewById(R.id.tvFunction)
+        val icon: ImageView = view.findViewById(R.id.iv_icon)
+        val function: TextView = view.findViewById(R.id.tv_function)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -30,7 +30,7 @@ class FunctionAdapter(private val items: List<FunctionItem>) :
 
         // 设置图标和文本
         holder.icon.setImageResource(item.iconRes)
-        holder.title.text = item.title
+        holder.function.text = item.title
 
         // 点击事件处理
         holder.itemView.setOnClickListener {

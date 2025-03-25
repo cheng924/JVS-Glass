@@ -27,12 +27,12 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
         setContentView(R.layout.activity_teleprompter_new_file)
 
         findViewById<TextView>(R.id.tvDate).text = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/M/dd HH:mm"))
-        findViewById<ImageView>(R.id.btnBack).setOnClickListener {
+        findViewById<ImageView>(R.id.iv_back).setOnClickListener {
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
-        findViewById<TextView>(R.id.btnSaveFile).setOnClickListener {
+        findViewById<TextView>(R.id.tv_save_file).setOnClickListener {
             ToastUtils.show(this, "保存文本")
             saveToDatabase()
         }
@@ -40,9 +40,9 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
 
     private fun saveToDatabase() {
         val article = TeleprompterArticle(
-            title = findViewById<TextView>(R.id.etTitle).text.toString().ifEmpty { "Untitled" },
-            createDate = findViewById<TextView>(R.id.tvDate).text.toString(),
-            content = findViewById<TextView>(R.id.etContent).text.toString()
+            title = findViewById<TextView>(R.id.et_title).text.toString().ifEmpty { "Untitled" },
+            createDate = findViewById<TextView>(R.id.tv_date).text.toString(),
+            content = findViewById<TextView>(R.id.et_content).text.toString()
         )
 
         lifecycleScope.launch(Dispatchers.IO) {
