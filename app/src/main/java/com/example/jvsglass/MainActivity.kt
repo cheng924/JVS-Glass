@@ -17,6 +17,7 @@ import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.TranscribeActivity
 import com.example.jvsglass.activities.TranslateActivity
 import com.example.jvsglass.ble.HeartbeatDetectorManager
+import com.example.jvsglass.classic.ClassicRfcommActivity
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import org.greenrobot.eventbus.EventBus
@@ -44,9 +45,10 @@ class MainActivity : AppCompatActivity() {
 
         // 设置按钮点击
         findViewById<ImageView>(R.id.iv_settings).setOnClickListener {
-            ToastUtils.show(this, getString(R.string.development_tips))
-            return@setOnClickListener
+//            ToastUtils.show(this, getString(R.string.development_tips))
+//            return@setOnClickListener
 //            startActivity(Intent(this, SettingsActivity::class.java))
+            startActivity(Intent(this, ClassicRfcommActivity::class.java))
         }
 
         findViewById<Button>(R.id.btn_bluetooth).setOnClickListener {
