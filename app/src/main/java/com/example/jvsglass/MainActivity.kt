@@ -1,22 +1,26 @@
 package com.example.jvsglass
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.activities.connect.BluetoothConnectActivity
 import com.example.jvsglass.activities.DashboardActivity
-import com.example.jvsglass.activities.JVSAIActivity
+import com.example.jvsglass.activities.jvsai.JVSAIActivity
 import com.example.jvsglass.activities.QuickNoteActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.TranscribeActivity
 import com.example.jvsglass.activities.TranslateActivity
 import com.example.jvsglass.ble.HeartbeatDetectorManager
+import com.example.jvsglass.classic.ClassicConstants
 import com.example.jvsglass.classic.ClassicRfcommActivity
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
@@ -28,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        checkPermissions()
 
         // 初始化功能列表
         val functions = listOf(
@@ -65,6 +70,19 @@ class MainActivity : AppCompatActivity() {
             ToastUtils.show(this, getString(R.string.development_tips))
             return@setOnClickListener
 //            startActivity(Intent(this, SilentModeActivity::class.java))
+        }
+    }
+
+    private fun checkPermissions() {
+        val permissions = arrayOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+        )
+        if (permissions.any { ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
+            ActivityCompat.requestPermissions(this, permissions, ClassicConstants.REQUEST_LOCATION)
         }
     }
 

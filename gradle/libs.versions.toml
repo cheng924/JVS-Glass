@@ -18,6 +18,7 @@ room = "2.6.1"
 lifecycle-viewmodel = "2.8.7"
 activityKtx = "1.8.2"
 fragmentKtx = "1.6.0"
+glide = "4.16.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -40,12 +41,16 @@ androidx-activity = { group = "androidx.activity", name = "activity", version.re
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 greenrobot-eventbus = { module = "org.greenrobot:eventbus", version.ref = "eventbus" }
+eventbus = { group = "org.greenrobot", name = "eventbus", version.ref = "eventbus" }
+eventbus-processor = { group = "org.greenrobot", name = "eventbus-annotation-processor", version.ref = "eventbus" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle-viewmodel" }
 activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
+glide-core = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
+glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -14,5 +14,8 @@
     <color name="background2_mask">#CC262626</color>
     <color name="button_text">#C0C0C0</color>
     <color name="teleprompter_text">#CCD7D7D7</color>
+    <color name="ai_media_background">#F7F3F4</color>
+    <color name="ai_media_background_line">#BDBCBA</color>
+    <color name="ai_icon_text">#6B6B6B</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

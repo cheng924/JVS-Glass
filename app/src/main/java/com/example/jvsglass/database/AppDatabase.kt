@@ -6,12 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [TeleprompterArticle::class],
+    entities = [TeleprompterArticle::class, AiMessageEntity::class],
     version = 1,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun TeleprompterArticleDao(): TeleprompterArticleDao
+    abstract fun AiMessageDao(): AiMessageDao
 
     companion object {
         @Volatile

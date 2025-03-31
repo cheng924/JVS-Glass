@@ -143,7 +143,7 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
 
     override fun onSuccess(name: String, content: String) {
         val fileName = name.substringBeforeLast(".", missingDelimiterValue = name)
-        val fileDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/M/dd HH:mm"))
+        val fileDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
 
         saveToDatabase(fileName, fileDate, content)
 

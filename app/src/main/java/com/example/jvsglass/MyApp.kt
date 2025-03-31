@@ -16,7 +16,7 @@ class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-//        AppDatabaseProvider.init(this) // 数据库初始化
+        AppDatabaseProvider.init(this) // 数据库初始化
 //        autoConnect()   // 自动连接蓝牙设备
 //        initHeartbeat() // 心跳监测初始化
     }

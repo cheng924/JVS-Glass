@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission
@@ -43,6 +44,20 @@
         android:name="android.hardware.bluetooth"
         android:required="true" />
 
+    <!-- 相机硬件特性：相机/自动对焦/闪光灯/前后置 -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.flash"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+
     <application
         android:name=".MyApp"
         android:icon="@mipmap/ic_launcher"
@@ -50,6 +65,18 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true"
+            tools:ignore="WrongManifestParent">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"/>
+        </provider>
+
         <activity
             android:name=".classic.ClassicRfcommActivity"
             android:exported="false" />
@@ -66,7 +93,7 @@
             android:name=".activities.TranscribeActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.JVSAIActivity"
+            android:name=".activities.jvsai.JVSAIActivity"
             android:exported="false" />
         <activity
             android:name=".activities.teleprompter.TeleprompterActivity"
