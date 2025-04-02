@@ -101,6 +101,10 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
+
+        findViewById<ImageView>(R.id.ivAiHistory).setOnClickListener {
+            ToastUtils.show(this@JVSAIActivity, "历史记录")
+        }
     }
 
     private fun setupRecyclerView() {
@@ -217,7 +221,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
 
         ivCamera.setOnClickListener {
-            addMessage("[相机]", true)
             fileOpener.openCamera()
             hideMediaButtons()
         }
@@ -338,6 +341,10 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     override fun onFileSelected(uri: Uri?) {
         uri?.let {
+            addMessage("[相机]", true, AiMessage.TYPE_IMAGE, path = it.toString())
+            Handler(Looper.getMainLooper()).postDelayed({
+                addMessage("已收到图片消息", false)
+            }, 1000)
         }
     }
 

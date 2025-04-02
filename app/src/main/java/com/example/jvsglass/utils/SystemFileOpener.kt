@@ -143,7 +143,7 @@ class SystemFileOpener(private val context: Context) {
         // 时间戳精确到毫秒
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmssSSS", Locale.getDefault()).format(Date())
         val fileName = "JPEG_${timeStamp}.jpg"
-        return context.getExternalFilesDir("Pictures")?.let { storageDir ->
+        return context.getExternalFilesDir(null)?.let { storageDir ->
             File(storageDir, fileName).apply {
                 if (exists()) delete()
                 createNewFile() // 显式创建文件

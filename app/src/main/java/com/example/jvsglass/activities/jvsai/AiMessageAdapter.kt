@@ -1,5 +1,6 @@
 package com.example.jvsglass.activities.jvsai
 
+import android.content.Intent
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -9,9 +10,11 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.jvsglass.R
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import androidx.core.net.toUri
 
 class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
     RecyclerView.Adapter<AiMessageAdapter.ViewHolder>() {
@@ -26,9 +29,10 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val llMessageLayout: LinearLayout = view.findViewById(R.id.llMessageLayout)
         val messageText: TextView = view.findViewById(R.id.tvMessage)
-        val messageDate: TextView = view.findViewById(R.id.tvTimeSent)
-
         val ivVoiceIcon: ImageView = view.findViewById(R.id.ivVoiceIcon)
+        val ivImage: ImageView = view.findViewById(R.id.ivImage)
+
+        val messageDate: TextView = view.findViewById(R.id.tvTimeSent)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -49,6 +53,7 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
             AiMessage.TYPE_TEXT -> {
                 holder.messageText.visibility = View.VISIBLE
                 holder.ivVoiceIcon.visibility = View.GONE
+                holder.ivImage.visibility = View.GONE
                 if (message.isSent) {
                     // 发送消息样式
                     holder.llMessageLayout.setBackgroundResource(R.drawable.bg_sent_message)
@@ -70,6 +75,7 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
             AiMessage.TYPE_VOICE -> {
                 holder.messageText.visibility = View.GONE
                 holder.ivVoiceIcon.visibility = View.VISIBLE
+                holder.ivImage.visibility = View.GONE
                 holder.llMessageLayout.setBackgroundResource(R.drawable.bg_sent_message)
                 params.marginStart = dpToPx(100f, holder.itemView.context)
                 params.marginEnd = dpToPx(8f, holder.itemView.context)
@@ -95,6 +101,29 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
                     }
                 }
                 holder.ivVoiceIcon.layoutParams = voiceParams
+            }
+
+            AiMessage.TYPE_IMAGE -> {
+                holder.messageText.visibility = View.GONE
+                holder.ivVoiceIcon.visibility = View.GONE
+                holder.ivImage.visibility = View.VISIBLE
+                holder.llMessageLayout.setBackgroundResource(R.drawable.bg_sent_message)
+                params.marginStart = dpToPx(100f, holder.itemView.context)
+                params.marginEnd = dpToPx(8f, holder.itemView.context)
+                (holder.llMessageLayout.layoutParams as FrameLayout.LayoutParams).gravity = Gravity.END
+
+                // 使用 Glide 加载缩略图
+                Glide.with(holder.itemView.context)
+                    .load(message.path.toUri())
+                    .into(holder.ivImage)
+
+                // 点击事件：打开大图
+                holder.ivImage.setOnClickListener {
+                    val intent = Intent(holder.itemView.context, FullScreenImageActivity::class.java).apply {
+                        putExtra("image_uri", message.path)
+                    }
+                    holder.itemView.context.startActivity(intent)
+                }
             }
         }
 
