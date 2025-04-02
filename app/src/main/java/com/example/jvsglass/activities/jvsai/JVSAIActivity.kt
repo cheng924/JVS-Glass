@@ -226,7 +226,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
 
         ivFile.setOnClickListener {
-            addMessage("[文件]", true)
             fileOpener.openFilePicker()
             hideMediaButtons()
         }
@@ -339,12 +338,23 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     private fun Int.dpToPx(): Int = (this * Resources.getSystem().displayMetrics.density).toInt()
 
-    override fun onFileSelected(uri: Uri?) {
+    override fun onCameraPhotoCaptured(uri: Uri?) {
         uri?.let {
             addMessage("[相机]", true, AiMessage.TYPE_IMAGE, path = it.toString())
             Handler(Looper.getMainLooper()).postDelayed({
                 addMessage("已收到图片消息", false)
             }, 1000)
+        }
+    }
+
+    override fun onFileSelected(path: String?) {
+        path?.let {
+            addMessage("[文件]", true, AiMessage.TYPE_FILE, path = it)
+            Handler(Looper.getMainLooper()).postDelayed({
+                addMessage("已收到文件消息", false)
+            }, 1000)
+        } ?: run {
+            ToastUtils.show(this, "文件保存失败")
         }
     }
 

@@ -40,6 +40,29 @@
                 android:scaleType="centerCrop"
                 android:visibility="gone"/>
 
+            <LinearLayout
+                android:id="@+id/llFile"
+                android:layout_width="200dp"
+                android:layout_height="50dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+                <ImageView
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
+                    android:src="@drawable/ic_ai_file"/>
+                <TextView
+                    android:id="@+id/tvFileName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Stub"
+                    android:textColor="@color/black"
+                    android:textSize="18sp"
+                    android:maxLines="2"
+                    android:ellipsize="none"/>
+
+            </LinearLayout>
+
         </RelativeLayout>
 
         <TextView

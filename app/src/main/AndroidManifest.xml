@@ -53,6 +53,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
+            android:name=".activities.jvsai.FileViewerActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.jvsai.FullScreenImageActivity"
             android:exported="false" />
 
@@ -84,6 +87,7 @@
             android:exported="false" />
         <activity
             android:name=".activities.jvsai.JVSAIActivity"
+            android:windowSoftInputMode="adjustPan|stateHidden"
             android:exported="false" />
         <activity
             android:name=".activities.teleprompter.TeleprompterActivity"

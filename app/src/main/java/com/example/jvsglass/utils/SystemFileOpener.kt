@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,9 +16,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.FragmentActivity
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.concurrent.thread
 
 class SystemFileOpener(private val context: Context) {
 
@@ -25,14 +29,14 @@ class SystemFileOpener(private val context: Context) {
 
     // 定义回调接口
     interface FileResultCallback {
-        fun onFileSelected(uri: Uri?)
+        fun onCameraPhotoCaptured(uri: Uri?)
+        fun onFileSelected(path: String?)
         fun onError(errorMessage: String)
     }
 
     // 注册Activity结果启动器
     private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
     private lateinit var cameraLauncher: ActivityResultLauncher<Intent>
-    private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private lateinit var folderLauncher: ActivityResultLauncher<Intent>
 
     // 初始化所有启动器
@@ -51,19 +55,11 @@ class SystemFileOpener(private val context: Context) {
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                callback.onFileSelected(cameraImageUri)
+                callback.onCameraPhotoCaptured(cameraImageUri)
             } else {
                 cameraImageUri?.let { uri ->
                     context.contentResolver.delete(uri, null, null)
                 }
-            }
-        }
-
-        filePickerLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                callback.onFileSelected(result.data?.data)
             }
         }
 
@@ -72,13 +68,12 @@ class SystemFileOpener(private val context: Context) {
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 result.data?.data?.let { uri ->
-                    // 处理选择的文件夹
-                    context.contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    )
-                    callback.onFileSelected(uri)
+                    thread {
+                        val newPath = copySelectedFile(uri)
+                        Handler(Looper.getMainLooper()).post {
+                            callback.onFileSelected(newPath)
+                        }
+                    }
                 }
             }
         }
@@ -121,7 +116,7 @@ class SystemFileOpener(private val context: Context) {
                 "text/plain"
             ))
         }
-        safeLaunchIntent(intent, filePickerLauncher, "无法打开文件选择器")
+        safeLaunchIntent(intent, folderLauncher, "无法打开文件选择器")
     }
 
     private fun safeLaunchIntent(
@@ -148,6 +143,42 @@ class SystemFileOpener(private val context: Context) {
                 if (exists()) delete()
                 createNewFile() // 显式创建文件
             }
+        }
+    }
+
+    private fun copySelectedFile(uri: Uri): String? {
+        val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+        val originalName = getFileName(uri) ?: "unknown_${System.currentTimeMillis()}"
+        val newFileName = "FILE_$originalName"
+
+        return try {
+            val outputDir = context.getExternalFilesDir(null)
+            val outputFile = File(outputDir, newFileName).apply {
+                if (exists()) delete()
+                createNewFile()
+            }
+
+            FileOutputStream(outputFile).use { output ->
+                inputStream.copyTo(output)
+            }
+            outputFile.absolutePath
+        } catch (e: Exception) {
+            LogUtils.error("文件复制失败: ${e.message}")
+            null
+        }
+    }
+
+    private fun getFileName(uri: Uri): String? {
+        return when (uri.scheme) {
+            "content" -> {
+                context.contentResolver.query(uri,
+                    arrayOf(MediaStore.MediaColumns.DISPLAY_NAME),
+                    null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+            }
+            "file" -> uri.lastPathSegment
+            else -> null
         }
     }
 }
