@@ -58,6 +58,7 @@
         android:background="@color/ai_media_background">
 
         <FrameLayout
+            android:id="@+id/flCardViewContainer"
             android:layout_width="match_parent"
             android:layout_height="100dp"
             android:paddingEnd="10dp"

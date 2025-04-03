@@ -6,5 +6,6 @@ data class CardItem(
     val id: String = UUID.randomUUID().toString(), // 唯一标识符
     val title: String,
     val tag: String,
+    val imageUri: String = "",
     val isGone: Boolean = false
 )

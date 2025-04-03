@@ -1,15 +1,17 @@
 package com.example.jvsglass.activities.jvsai
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.LinearLayout
+import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.jvsglass.R
 import com.example.jvsglass.utils.LogUtils
 
@@ -28,7 +30,7 @@ class CardAdapter(
         val ivDelete: ImageView = view.findViewById(R.id.iv_delete)
         val ivCardAdd: ImageView = view.findViewById(R.id.iv_card_add)
 
-        val llCardFile: LinearLayout = view.findViewById(R.id.ll_card_file)
+        val rlCardFile: RelativeLayout = view.findViewById(R.id.rl_card_file)
         val ivCardImage: ImageView = view.findViewById(R.id.iv_card_image)
     }
 
@@ -43,12 +45,14 @@ class CardAdapter(
         val item = getItem(position)
 
         if (item.tag == "IMAGE") {
-            holder.llCardFile.visibility = View.GONE
+            holder.rlCardFile.visibility = View.GONE
             holder.ivCardImage.visibility = View.VISIBLE
+            Glide.with(holder.itemView)
+                .load(item.imageUri)
+                .into(holder.ivCardImage)
         } else {
-            holder.llCardFile.visibility = View.VISIBLE
+            holder.rlCardFile.visibility = View.VISIBLE
             holder.ivCardImage.visibility = View.GONE
-
             holder.tvTitle.text = item.title
             holder.tvTag.text = item.tag
         }
@@ -56,7 +60,6 @@ class CardAdapter(
         holder.ivCardAdd.visibility = if (
             position == currentList.lastIndex && currentList.size < 9
         ) View.VISIBLE else View.GONE
-
         holder.ivCardAdd.setOnClickListener {
             onCardAdapterListener?.onAddCardClicked(position)
         }
@@ -72,6 +75,13 @@ class CardAdapter(
                 }
             }
             onCardAdapterListener?.onDeleteCard(currentPosition)
+        }
+
+        holder.ivCardImage.setOnClickListener {
+            Intent(holder.itemView.context, FullScreenImageActivity::class.java).apply {
+                putExtra("image_uri", item.imageUri)
+                holder.itemView.context.startActivity(this)
+            }
         }
     }
 

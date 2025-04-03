@@ -12,6 +12,7 @@ import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -33,22 +34,12 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private lateinit var voiceManager: VoiceManager
     private lateinit var fileOpener: SystemFileOpener
 
-    private val cardItems = mutableListOf(
-        CardItem(title = "1", tag = "智能推荐"),
-        CardItem(title = "2", tag = "IMAGE"),
-        CardItem(title = "3", tag = "IMAGE"),
-        CardItem(title = "4", tag = "点击添加"),
-        CardItem(title = "5", tag = "点击添加"),
-        CardItem(title = "6", tag = "IMAGE"),
-        CardItem(title = "7", tag = "点击添加"),
-        CardItem(title = "8", tag = "高效专注")
-    )
-
     private var currentAudioPath: String? = null // 记录当前录音文件路径
     private var recordingStartTime: Long = 0L  // 录音开始时间戳（毫秒）
     private var recordingDuration: Int = 0     // 录音时长（秒）
 
     private val messageList = mutableListOf<AiMessage>()
+    private val cardItems = mutableListOf<CardItem>()
     private lateinit var messageAdapter: AiMessageAdapter
     private lateinit var cardAdapter: CardAdapter
     private var isVoiceInput = false
@@ -56,6 +47,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private var isCanceled = false
 
     private lateinit var rvMessages: RecyclerView
+    private lateinit var flCardViewContainer: FrameLayout
     private lateinit var rvCardView: RecyclerView
     private lateinit var llTextInput: LinearLayout
     private lateinit var ivInput: ImageView
@@ -91,6 +83,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     private fun setupUI() {
         rvMessages = findViewById(R.id.rvMessages)
+        flCardViewContainer = findViewById(R.id.flCardViewContainer)
         rvCardView = findViewById(R.id.rvCardView)
         llTextInput = findViewById(R.id.llTextInput)
         ivInput = findViewById(R.id.ivInput)
@@ -125,7 +118,8 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         cardAdapter = CardAdapter(
             object : CardAdapter.OnCardAdapterListener {
                 override fun onAddCardClicked(position: Int) {
-                    addNewCard()
+//                    addNewCard()
+                    fileOpener.openCamera()
                 }
 
                 override fun onDeleteCard(position: Int) {
@@ -285,15 +279,26 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     }
 
     private fun sendMessage() {
+        val pendingCards = cardItems.filter { it.tag == "IMAGE" }.toList()
+        pendingCards.forEach { card ->
+            addMessage("[图片]", true, AiMessage.TYPE_IMAGE, path = card.imageUri)
+        }
+        cardItems.clear()
+        cardAdapter.submitList(emptyList())
+
+        flCardViewContainer.visibility = View.GONE
+        cardAdapter.submitList(cardItems.toList())
+
         val message = etMessage.text.toString().trim()
         if (message.isNotEmpty()) {
             addMessage(message, true)
             etMessage.text.clear()
-            // 模拟回复
-            Handler(Looper.getMainLooper()).postDelayed({
-                addMessage("自动回复：$message", false)
-            }, 1000)
         }
+
+        // 模拟回复
+        Handler(Looper.getMainLooper()).postDelayed({
+            addMessage("已收到${message.ifEmpty { "图片" }}", false)
+        }, 1000)
     }
 
     private fun addNewCard() {
@@ -425,11 +430,28 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private fun Int.dpToPx(): Int = (this * Resources.getSystem().displayMetrics.density).toInt()
 
     override fun onCameraPhotoCaptured(uri: Uri?) {
+//        uri?.let {
+//            addMessage("[相机]", true, AiMessage.TYPE_IMAGE, path = it.toString())
+//            Handler(Looper.getMainLooper()).postDelayed({
+//                addMessage("已收到图片消息", false)
+//            }, 1000)
+//        }
+        flCardViewContainer.visibility = View.VISIBLE
         uri?.let {
-            addMessage("[相机]", true, AiMessage.TYPE_IMAGE, path = it.toString())
-            Handler(Looper.getMainLooper()).postDelayed({
-                addMessage("已收到图片消息", false)
-            }, 1000)
+            if (cardItems.none { item -> item.imageUri == it.toString() }) {
+                val newCard = CardItem(
+                    title = "待发送图片",
+                    tag = "IMAGE",
+                    imageUri = it.toString()
+                )
+
+                cardItems.add(newCard)
+                cardAdapter.submitList(cardItems.toList()) {
+                    rvCardView.post {
+                        rvCardView.smoothScrollToPosition(cardItems.size - 1)
+                    }
+                }
+            }
         }
     }
 
