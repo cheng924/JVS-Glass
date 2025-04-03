@@ -10,9 +10,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
 import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -38,6 +36,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private var recordingStartTime: Long = 0L  // 录音开始时间戳（毫秒）
     private var recordingDuration: Int = 0     // 录音时长（秒）
 
+    private var isUiReady = false
     private val messageList = mutableListOf<AiMessage>()
     private val cardItems = mutableListOf<CardItem>()
     private lateinit var messageAdapter: AiMessageAdapter
@@ -47,7 +46,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private var isCanceled = false
 
     private lateinit var rvMessages: RecyclerView
-    private lateinit var flCardViewContainer: FrameLayout
     private lateinit var rvCardView: RecyclerView
     private lateinit var llTextInput: LinearLayout
     private lateinit var ivInput: ImageView
@@ -77,14 +75,20 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
         setupUI()
         setupCardView()
+
+        rvCardView.viewTreeObserver.addOnPreDrawListener {
+            isUiReady = true
+            true
+        }
+
         setupRecyclerView()
         setupClickListeners()
     }
 
     private fun setupUI() {
         rvMessages = findViewById(R.id.rvMessages)
-        flCardViewContainer = findViewById(R.id.flCardViewContainer)
         rvCardView = findViewById(R.id.rvCardView)
+        rvCardView.layoutManager = LinearLayoutManager(this)
         llTextInput = findViewById(R.id.llTextInput)
         ivInput = findViewById(R.id.ivInput)
         inputSwitcher = findViewById(R.id.inputSwitcher)
@@ -118,8 +122,13 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         cardAdapter = CardAdapter(
             object : CardAdapter.OnCardAdapterListener {
                 override fun onAddCardClicked(position: Int) {
-//                    addNewCard()
-                    fileOpener.openCamera()
+                    if (cardItems.size < CardAdapter.MAX_CARD_ITEM) {
+                        if (cardItems[0].tag == "IMAGE") {
+                            fileOpener.openCamera()
+                        } else {
+                            fileOpener.openFilePicker()
+                        }
+                    }
                 }
 
                 override fun onDeleteCard(position: Int) {
@@ -254,13 +263,41 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
 
         ivCamera.setOnClickListener {
-            fileOpener.openCamera()
-            hideMediaButtons()
+            if (cardItems.size != 0) {
+                if (cardItems[0].tag == "IMAGE") {
+                    if (cardItems.size == CardAdapter.MAX_CARD_ITEM) {
+                        ToastUtils.show(this, "最多支持上传${CardAdapter.MAX_CARD_ITEM}张图片")
+                        return@setOnClickListener
+                    }
+
+                    fileOpener.openCamera()
+                    hideMediaButtons()
+                } else {
+                    ToastUtils.show(this, "请选择上传文件")
+                }
+            } else {
+                fileOpener.openCamera()
+                hideMediaButtons()
+            }
         }
 
         ivFile.setOnClickListener {
-            fileOpener.openFilePicker()
-            hideMediaButtons()
+            if (cardItems.size != 0) {
+                if (cardItems[0].tag != "IMAGE") {
+                    if (cardItems.size == CardAdapter.MAX_CARD_ITEM) {
+                        ToastUtils.show(this, "最多支持上传${CardAdapter.MAX_CARD_ITEM}个文件")
+                        return@setOnClickListener
+                    }
+
+                    fileOpener.openFilePicker()
+                    hideMediaButtons()
+                } else {
+                    ToastUtils.show(this, "请选择拍照")
+                }
+            } else {
+                fileOpener.openFilePicker()
+                hideMediaButtons()
+            }
         }
 
         ivCall.setOnClickListener {
@@ -281,13 +318,17 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private fun sendMessage() {
         val pendingCards = cardItems.filter { it.tag == "IMAGE" }.toList()
         pendingCards.forEach { card ->
-            addMessage("[图片]", true, AiMessage.TYPE_IMAGE, path = card.imageUri)
+            addMessage("[图片]", true, AiMessage.TYPE_IMAGE, path = card.fileUri)
         }
-        cardItems.clear()
-        cardAdapter.submitList(emptyList())
 
-        flCardViewContainer.visibility = View.GONE
+        val pendingFiles = cardItems.filter { it.tag != "IMAGE" }
+        pendingFiles.forEach { card ->
+            addMessage("[文件]", true, AiMessage.TYPE_FILE, path = card.fileUri)
+        }
+
+        cardItems.clear()
         cardAdapter.submitList(cardItems.toList())
+        rvCardView.visibility = View.GONE
 
         val message = etMessage.text.toString().trim()
         if (message.isNotEmpty()) {
@@ -297,54 +338,17 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
         // 模拟回复
         Handler(Looper.getMainLooper()).postDelayed({
-            addMessage("已收到${message.ifEmpty { "图片" }}", false)
+            addMessage("已收到${message.ifEmpty { "信息" }}", false)
         }, 1000)
     }
 
-    private fun addNewCard() {
-        if (!::cardAdapter.isInitialized) {
-            LogUtils.error("CardAdapter not initialized!")
-            return
-        }
-
-        if (cardItems.size < 9) {
-            // 更新旧最后一张卡片的 isGone 状态
-            val lastIndex = cardItems.lastIndex
-            if (lastIndex >= 0) {
-                val lastItem = cardItems[lastIndex]
-                cardItems[lastIndex] = lastItem.copy(isGone = true) // 创建新实例
-            }
-
-            val newCard = CardItem(
-                title = "新场景 ${cardItems.size + 1}",
-                tag = "标签"
-            )
-            cardItems.add(newCard)
-            cardAdapter.submitList(cardItems.toList()) {
-                rvCardView.post {
-                    rvCardView.smoothScrollToPosition(cardItems.size - 1)
-                }
-            }
-        }
-    }
-
     private fun deleteOldCard(deletedPosition: Int) {
-        val newList = cardItems.toMutableList().apply { removeAt(deletedPosition) }
-
-        // 重新计算最后一项状态
-        val lastIndex = newList.lastIndex
-        val updatedList = newList.mapIndexed { index, item ->
-            if (newList.size < 9 && index == lastIndex) {
-                item.copy(isGone = false)
-            } else {
-                item.copy(isGone = true)
-            }
-        }
-
-        cardItems.clear()
-        cardItems.addAll(updatedList)
-        cardAdapter.submitList(updatedList) {
-            cardAdapter.notifyItemChanged(updatedList.lastIndex)
+        if (deletedPosition in 0 until cardItems.size) {
+            val newList = cardItems.toMutableList().apply { removeAt(deletedPosition) }
+            cardItems.clear()
+            cardItems.addAll(newList)
+            updateCardList()
+            rvCardView.visibility = if (cardItems.isEmpty()) View.GONE else View.VISIBLE
         }
     }
 
@@ -430,41 +434,76 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private fun Int.dpToPx(): Int = (this * Resources.getSystem().displayMetrics.density).toInt()
 
     override fun onCameraPhotoCaptured(uri: Uri?) {
-//        uri?.let {
-//            addMessage("[相机]", true, AiMessage.TYPE_IMAGE, path = it.toString())
-//            Handler(Looper.getMainLooper()).postDelayed({
-//                addMessage("已收到图片消息", false)
-//            }, 1000)
-//        }
-        flCardViewContainer.visibility = View.VISIBLE
-        uri?.let {
-            if (cardItems.none { item -> item.imageUri == it.toString() }) {
-                val newCard = CardItem(
-                    title = "待发送图片",
-                    tag = "IMAGE",
-                    imageUri = it.toString()
-                )
+        if (!isUiReady) {
+            ToastUtils.show(this, "请等待界面初始化完成")
+            return
+        }
 
+        uri?.let {
+            val newCard = CardItem(
+                id = System.currentTimeMillis().toString(),
+                title = "待发送图片",
+                tag = "IMAGE",
+                fileUri = it.toString()
+            )
+
+            if (cardItems.none { item -> item.fileUri == it.toString() }) {
                 cardItems.add(newCard)
-                cardAdapter.submitList(cardItems.toList()) {
-                    rvCardView.post {
-                        rvCardView.smoothScrollToPosition(cardItems.size - 1)
-                    }
-                }
+                updateCardList(scroll = true)
+                rvCardView.visibility = View.VISIBLE
             }
         }
     }
 
     override fun onFileSelected(path: String?) {
+        if (!isUiReady) {
+            ToastUtils.show(this, "请等待界面初始化完成")
+            return
+        }
+
         path?.let {
-            addMessage("[文件]", true, AiMessage.TYPE_FILE, path = it)
-            Handler(Looper.getMainLooper()).postDelayed({
-                addMessage("已收到文件消息", false)
-            }, 1000)
+            val fileExtension = it.substringAfterLast(".", "")
+            val fileName = File(it).name.substringAfter("FILE_").substringBefore(".")
+            val newCard = CardItem(
+                id = System.currentTimeMillis().toString(),
+                title = fileName,
+                tag = fileExtension,
+                fileUri = it
+            )
+
+            cardItems.add(newCard)
+            updateCardList(scroll = true)
+            rvCardView.visibility = View.VISIBLE
         } ?: run {
             ToastUtils.show(this, "文件保存失败")
         }
     }
+
+    private fun updateCardList(scroll: Boolean = false) {
+        val displayList = mutableListOf<CardItem>()
+        displayList.addAll(cardItems)
+        if (cardItems.size < CardAdapter.MAX_CARD_ITEM) {
+            displayList.add(
+                CardItem(
+                    id = "ADD", // 固定ID或特殊标识
+                    title = "",
+                    tag = "",
+                    fileUri = "",
+                    isAddItem = true
+                )
+            )
+        }
+        cardAdapter.submitList(displayList) {
+            // 列表更新完成后执行滚动
+            if (scroll) {
+                // 确保 itemCount 大于0，再调用 smoothScrollToPosition
+                if (cardAdapter.itemCount > 0) {
+                    rvCardView.smoothScrollToPosition(cardAdapter.itemCount - 1)
+                }
+            }
+        }
+    }
+
 
     override fun onError(errorMessage: String) {
         ToastUtils.show(this, errorMessage)

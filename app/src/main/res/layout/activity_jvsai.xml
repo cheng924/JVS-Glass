@@ -57,20 +57,14 @@
         android:orientation="vertical"
         android:background="@color/ai_media_background">
 
-        <FrameLayout
-            android:id="@+id/flCardViewContainer"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvCardView"
             android:layout_width="match_parent"
             android:layout_height="100dp"
+            android:layout_gravity="center_vertical"
             android:paddingEnd="10dp"
-            android:visibility="gone">
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvCardView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical"/>
-
-        </FrameLayout>
+            android:orientation="horizontal"
+            android:visibility="gone"/>
 
         <View
             android:layout_width="match_parent"

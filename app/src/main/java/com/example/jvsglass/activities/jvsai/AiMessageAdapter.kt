@@ -185,7 +185,9 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
 
         // 文件点击事件
         holder.llMessageLayout.setOnClickListener {
-            openFile(message.path, holder.itemView.context)
+            if (message.isSent && message.type == AiMessage.TYPE_FILE) {
+                openFile(message.path, holder.itemView.context)
+            }
         }
     }
 

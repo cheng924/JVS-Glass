@@ -13,85 +13,107 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.jvsglass.R
-import com.example.jvsglass.utils.LogUtils
+import com.example.jvsglass.utils.ToastUtils
 
 class CardAdapter(
     private val onCardAdapterListener: OnCardAdapterListener?
-) : ListAdapter<CardItem, CardAdapter.ViewHolder>(CardItemDiffCallback) {
-
-    interface OnCardAdapterListener {
-        fun onAddCardClicked(position: Int)
-        fun onDeleteCard(position: Int)
-    }
-
-    inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tvTitle: TextView = view.findViewById(R.id.tv_Title)
-        val tvTag: TextView = view.findViewById(R.id.tv_Tag)
-        val ivDelete: ImageView = view.findViewById(R.id.iv_delete)
-        val ivCardAdd: ImageView = view.findViewById(R.id.iv_card_add)
-
-        val rlCardFile: RelativeLayout = view.findViewById(R.id.rl_card_file)
-        val ivCardImage: ImageView = view.findViewById(R.id.iv_card_image)
-    }
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_ai_card, parent, false)
-        return ViewHolder(view)
-    }
-
-    @SuppressLint("NotifyDataSetChanged")
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = getItem(position)
-
-        if (item.tag == "IMAGE") {
-            holder.rlCardFile.visibility = View.GONE
-            holder.ivCardImage.visibility = View.VISIBLE
-            Glide.with(holder.itemView)
-                .load(item.imageUri)
-                .into(holder.ivCardImage)
-        } else {
-            holder.rlCardFile.visibility = View.VISIBLE
-            holder.ivCardImage.visibility = View.GONE
-            holder.tvTitle.text = item.title
-            holder.tvTag.text = item.tag
-        }
-
-        holder.ivCardAdd.visibility = if (
-            position == currentList.lastIndex && currentList.size < 9
-        ) View.VISIBLE else View.GONE
-        holder.ivCardAdd.setOnClickListener {
-            onCardAdapterListener?.onAddCardClicked(position)
-        }
-
-        holder.ivDelete.setOnClickListener {
-            val currentPosition = holder.bindingAdapterPosition // 获取动态索引
-            if (currentPosition != RecyclerView.NO_POSITION) {
-                val newList = currentList.toMutableList().apply {
-                    removeAt(currentPosition) // 使用动态位置
-                }
-                submitList(newList) {
-                    LogUtils.info("删除成功")
-                }
-            }
-            onCardAdapterListener?.onDeleteCard(currentPosition)
-        }
-
-        holder.ivCardImage.setOnClickListener {
-            Intent(holder.itemView.context, FullScreenImageActivity::class.java).apply {
-                putExtra("image_uri", item.imageUri)
-                holder.itemView.context.startActivity(this)
-            }
-        }
-    }
+) : ListAdapter<CardItem, RecyclerView.ViewHolder>(CardItemDiffCallback) {
 
     companion object {
+        private const val TYPE_CARD = 0
+        private const val TYPE_ADD = 1
+        const val MAX_CARD_ITEM = 9 // 最大卡片数
+
         private val CardItemDiffCallback = object : DiffUtil.ItemCallback<CardItem>() {
             override fun areItemsTheSame(oldItem: CardItem, newItem: CardItem) =
                 oldItem.id == newItem.id
 
             override fun areContentsTheSame(oldItem: CardItem, newItem: CardItem) =
                 oldItem == newItem
+        }
+    }
+
+    interface OnCardAdapterListener {
+        fun onAddCardClicked(position: Int)
+        fun onDeleteCard(position: Int)
+    }
+
+    inner class CardViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvTitle: TextView = view.findViewById(R.id.tv_Title)
+        val tvTag: TextView = view.findViewById(R.id.tv_Tag)
+        val ivDelete: ImageView = view.findViewById(R.id.iv_delete)
+
+        val rlCardFile: RelativeLayout = view.findViewById(R.id.rl_card_file)
+        val ivCardImage: ImageView = view.findViewById(R.id.iv_card_image)
+    }
+
+    inner class AddViewHolder(view: View) : RecyclerView.ViewHolder(view)
+
+    override fun getItemCount(): Int {
+        return currentList.size
+    }
+
+    override fun getItemViewType(position: Int): Int {
+        return if (getItem(position).isAddItem) TYPE_ADD else TYPE_CARD
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return if (viewType == TYPE_CARD) {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_ai_card, parent, false)
+            CardViewHolder(view)
+        } else {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_ai_card_add, parent, false)
+            AddViewHolder(view)
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val item = getItem(position)
+        if (!item.isAddItem) {
+            val cardHolder = holder as CardViewHolder
+            if (item.tag == "IMAGE") {
+                cardHolder.rlCardFile.visibility = View.GONE
+                cardHolder.ivCardImage.visibility = View.VISIBLE
+                Glide.with(holder.itemView)
+                    .load(item.fileUri)
+                    .into(cardHolder.ivCardImage)
+            } else {
+                cardHolder.rlCardFile.visibility = View.VISIBLE
+                cardHolder.ivCardImage.visibility = View.GONE
+                cardHolder.tvTitle.text = item.title
+                cardHolder.tvTag.text = item.tag
+            }
+
+            cardHolder.ivDelete.setOnClickListener {
+                val currentPosition = holder.bindingAdapterPosition
+                if (currentPosition != RecyclerView.NO_POSITION) {
+                    onCardAdapterListener?.onDeleteCard(currentPosition)
+                }
+            }
+
+            cardHolder.ivCardImage.setOnClickListener {
+                Intent(holder.itemView.context, FullScreenImageActivity::class.java).apply {
+                    putExtra("image_uri", item.fileUri)
+                    holder.itemView.context.startActivity(this)
+                }
+            }
+
+            cardHolder.rlCardFile.setOnClickListener {
+                if (item.tag == "txt") {
+                    Intent(holder.itemView.context, FileViewerActivity::class.java).apply {
+                        putExtra("file_path", item.fileUri)
+                        holder.itemView.context.startActivity(this)
+                    }
+                } else {
+                    ToastUtils.show(holder.itemView.context, "没有找到可打开此文件的应用")
+                }
+            }
+        } else {
+            val addHolder = holder as AddViewHolder
+            addHolder.itemView.setOnClickListener {
+                onCardAdapterListener?.onAddCardClicked(position)
+            }
         }
     }
 }
