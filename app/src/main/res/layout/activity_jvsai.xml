@@ -50,100 +50,126 @@
         android:background="@color/button_background"/>
 
     <!-- 输入区域 -->
-    <RelativeLayout
+    <LinearLayout
+        android:id="@+id/llInput"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/ai_media_background">
 
-        <LinearLayout
-            android:id="@+id/llTextInput"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingTop="25dp"
-            android:paddingHorizontal="8dp"
-            android:gravity="center_vertical"
-            android:background="@color/ai_media_background">
+            android:layout_height="100dp"
+            android:paddingEnd="10dp"
+            android:visibility="gone">
 
-            <ImageView
-                android:id="@+id/ivInput"
-                android:layout_width="35dp"
-                android:layout_height="35dp"
-                android:layout_marginHorizontal="5dp"
-                android:src="@drawable/ic_input_voice"/>
-
-            <ViewSwitcher
-                android:id="@+id/inputSwitcher"
-                android:layout_width="0dp"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCardView"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:inAnimation="@anim/fade_in"
-                android:outAnimation="@anim/fade_out">
+                android:layout_gravity="center_vertical"/>
 
-                <EditText
-                    android:id="@+id/etMessage"
-                    android:layout_width="match_parent"
-                    android:layout_height="45dp"
-                    android:inputType="text"
-                    android:padding="8dp"
-                    android:background="@drawable/edittext_background"/>
+        </FrameLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/ai_media_background_line"/>
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:id="@+id/llTextInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingTop="25dp"
+                android:paddingHorizontal="8dp"
+                android:gravity="center_vertical"
+                android:background="@color/ai_media_background">
+
+                <ImageView
+                    android:id="@+id/ivInput"
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
+                    android:layout_marginHorizontal="5dp"
+                    android:src="@drawable/ic_input_voice"/>
+
+                <ViewSwitcher
+                    android:id="@+id/inputSwitcher"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:inAnimation="@anim/fade_in"
+                    android:outAnimation="@anim/fade_out">
+
+                    <EditText
+                        android:id="@+id/etMessage"
+                        android:layout_width="match_parent"
+                        android:layout_height="45dp"
+                        android:inputType="text"
+                        android:padding="8dp"
+                        android:background="@drawable/edittext_background"/>
+
+                    <TextView
+                        android:id="@+id/tvVoiceChoose"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:background="@drawable/voice_input_bg"
+                        android:gravity="center"
+                        android:text="按住说话"
+                        android:textSize="16sp"
+                        android:textColor="@color/black"/>
+
+                </ViewSwitcher>
+
+                <ImageView
+                    android:id="@+id/ivAdd"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginHorizontal="10dp"
+                    android:src="@drawable/ic_add_collapse"/>
+
+                <ImageView
+                    android:id="@+id/ivSend"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_send"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llVoiceInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="10dp"
+                android:background="@color/ai_media_background"
+                android:visibility="gone">
 
                 <TextView
-                    android:id="@+id/tvVoiceChoose"
+                    android:id="@+id/tvVoiceInputTip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:layout_gravity="center_horizontal"
+                    android:textSize="14sp"
+                    android:textColor="@color/black"/>
+
+                <TextView
+                    android:id="@+id/tvVoiceInput"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
                     android:background="@drawable/voice_input_bg"
                     android:gravity="center"
-                    android:text="按住说话"
                     android:textSize="16sp"
                     android:textColor="@color/black"/>
+            </LinearLayout>
 
-            </ViewSwitcher>
+        </RelativeLayout>
 
-            <ImageView
-                android:id="@+id/ivAdd"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="10dp"
-                android:src="@drawable/ic_add_collapse"/>
-
-            <Button
-                android:id="@+id/btnSend"
-                android:layout_width="64dp"
-                android:layout_height="48dp"
-                android:text="发送"
-                android:background="@color/button_text"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/llVoiceInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="10dp"
-            android:background="@color/ai_media_background"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/tvVoiceInputTip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
-                android:layout_gravity="center_horizontal"
-                android:text="提示信息"
-                android:textSize="14sp"
-                android:textColor="@color/black"/>
-
-            <TextView
-                android:id="@+id/tvVoiceInput"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:background="@drawable/voice_input_bg"
-                android:gravity="center"
-                android:textSize="16sp"
-                android:textColor="@color/black"/>
-        </LinearLayout>
-
-    </RelativeLayout>
+    </LinearLayout>
 
     <!-- 媒体选择按钮 -->
     <LinearLayout

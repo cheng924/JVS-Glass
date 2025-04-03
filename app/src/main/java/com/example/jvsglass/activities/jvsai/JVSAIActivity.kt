@@ -33,25 +33,37 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private lateinit var voiceManager: VoiceManager
     private lateinit var fileOpener: SystemFileOpener
 
+    private val cardItems = mutableListOf(
+        CardItem(title = "1", tag = "智能推荐"),
+        CardItem(title = "2", tag = "IMAGE"),
+        CardItem(title = "3", tag = "IMAGE"),
+        CardItem(title = "4", tag = "点击添加"),
+        CardItem(title = "5", tag = "点击添加"),
+        CardItem(title = "6", tag = "IMAGE"),
+        CardItem(title = "7", tag = "点击添加"),
+        CardItem(title = "8", tag = "高效专注")
+    )
+
     private var currentAudioPath: String? = null // 记录当前录音文件路径
     private var recordingStartTime: Long = 0L  // 录音开始时间戳（毫秒）
     private var recordingDuration: Int = 0     // 录音时长（秒）
 
     private val messageList = mutableListOf<AiMessage>()
     private lateinit var messageAdapter: AiMessageAdapter
+    private lateinit var cardAdapter: CardAdapter
     private var isVoiceInput = false
     private var startY = 0f
     private var isCanceled = false
 
     private lateinit var rvMessages: RecyclerView
-
+    private lateinit var rvCardView: RecyclerView
     private lateinit var llTextInput: LinearLayout
     private lateinit var ivInput: ImageView
     private lateinit var inputSwitcher: ViewSwitcher
     private lateinit var etMessage: EditText
     private lateinit var tvVoiceChoose: TextView
     private lateinit var ivAdd: ImageView
-    private lateinit var btnSend: Button
+    private lateinit var ivSend: ImageView
 
     private lateinit var llVoiceInput: LinearLayout
     private lateinit var tvVoiceInputTip: TextView
@@ -72,20 +84,21 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         fileOpener.registerLaunchers(this, this)
 
         setupUI()
+        setupCardView()
         setupRecyclerView()
         setupClickListeners()
     }
 
     private fun setupUI() {
         rvMessages = findViewById(R.id.rvMessages)
-
+        rvCardView = findViewById(R.id.rvCardView)
         llTextInput = findViewById(R.id.llTextInput)
         ivInput = findViewById(R.id.ivInput)
         inputSwitcher = findViewById(R.id.inputSwitcher)
         etMessage = findViewById(R.id.etMessage)
         tvVoiceChoose = findViewById(R.id.tvVoiceChoose)
         ivAdd = findViewById(R.id.ivAdd)
-        btnSend = findViewById(R.id.btnSend)
+        ivSend = findViewById(R.id.ivSend)
 
         llVoiceInput = findViewById(R.id.llVoiceInput)
         tvVoiceInputTip = findViewById(R.id.tvVoiceInputTip)
@@ -104,6 +117,32 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
         findViewById<ImageView>(R.id.ivAiHistory).setOnClickListener {
             ToastUtils.show(this@JVSAIActivity, "历史记录")
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private fun setupCardView() {
+        cardAdapter = CardAdapter(
+            object : CardAdapter.OnCardAdapterListener {
+                override fun onAddCardClicked(position: Int) {
+                    addNewCard()
+                }
+
+                override fun onDeleteCard(position: Int) {
+                    deleteOldCard(position)
+                }
+            }).apply {
+                submitList(cardItems.toList())
+        }
+
+        rvCardView.apply {
+            layoutManager = LinearLayoutManager(
+                this@JVSAIActivity,
+                LinearLayoutManager.HORIZONTAL,
+                false
+            )
+            adapter = cardAdapter // 使用已赋值的属性
+            setHasFixedSize(true)
         }
     }
 
@@ -211,7 +250,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             toggleMediaButtons()
         }
 
-        btnSend.setOnClickListener {
+        ivSend.setOnClickListener {
             sendMessage()
         }
 
@@ -254,6 +293,53 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             Handler(Looper.getMainLooper()).postDelayed({
                 addMessage("自动回复：$message", false)
             }, 1000)
+        }
+    }
+
+    private fun addNewCard() {
+        if (!::cardAdapter.isInitialized) {
+            LogUtils.error("CardAdapter not initialized!")
+            return
+        }
+
+        if (cardItems.size < 9) {
+            // 更新旧最后一张卡片的 isGone 状态
+            val lastIndex = cardItems.lastIndex
+            if (lastIndex >= 0) {
+                val lastItem = cardItems[lastIndex]
+                cardItems[lastIndex] = lastItem.copy(isGone = true) // 创建新实例
+            }
+
+            val newCard = CardItem(
+                title = "新场景 ${cardItems.size + 1}",
+                tag = "标签"
+            )
+            cardItems.add(newCard)
+            cardAdapter.submitList(cardItems.toList()) {
+                rvCardView.post {
+                    rvCardView.smoothScrollToPosition(cardItems.size - 1)
+                }
+            }
+        }
+    }
+
+    private fun deleteOldCard(deletedPosition: Int) {
+        val newList = cardItems.toMutableList().apply { removeAt(deletedPosition) }
+
+        // 重新计算最后一项状态
+        val lastIndex = newList.lastIndex
+        val updatedList = newList.mapIndexed { index, item ->
+            if (newList.size < 9 && index == lastIndex) {
+                item.copy(isGone = false)
+            } else {
+                item.copy(isGone = true)
+            }
+        }
+
+        cardItems.clear()
+        cardItems.addAll(updatedList)
+        cardAdapter.submitList(updatedList) {
+            cardAdapter.notifyItemChanged(updatedList.lastIndex)
         }
     }
 

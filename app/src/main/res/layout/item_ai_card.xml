@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:layout_gravity="center_vertical"
+    app:cardElevation="0dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@color/ai_media_background">
+
+        <RelativeLayout
+            android:layout_width="150dp"
+            android:layout_height="80dp"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/ai_card">
+
+            <LinearLayout
+                android:id="@+id/ll_card_file"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tv_Title"
+                    android:layout_width="110dp"
+                    android:layout_height="wrap_content"
+                    android:text="标题标题标题标题"
+                    android:textColor="@color/black"
+                    android:textSize="18sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"/>
+
+                <TextView
+                    android:id="@+id/tv_Tag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="标签"
+                    android:textColor="@color/background2_mask"
+                    android:textSize="15sp"
+                    android:layout_marginTop="8dp"/>
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/iv_card_image"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_stub"
+                android:visibility="visible"/>
+
+            <ImageView
+                android:id="@+id/iv_delete"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_card_delete"
+                android:layout_alignParentEnd="true"/>
+
+        </RelativeLayout>
+
+        <ImageView
+            android:id="@+id/iv_card_add"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_marginStart="10dp"
+            android:layout_gravity="center_vertical"
+            android:padding="30dp"
+            android:background="@drawable/ai_card"
+            android:src="@drawable/ic_card_add"
+            android:visibility="visible"/>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

@@ -74,4 +74,5 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.glide.core)
     annotationProcessor(libs.glide.compiler)
+    implementation(libs.androidx.cardview)
 }
