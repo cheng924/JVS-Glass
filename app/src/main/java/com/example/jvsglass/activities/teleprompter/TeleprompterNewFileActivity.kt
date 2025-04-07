@@ -29,7 +29,7 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tv_date).text = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
         findViewById<ImageView>(R.id.iv_back).setOnClickListener {
             finish()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<TextView>(R.id.tv_save_file).setOnClickListener {
@@ -63,6 +63,6 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
     private fun finishWithAnimation() {
         setResult(Activity.RESULT_OK)
         finish()
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+        overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
     }
 }

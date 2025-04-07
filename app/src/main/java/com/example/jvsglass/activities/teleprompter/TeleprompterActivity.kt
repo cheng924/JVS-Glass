@@ -78,7 +78,7 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
             finish()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<LinearLayout>(R.id.btnNew).setOnClickListener {

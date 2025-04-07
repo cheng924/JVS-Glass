@@ -20,6 +20,10 @@ activityKtx = "1.8.2"
 fragmentKtx = "1.6.0"
 glide = "4.16.0"
 cardview = "1.0.0"
+retrofit = "2.9.0"
+okhttp = "4.9.3"
+rxjava = "2.2.21"
+rxandroid = "2.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -53,6 +57,16 @@ androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", ve
 glide-core = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
 androidx-cardview = { group = "androidx.cardview", name = "cardview", version.ref = "cardview" }
+# Retrofit2
+retrofit-core = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+retrofit-adapter-rxjava2 = { group = "com.squareup.retrofit2", name = "adapter-rxjava2", version.ref = "retrofit" }
+# OkHttp及日志拦截器
+okhttp-core = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+# RxJava
+rxjava-core = { group = "io.reactivex.rxjava2", name = "rxjava", version.ref = "rxjava" }
+rxandroid = { group = "io.reactivex.rxjava2", name = "rxandroid", version.ref = "rxandroid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

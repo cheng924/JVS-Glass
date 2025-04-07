@@ -25,6 +25,8 @@ import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.SystemFileOpener
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
+import com.example.jvsglass.network.NetworkManager
+import com.example.jvsglass.network.UploadResult
 import java.io.File
 
 class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
@@ -109,7 +111,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
             finish()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<ImageView>(R.id.ivAiHistory).setOnClickListener {
@@ -316,24 +318,21 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     }
 
     private fun sendMessage() {
-        val pendingCards = cardItems.filter { it.tag == "IMAGE" }.toList()
-        pendingCards.forEach { card ->
-            addMessage("[图片]", true, AiMessage.TYPE_IMAGE, path = card.fileUri)
-        }
+        val message = etMessage.text.toString().trim()
+        val pendingCards = cardItems.toList()
 
-        val pendingFiles = cardItems.filter { it.tag != "IMAGE" }
-        pendingFiles.forEach { card ->
-            addMessage("[文件]", true, AiMessage.TYPE_FILE, path = card.fileUri)
-        }
-
+        etMessage.text.clear()
         cardItems.clear()
         cardAdapter.submitList(cardItems.toList())
         rvCardView.visibility = View.GONE
 
-        val message = etMessage.text.toString().trim()
-        if (message.isNotEmpty()) {
-            addMessage(message, true)
-            etMessage.text.clear()
+        if (message.isNotEmpty() || pendingCards.isNotEmpty()) {
+            addMessage(
+                message = message,
+                isSent = true,
+                attachments = pendingCards // 传入附件集合
+            )
+            uploadFile(message, pendingCards)
         }
 
         // 模拟回复
@@ -353,13 +352,39 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     }
 
     private fun addMessage(
-        content: String,
+        message: String,
         isSent: Boolean,
         type: Int = AiMessage.TYPE_TEXT,
         duration: Int = 0,
-        path: String = ""
+        path: String = "",
+        attachments: List<CardItem> = emptyList()
     ) {
-        messageList.add(AiMessage(content, System.currentTimeMillis().toString(), isSent, type, duration, path))
+        attachments.forEach { card ->
+            when (card.tag) {
+                "IMAGE" -> {
+                    messageList.add(AiMessage(
+                        "[图片]",
+                        System.currentTimeMillis().toString(),
+                        isSent,
+                        AiMessage.TYPE_IMAGE,
+                        path = card.fileUri
+                    ))
+                }
+                else -> {
+                    messageList.add(AiMessage(
+                        "[文件]",
+                        System.currentTimeMillis().toString(),
+                        isSent,
+                        AiMessage.TYPE_FILE,
+                        path = card.fileUri
+                    ))
+                }
+            }
+            messageAdapter.notifyItemInserted(messageList.size - 1)
+            rvMessages.scrollToPosition(messageList.size - 1)
+        }
+
+        messageList.add(AiMessage(message, System.currentTimeMillis().toString(), isSent, type, duration, path))
         messageAdapter.notifyItemInserted(messageList.size - 1)
         rvMessages.scrollToPosition(messageList.size - 1)
     }
@@ -440,14 +465,19 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
 
         uri?.let {
+            val fileName = uri.path?.substringAfter("/my_files/")
+            val filePath = fileName?.let { name ->
+                getExternalFilesDir(null)?.resolve(name)?.absolutePath
+            }
+
             val newCard = CardItem(
                 id = System.currentTimeMillis().toString(),
                 title = "待发送图片",
                 tag = "IMAGE",
-                fileUri = it.toString()
+                fileUri = filePath ?: uri.toString()
             )
 
-            if (cardItems.none { item -> item.fileUri == it.toString() }) {
+            if (cardItems.none { item -> item.fileUri == newCard.fileUri }) {
                 cardItems.add(newCard)
                 updateCardList(scroll = true)
                 rvCardView.visibility = View.VISIBLE
@@ -504,6 +534,53 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
     }
 
+    private fun uploadFile(message: String, attachments: List<CardItem> = emptyList()) {
+        if (message.isEmpty() && attachments.isEmpty()) {
+            LogUtils.warn("消息和附件不能同时为空")
+            return
+        }
+
+        if (attachments.size == 1) {
+            val filePath = attachments[0].fileUri
+            uploadSingleFile(message, filePath)
+        } else {
+            val filePath = attachments.map { it.fileUri }.filter { it.isNotBlank() }
+            uploadMultipleFiles(message, filePath)
+        }
+    }
+
+    private fun uploadSingleFile(message: String, filePath: String) {
+        LogUtils.info("文件路径：$filePath (长度：${filePath.length})")
+        val file = File(filePath)
+        LogUtils.info("文件绝对路径：${file.absolutePath} (长度：${file.absolutePath.length})")
+        if (!file.exists()) {
+            LogUtils.error("文件不存在: ${file.absolutePath}")
+            return
+        }
+        LogUtils.info("文件路径：$filePath")
+
+        NetworkManager.getInstance().uploadSingleFile(
+            file = file,
+            description = message,
+            callback = object : NetworkManager.UploadCallback {
+                override fun onProgress(percent: Float) {
+//                    LogUtils.info("--- ${percent * 100} ---")
+                }
+
+                override fun onSuccess(result: UploadResult) {
+                    LogUtils.info("上传成功")
+                }
+
+                override fun onFailure(error: Throwable) {
+                    LogUtils.error("上传失败: ${error.message}")
+                }
+            }
+        )
+    }
+
+    private fun uploadMultipleFiles(message: String, fileUrl: List<String>) {
+
+    }
 
     override fun onError(errorMessage: String) {
         ToastUtils.show(this, errorMessage)
@@ -511,6 +588,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     override fun onDestroy() {
         super.onDestroy()
-        voiceManager.release() // 释放资源
+        voiceManager.release()
+        NetworkManager.getInstance().dispose()
     }
 }

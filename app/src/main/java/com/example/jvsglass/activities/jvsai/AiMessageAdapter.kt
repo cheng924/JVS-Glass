@@ -17,7 +17,6 @@ import com.bumptech.glide.Glide
 import com.example.jvsglass.R
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import androidx.core.net.toUri
 import com.example.jvsglass.utils.TextFormatter
 import com.example.jvsglass.utils.ToastUtils
 import java.io.File
@@ -128,7 +127,7 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
 
         // 图片加载与点击事件
         Glide.with(holder.itemView.context)
-            .load(message.path.toUri())
+            .load(File(message.path))
             .into(holder.ivImage)
     }
 

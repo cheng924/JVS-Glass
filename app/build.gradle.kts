@@ -75,4 +75,14 @@ dependencies {
     implementation(libs.glide.core)
     annotationProcessor(libs.glide.compiler)
     implementation(libs.androidx.cardview)
+    // Retrofit
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.retrofit.adapter.rxjava2)
+    // OkHttp
+    implementation(libs.okhttp.core)
+    implementation(libs.okhttp.logging.interceptor)
+    // RxJava
+    implementation(libs.rxjava.core)
+    implementation(libs.rxandroid)
 }
