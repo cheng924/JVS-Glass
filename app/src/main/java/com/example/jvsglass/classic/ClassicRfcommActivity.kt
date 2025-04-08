@@ -106,7 +106,7 @@ class ClassicRfcommActivity : AppCompatActivity() {
             override fun onVoiceMessageReceived(voiceData: ByteArray) {
                 try {
                     val timestamp = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(Date())
-                    val fileName = "audio_$timestamp.3gp"
+                    val fileName = "audio_$timestamp.pcm"
                     val tempFile = File(externalCacheDir ?: cacheDir, fileName)
                     tempFile.writeBytes(voiceData)
                     LogUtils.info("[BluetoothActivity] 语音文件保存路径: ${tempFile.absolutePath}, 大小: ${tempFile.length()} 字节")
@@ -251,7 +251,7 @@ class ClassicRfcommActivity : AppCompatActivity() {
             LogUtils.error("[BluetoothActivity] 外部缓存目录不可用")
             return
         }
-        audioFilePath = "${externalCacheDir!!.absolutePath}/audio_record.3gp"
+        audioFilePath = "${externalCacheDir!!.absolutePath}/audio_record.pcm"
         mediaRecorder = MediaRecorder().apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)

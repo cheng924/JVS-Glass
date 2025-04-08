@@ -1,5 +1,6 @@
 package com.example.jvsglass.activities.jvsai
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.net.Uri
@@ -15,6 +16,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.ViewSwitcher
+import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
@@ -26,7 +28,9 @@ import com.example.jvsglass.utils.SystemFileOpener
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
 import com.example.jvsglass.network.NetworkManager
+import com.example.jvsglass.network.TranscribeResponse
 import com.example.jvsglass.network.UploadResult
+import retrofit2.HttpException
 import java.io.File
 
 class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
@@ -67,6 +71,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private lateinit var ivFile: ImageView
     private lateinit var ivCall: ImageView
 
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_jvsai)
@@ -177,6 +182,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
     }
 
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @SuppressLint("ClickableViewAccessibility")
     private fun setupClickListeners() {
         ivInput.setOnClickListener {
@@ -414,6 +420,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         inputMethodManager.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT)
     }
 
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun startVoiceRecording() {
         LogUtils.info("开始录音...")
         recordingStartTime = System.currentTimeMillis() // 记录开始时间
@@ -423,22 +430,57 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
     }
 
+//    private fun stopVoiceRecording() {
+//        LogUtils.info("结束录音...")
+//        voiceManager.stopRecording() // 停止录音
+//
+//        val endTime = System.currentTimeMillis()
+//        recordingDuration = Math.round((endTime - recordingStartTime) / 1000.0).toInt()
+//
+//        currentAudioPath?.let { path ->
+//            // 将录音文件添加到消息列表
+//            addMessage("[语音]", true, AiMessage.TYPE_VOICE, recordingDuration, path)
+//            // 模拟自动回复
+//            Handler(Looper.getMainLooper()).postDelayed({
+//                addMessage("已收到语音消息", false)
+//            }, 1000)
+//        }
+//        currentAudioPath = null // 清空路径
+//    }
+
     private fun stopVoiceRecording() {
-        LogUtils.info("结束录音...")
-        voiceManager.stopRecording() // 停止录音
-
-        val endTime = System.currentTimeMillis()
-        recordingDuration = Math.round((endTime - recordingStartTime) / 1000.0).toInt()
-
+        voiceManager.stopRecording()
         currentAudioPath?.let { path ->
-            // 将录音文件添加到消息列表
-            addMessage("[语音]", true, AiMessage.TYPE_VOICE, recordingDuration, path)
-            // 模拟自动回复
-            Handler(Looper.getMainLooper()).postDelayed({
-                addMessage("已收到语音消息", false)
-            }, 1000)
+            val audioFile = File(path)
+            if (audioFile.exists()) {
+                // 显示加载状态
+                LogUtils.info("开始语音识别...")
+
+                NetworkManager.getInstance().transcribeAudio(
+                    audioFile,
+                    object : NetworkManager.ModelCallback<TranscribeResponse> {
+                        override fun onSuccess(result: TranscribeResponse) {
+                            // 添加识别结果
+                            addMessage(result.text, true, AiMessage.TYPE_TEXT)
+                        }
+
+                        override fun onFailure(error: Throwable) {
+                            addMessage("识别失败，请重试", true)
+                            if (error is HttpException) {
+                                val code = error.code() // HTTP 状态码
+                                val responseBody = error.response()?.errorBody()?.string() // 响应体内容
+                                LogUtils.error("语音识别失败: HTTP $code, 响应: $responseBody")
+                            } else {
+                                LogUtils.error("语音识别失败: ${error.message}, 堆栈: ${error.stackTraceToString()}")
+                            }
+                        }
+                    })
+            } else {
+                ToastUtils.show(this, "录音文件不存在")
+            }
         }
-        currentAudioPath = null // 清空路径
+        // 计算录音时长
+        recordingDuration = ((System.currentTimeMillis() - recordingStartTime) / 1000).toInt()
     }
 
     private fun toggleMediaButtons() {

@@ -1,51 +1,92 @@
 package com.example.jvsglass.utils
 
+import android.Manifest
 import android.content.Context
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import androidx.annotation.RequiresPermission
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class VoiceManager(private val context: Context) {
-    private var mediaRecorder: MediaRecorder? = null
+    private var audioRecord: AudioRecord? = null
+    private var recordingThread: Thread? = null
+    private var isRecording = false
+
+    // 录音参数
+    private val sampleRate = 16000      // 16kHz采样率
+    private val channelConfig = AudioFormat.CHANNEL_IN_MONO // 单声道
+    private val audioFormat = AudioFormat.ENCODING_PCM_16BIT // 16bit位宽
+
     private var mediaPlayer: MediaPlayer? = null
     private var currentAudioPath: String? = null
     private var currentPlayingPath: String? = null
 
     // 录音控制
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startRecording(): String? {
         val timestamp = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(Date())
-        val fileName = "$timestamp.3gp"
-        val outputFile = File(context.externalCacheDir ?: context.cacheDir, fileName)
+        val fileName = "$timestamp.pcm"
+        val outputFile = File(context.getExternalFilesDir(null), fileName) // 使用持久化存储
+
+        // 计算缓冲区大小
+        val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+        if (bufferSize < 0) {
+            LogUtils.error("[VoiceManager] 无效的缓冲区大小")
+            return null
+        }
 
         return try {
-            mediaRecorder = MediaRecorder().apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-                setOutputFile(outputFile.absolutePath)
-                prepare()
-                start()
-            }
+            // 初始化AudioRecord
+            audioRecord = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                sampleRate,
+                channelConfig,
+                audioFormat,
+                bufferSize * 2 // 双倍缓冲区防止溢出
+            )
+
+            audioRecord!!.startRecording()
+            isRecording = true
+
+            // 创建录音线程
+            recordingThread = Thread {
+                val buffer = ByteArray(bufferSize)
+                FileOutputStream(outputFile).use { fos ->
+                    while (isRecording) {
+                        val bytesRead = audioRecord!!.read(buffer, 0, bufferSize)
+                        if (bytesRead > 0) {
+                            fos.write(buffer, 0, bytesRead)
+                        }
+                    }
+                }
+            }.apply { start() }
+
             currentAudioPath = outputFile.absolutePath
-            LogUtils.info("[VoiceManager] 开始录音: $currentAudioPath")
+            LogUtils.info("[VoiceManager] 开始PCM录音: $currentAudioPath")
             currentAudioPath
-        } catch (e: IOException) {
-            LogUtils.error("[VoiceManager] 录音失败: ${e.message}")
+        } catch (e: Exception) {
+            LogUtils.error("[VoiceManager] 录音失败: ${e.stackTraceToString()}")
             null
         }
     }
 
     fun stopRecording() {
-        mediaRecorder?.apply {
+        isRecording = false
+        audioRecord?.apply {
             stop()
             release()
         }
-        mediaRecorder = null
-        LogUtils.info("[VoiceManager] 停止录音")
+        audioRecord = null
+        recordingThread?.join() // 等待线程结束
+        recordingThread = null
+        LogUtils.info("[VoiceManager] PCM录音已停止")
     }
 
     fun isPlaying(filePath: String): Boolean {
@@ -118,9 +159,10 @@ class VoiceManager(private val context: Context) {
 
     // 资源释放
     fun release() {
-        mediaRecorder?.release()
+        stopRecording()
         mediaPlayer?.release()
-        LogUtils.info("[VoiceManager] 资源已释放")
+        mediaPlayer = null
+        LogUtils.info("[VoiceManager] 所有资源已释放")
     }
 
     interface OnPlaybackCompleteListener {
