@@ -46,7 +46,7 @@ class NetworkManager private constructor() {
         fun onFailure(error: Throwable)
     }
 
-    // 语音识别请求
+    // 语音识别
     fun transcribeAudio(
         audioFile: File,
         callback: ModelCallback<TranscribeResponse>
@@ -100,6 +100,50 @@ class NetworkManager private constructor() {
                     }
                 },
                 { callback.onFailure(it) }
+            )
+
+        compositeDisposable.add(disposable)
+    }
+
+    // DouBao大模型聊天
+    fun chatCompletion(
+        messages: List<ChatRequest.Message>,
+        temperature: Double = 0.7,
+        callback: ModelCallback<ChatResponse>
+    ) {
+        // 参数校验
+        require(messages.any { it.role == "user" }) { "至少需要一条用户消息" }
+        require(temperature in 0.0..2.0) { "temperature值需在0.0到2.0之间" }
+
+        val request = ChatRequest(
+            model = "7491227972067377162",
+            messages = messages,
+            temperature = temperature
+        )
+
+        val disposable = apiService.chatCompletion(request = request)
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                { response ->
+                    if (response.isSuccessful) {
+                        val chatResponse = response.body()
+                        if (chatResponse != null) {
+                            LogUtils.info("大模型响应: $chatResponse")
+                            callback.onSuccess(chatResponse)
+                        } else {
+                            callback.onFailure(Exception("空响应体，状态码: ${response.code()}"))
+                        }
+                    } else {
+                        val errorCode = response.code()
+                        val errorBody = response.errorBody()?.string() ?: "无错误详情"
+                        callback.onFailure(Exception("HTTP $errorCode: $errorBody"))
+                    }
+                },
+                { error ->
+                    LogUtils.error("请求失败", error)
+                    callback.onFailure(error)
+                }
             )
 
         compositeDisposable.add(disposable)

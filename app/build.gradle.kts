@@ -29,6 +29,9 @@ android {
 
         val secretKey = localProperties.getProperty("DOUBAO_AI_API_KEY") ?: ""
         buildConfigField("String", "DOUBAO_AI_API_KEY", "\"$secretKey\"")
+
+        val kouziSecretKey = localProperties.getProperty("KOUZI_AI_API_KEY") ?: ""
+        buildConfigField("String", "KOUZI_AI_API_KEY", "\"$kouziSecretKey\"")
     }
 
     buildTypes {

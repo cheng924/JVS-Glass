@@ -5,8 +5,6 @@ import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AnimationUtils
@@ -23,6 +21,8 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
+import com.example.jvsglass.network.ChatRequest
+import com.example.jvsglass.network.ChatResponse
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.SystemFileOpener
 import com.example.jvsglass.utils.ToastUtils
@@ -50,6 +50,8 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private var isVoiceInput = false
     private var startY = 0f
     private var isCanceled = false
+
+    private val chatMessages = mutableListOf<ChatRequest.Message>()
 
     private lateinit var rvMessages: RecyclerView
     private lateinit var rvCardView: RecyclerView
@@ -327,24 +329,24 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         val message = etMessage.text.toString().trim()
         val pendingCards = cardItems.toList()
 
+        if (message.isNotEmpty()) {
+            addMessage(message, true)
+            sendTextToModel(message)
+        }
+
         etMessage.text.clear()
         cardItems.clear()
         cardAdapter.submitList(cardItems.toList())
         rvCardView.visibility = View.GONE
 
-        if (message.isNotEmpty() || pendingCards.isNotEmpty()) {
-            addMessage(
-                message = message,
-                isSent = true,
-                attachments = pendingCards // 传入附件集合
-            )
-            uploadFile(message, pendingCards)
-        }
-
-        // 模拟回复
-        Handler(Looper.getMainLooper()).postDelayed({
-            addMessage("已收到${message.ifEmpty { "信息" }}", false)
-        }, 1000)
+//        if (message.isNotEmpty() || pendingCards.isNotEmpty()) {
+//            addMessage(
+//                message = message,
+//                isSent = true,
+//                attachments = pendingCards // 传入附件集合
+//            )
+//            uploadFile(message, pendingCards)
+//        }
     }
 
     private fun deleteOldCard(deletedPosition: Int) {
@@ -430,38 +432,18 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
     }
 
-//    private fun stopVoiceRecording() {
-//        LogUtils.info("结束录音...")
-//        voiceManager.stopRecording() // 停止录音
-//
-//        val endTime = System.currentTimeMillis()
-//        recordingDuration = Math.round((endTime - recordingStartTime) / 1000.0).toInt()
-//
-//        currentAudioPath?.let { path ->
-//            // 将录音文件添加到消息列表
-//            addMessage("[语音]", true, AiMessage.TYPE_VOICE, recordingDuration, path)
-//            // 模拟自动回复
-//            Handler(Looper.getMainLooper()).postDelayed({
-//                addMessage("已收到语音消息", false)
-//            }, 1000)
-//        }
-//        currentAudioPath = null // 清空路径
-//    }
-
     private fun stopVoiceRecording() {
         voiceManager.stopRecording()
         currentAudioPath?.let { path ->
             val audioFile = File(path)
             if (audioFile.exists()) {
-                // 显示加载状态
                 LogUtils.info("开始语音识别...")
-
                 NetworkManager.getInstance().transcribeAudio(
                     audioFile,
                     object : NetworkManager.ModelCallback<TranscribeResponse> {
                         override fun onSuccess(result: TranscribeResponse) {
-                            // 添加识别结果
                             addMessage(result.text, true, AiMessage.TYPE_TEXT)
+                            sendTextToModel(result.text)
                         }
 
                         override fun onFailure(error: Throwable) {
@@ -481,6 +463,35 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
         // 计算录音时长
         recordingDuration = ((System.currentTimeMillis() - recordingStartTime) / 1000).toInt()
+    }
+
+    private fun sendTextToModel(userMessage: String) {
+        val userMsg = ChatRequest.Message(
+            role = "user",
+            content = userMessage
+        )
+        chatMessages.add(userMsg)
+
+        NetworkManager.getInstance().chatCompletion(
+            messages = chatMessages,
+            temperature = 0.7,
+            object : NetworkManager.ModelCallback<ChatResponse> {
+                override fun onSuccess(result: ChatResponse) {
+                    result.choices.firstOrNull()?.let { choice ->
+                        val aiContent = choice.message.content
+                        chatMessages.add(ChatRequest.Message(
+                            role = choice.message.role,
+                            content = aiContent
+                        ))
+                        addMessage(aiContent, false)
+                    } ?: addMessage("未收到有效回复", false)
+                }
+
+                override fun onFailure(error: Throwable) {
+                    LogUtils.error("请求失败: ${error.message?.substringBefore("\n") ?: "未知错误"}")
+                    addMessage("请求失败，请重试", false)
+                }
+            })
     }
 
     private fun toggleMediaButtons() {

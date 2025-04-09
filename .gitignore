@@ -11,3 +11,5 @@
 *.jks
 .idea/
 .kotlin/errors/
+# OAuth私钥文件
+/private_key.pem
