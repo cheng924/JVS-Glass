@@ -5,6 +5,8 @@ import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AnimationUtils
@@ -29,7 +31,6 @@ import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.TranscribeResponse
-import com.example.jvsglass.network.UploadResult
 import retrofit2.HttpException
 import java.io.File
 
@@ -39,8 +40,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private lateinit var fileOpener: SystemFileOpener
 
     private var currentAudioPath: String? = null // 记录当前录音文件路径
-    private var recordingStartTime: Long = 0L  // 录音开始时间戳（毫秒）
-    private var recordingDuration: Int = 0     // 录音时长（秒）
 
     private var isUiReady = false
     private val messageList = mutableListOf<AiMessage>()
@@ -84,6 +83,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
         setupUI()
         setupCardView()
+        updateButtonVisibility()
 
         rvCardView.viewTreeObserver.addOnPreDrawListener {
             isUiReady = true
@@ -124,6 +124,16 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         findViewById<ImageView>(R.id.ivAiHistory).setOnClickListener {
             ToastUtils.show(this@JVSAIActivity, "历史记录")
         }
+
+        etMessage.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                updateButtonVisibility()
+            }
+        })
     }
 
     @SuppressLint("NotifyDataSetChanged")
@@ -153,7 +163,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 LinearLayoutManager.HORIZONTAL,
                 false
             )
-            adapter = cardAdapter // 使用已赋值的属性
+            adapter = cardAdapter
             setHasFixedSize(true)
         }
     }
@@ -163,24 +173,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         rvMessages.apply {
             layoutManager = LinearLayoutManager(this@JVSAIActivity)
             adapter = messageAdapter
-        }
-
-        messageAdapter.apply {
-            onVoiceItemClickListener = object : AiMessageAdapter.OnVoiceItemClickListener {
-                override fun onVoiceItemClick(filePath: String, position: Int) {
-                    if (voiceManager.isPlaying(filePath)) {
-                        voiceManager.stopPlayback()
-                    } else {
-                        voiceManager.stopPlayback()
-                        voiceManager.playVoiceMessage(filePath)
-                    }
-                    messageAdapter.notifyItemChanged(position)
-                }
-            }
-
-            isPlayingCheck = { filePath ->
-                voiceManager.isPlaying(filePath)
-            }
         }
     }
 
@@ -249,7 +241,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                             LogUtils.info("已删除录音文件: $path")
                         }
                         currentAudioPath = null
-                        recordingDuration = 0
                     } else {
                         stopVoiceRecording()
                     }
@@ -314,39 +305,60 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             addMessage("[打电话]", true)
             hideMediaButtons()
         }
-
-        voiceManager.onPlaybackCompleteListener = object : VoiceManager.OnPlaybackCompleteListener {
-            override fun onPlaybackComplete(filePath: String) {
-                val position = messageList.indexOfFirst {
-                    it.type == AiMessage.TYPE_VOICE && it.path == filePath
-                }
-                if (position != -1) messageAdapter.notifyItemChanged(position)
-            }
-        }
     }
 
-    private fun sendMessage() {
-        val message = etMessage.text.toString().trim()
+    private fun sendMessage(messageText: String? = null) {
+        val message = messageText ?: etMessage.text.toString().trim()
         val pendingCards = cardItems.toList()
 
-        if (message.isNotEmpty()) {
-            addMessage(message, true)
-            sendTextToModel(message)
+        if (message.isEmpty() && pendingCards.isEmpty()) {
+            ToastUtils.show(this, "请输入内容或添加文件")
+            return
+        }
+
+        addMessageWithAttachments(message, pendingCards)
+
+        when {
+            pendingCards.any { it.tag == "IMAGE" } -> {
+                val imageFiles = pendingCards
+                    .filter { it.tag == "IMAGE" }
+                    .map { File(it.fileUri) }
+                sendImageToModel(message, imageFiles)
+            }
+
+            // 处理文件附件请求
+            pendingCards.isNotEmpty() -> {
+//                sendFilesToModel(text, pendingCards)
+            }
+
+            else -> sendTextToModel(message)
         }
 
         etMessage.text.clear()
         cardItems.clear()
         cardAdapter.submitList(cardItems.toList())
         rvCardView.visibility = View.GONE
+        updateButtonVisibility()
+    }
 
-//        if (message.isNotEmpty() || pendingCards.isNotEmpty()) {
-//            addMessage(
-//                message = message,
-//                isSent = true,
-//                attachments = pendingCards // 传入附件集合
-//            )
-//            uploadFile(message, pendingCards)
-//        }
+    private fun addMessageWithAttachments(text: String, attachments: List<CardItem>) {
+        attachments.forEach { card ->
+            when (card.tag) {
+                "IMAGE" -> addMessage(
+                    "[图片]",
+                    true,
+                    AiMessage.TYPE_IMAGE,
+                    path = card.fileUri
+                )
+                else -> addMessage(
+                    "[文件]",
+                    true,
+                    AiMessage.TYPE_FILE,
+                    path = card.fileUri
+                )
+            }
+        }
+        addMessage(text, true)
     }
 
     private fun deleteOldCard(deletedPosition: Int) {
@@ -363,7 +375,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         message: String,
         isSent: Boolean,
         type: Int = AiMessage.TYPE_TEXT,
-        duration: Int = 0,
         path: String = "",
         attachments: List<CardItem> = emptyList()
     ) {
@@ -392,9 +403,11 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             rvMessages.scrollToPosition(messageList.size - 1)
         }
 
-        messageList.add(AiMessage(message, System.currentTimeMillis().toString(), isSent, type, duration, path))
-        messageAdapter.notifyItemInserted(messageList.size - 1)
-        rvMessages.scrollToPosition(messageList.size - 1)
+        if (message.isNotEmpty()) {
+            messageList.add(AiMessage(message, System.currentTimeMillis().toString(), isSent, type, path))
+            messageAdapter.notifyItemInserted(messageList.size - 1)
+            rvMessages.scrollToPosition(messageList.size - 1)
+        }
     }
 
     private fun toggleInputMode(switcher: ViewSwitcher, icon: ImageView) {
@@ -422,10 +435,15 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         inputMethodManager.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT)
     }
 
+    private fun updateButtonVisibility() {
+        val hasContent = cardItems.isNotEmpty() || etMessage.text.toString().isNotEmpty()
+        ivAdd.isVisible = !hasContent
+        ivSend.isVisible = hasContent
+    }
+
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun startVoiceRecording() {
         LogUtils.info("开始录音...")
-        recordingStartTime = System.currentTimeMillis() // 记录开始时间
         currentAudioPath = voiceManager.startRecording()
         if (currentAudioPath == null) {
             LogUtils.error("录音失败")
@@ -442,15 +460,22 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     audioFile,
                     object : NetworkManager.ModelCallback<TranscribeResponse> {
                         override fun onSuccess(result: TranscribeResponse) {
-                            addMessage(result.text, true, AiMessage.TYPE_TEXT)
-                            sendTextToModel(result.text)
+                            val pendingCards = cardItems.toList()
+                            if (pendingCards.isNotEmpty()) {
+                                sendMessage(result.text)
+                                cardItems.clear()
+                                currentAudioPath = null
+                                updateCardList()
+                            } else {
+                                sendMessage(result.text)    // 没有附加文件时走普通文本流程
+                            }
                         }
 
                         override fun onFailure(error: Throwable) {
                             addMessage("识别失败，请重试", true)
                             if (error is HttpException) {
-                                val code = error.code() // HTTP 状态码
-                                val responseBody = error.response()?.errorBody()?.string() // 响应体内容
+                                val code = error.code()
+                                val responseBody = error.response()?.errorBody()?.string()
                                 LogUtils.error("语音识别失败: HTTP $code, 响应: $responseBody")
                             } else {
                                 LogUtils.error("语音识别失败: ${error.message}, 堆栈: ${error.stackTraceToString()}")
@@ -461,8 +486,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 ToastUtils.show(this, "录音文件不存在")
             }
         }
-        // 计算录音时长
-        recordingDuration = ((System.currentTimeMillis() - recordingStartTime) / 1000).toInt()
     }
 
     private fun sendTextToModel(userMessage: String) {
@@ -472,7 +495,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         )
         chatMessages.add(userMsg)
 
-        NetworkManager.getInstance().chatCompletion(
+        NetworkManager.getInstance().chatTextCompletion(
             messages = chatMessages,
             temperature = 0.7,
             object : NetworkManager.ModelCallback<ChatResponse> {
@@ -492,6 +515,30 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     addMessage("请求失败，请重试", false)
                 }
             })
+    }
+
+    private fun sendImageToModel(message: String, imageFiles: List<File>) {
+        NetworkManager.getInstance().uploadImageCompletion(
+            images = imageFiles,
+            question = message.takeIf { it.isNotEmpty() },
+            object : NetworkManager.ModelCallback<ChatResponse> {
+                override fun onSuccess(result: ChatResponse) {
+                    result.choices.firstOrNull()?.let { choice ->
+                        val aiContent = choice.message.content
+                        chatMessages.add(ChatRequest.Message(
+                            role = choice.message.role,
+                            content = aiContent
+                        ))
+                        addMessage(aiContent, false)
+                    } ?: addMessage("未收到有效回复", false)
+                }
+
+                override fun onFailure(error: Throwable) {
+                    LogUtils.error("图片处理失败", error)
+                    addMessage("图片解析失败，请重试", false)
+                }
+            }
+        )
     }
 
     private fun toggleMediaButtons() {
@@ -584,55 +631,8 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     rvCardView.smoothScrollToPosition(cardAdapter.itemCount - 1)
                 }
             }
+            updateButtonVisibility()
         }
-    }
-
-    private fun uploadFile(message: String, attachments: List<CardItem> = emptyList()) {
-        if (message.isEmpty() && attachments.isEmpty()) {
-            LogUtils.warn("消息和附件不能同时为空")
-            return
-        }
-
-        if (attachments.size == 1) {
-            val filePath = attachments[0].fileUri
-            uploadSingleFile(message, filePath)
-        } else {
-            val filePath = attachments.map { it.fileUri }.filter { it.isNotBlank() }
-            uploadMultipleFiles(message, filePath)
-        }
-    }
-
-    private fun uploadSingleFile(message: String, filePath: String) {
-        LogUtils.info("文件路径：$filePath (长度：${filePath.length})")
-        val file = File(filePath)
-        LogUtils.info("文件绝对路径：${file.absolutePath} (长度：${file.absolutePath.length})")
-        if (!file.exists()) {
-            LogUtils.error("文件不存在: ${file.absolutePath}")
-            return
-        }
-        LogUtils.info("文件路径：$filePath")
-
-        NetworkManager.getInstance().uploadSingleFile(
-            file = file,
-            description = message,
-            callback = object : NetworkManager.UploadCallback {
-                override fun onProgress(percent: Float) {
-//                    LogUtils.info("--- ${percent * 100} ---")
-                }
-
-                override fun onSuccess(result: UploadResult) {
-                    LogUtils.info("上传成功")
-                }
-
-                override fun onFailure(error: Throwable) {
-                    LogUtils.error("上传失败: ${error.message}")
-                }
-            }
-        )
-    }
-
-    private fun uploadMultipleFiles(message: String, fileUrl: List<String>) {
-
     }
 
     override fun onError(errorMessage: String) {

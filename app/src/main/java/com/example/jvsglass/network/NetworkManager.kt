@@ -1,17 +1,19 @@
 package com.example.jvsglass.network
 
+import android.util.Base64
 import com.example.jvsglass.utils.LogUtils
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.Response
 import java.io.File
+import java.net.URLConnection
 
 class NetworkManager private constructor() {
 
@@ -33,13 +35,6 @@ class NetworkManager private constructor() {
 
     // 统一管理Disposable
     private val compositeDisposable = CompositeDisposable()
-
-    // 回调接口
-    interface UploadCallback {
-        fun onSuccess(result: UploadResult)
-        fun onFailure(error: Throwable)
-        fun onProgress(percent: Float) // 进度范围: 0.0f ~ 1.0f
-    }
 
     interface ModelCallback<T> {
         fun onSuccess(result: T)
@@ -63,7 +58,7 @@ class NetworkManager private constructor() {
         val requestFile = audioFile.asRequestBody(detectMimeType(audioFile).toMediaTypeOrNull())
         val filePart = MultipartBody.Part.createFormData("file", audioFile.name, requestFile)
 
-        // 创建参数（修复后的timestamp参数）
+        // 创建参数
         val model = "bigmodel".toRequestBody("text/plain".toMediaTypeOrNull())
         val responseFormat = "verbose_json".toRequestBody("text/plain".toMediaTypeOrNull())
         val timestampGranularities = listOf(
@@ -105,8 +100,8 @@ class NetworkManager private constructor() {
         compositeDisposable.add(disposable)
     }
 
-    // DouBao大模型聊天
-    fun chatCompletion(
+    // DouBao文字聊天
+    fun chatTextCompletion(
         messages: List<ChatRequest.Message>,
         temperature: Double = 0.7,
         callback: ModelCallback<ChatResponse>
@@ -121,7 +116,7 @@ class NetworkManager private constructor() {
             temperature = temperature
         )
 
-        val disposable = apiService.chatCompletion(request = request)
+        val disposable = apiService.chatTextCompletion(request = request)
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(
@@ -149,42 +144,67 @@ class NetworkManager private constructor() {
         compositeDisposable.add(disposable)
     }
 
-    // 单文件上传
-    fun uploadSingleFile(
-        file: File,
-        description: String,
-        callback: UploadCallback
+    // DouBao图片识别
+    fun uploadImageCompletion(
+        images: List<File>,
+        question: String?,
+        callback: ModelCallback<ChatResponse>
     ) {
-        val filePart = createFilePart(file, callback)
-        val descBody = createTextBody(description)
+        require(images.size in 1..9) { "图片数量需在1到9张之间" }
 
-        val disposable = apiService.uploadSingleFile(filePart, descBody)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(
-                { callback.onSuccess(it) },
-                { callback.onFailure(it) }
+        Observable.fromCallable {
+            val contentItems = mutableListOf<ImageRequest.ContentItem>().apply {
+                question?.takeIf { it.isNotEmpty() }?.let {
+                    add(ImageRequest.ContentItem.createTextContent(it))
+                }
+
+                images.forEach { file ->
+                    val mimeType = when (file.extension.lowercase()) {
+                        "jpg", "jpeg" -> "image/jpeg"
+                        "png" -> "image/png"
+                        else -> "application/octet-stream"
+                    }
+                    val base64 = Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
+                    add(ImageRequest.ContentItem.createImageContent(base64, mimeType))
+                }
+            }
+
+            ImageRequest(
+                model = "doubao-1.5-vision-pro-32k",
+//                model = "7491501936588439591",
+                messages = listOf(ImageRequest.Message(role = "user", content = contentItems)),
+                maxTokens = 300,
             )
-
-        compositeDisposable.add(disposable)
-    }
-
-    // 创建文本RequestBody
-    private fun createTextBody(text: String): RequestBody {
-        return text.toRequestBody("text/plain".toMediaType())
-    }
-
-    // 创建文件Part（含进度监听）
-    private fun createFilePart(file: File, callback: UploadCallback): MultipartBody.Part {
-        val mimeType = detectMimeType(file)
-        val requestBody = ProgressRequestBody(file, mimeType) { percent ->
-            Observable.just(percent)
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe { callback.onProgress(it) }
-                .also { compositeDisposable.add(it) }
         }
-
-        return MultipartBody.Part.createFormData("file", file.name, requestBody)
+        .subscribeOn(Schedulers.io())
+        .flatMap { request: ImageRequest ->
+            apiService.uploadImageCompletion(request)
+                .toObservable()
+                .onErrorResumeNext { throwable: Throwable ->
+                    Observable.error(throwable)
+                }
+        }
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe(
+            { response: Response<ChatResponse> ->
+                when {
+                    response.isSuccessful && response.body() != null ->
+                        callback.onSuccess(response.body()!!)
+                    response.isSuccessful ->
+                        callback.onFailure(Exception("Empty response body"))
+                    else -> {
+                        val errorBody = response.errorBody()?.string()?.take(200) ?: "Unknown error"
+                        callback.onFailure(Exception("HTTP $response.code(): $errorBody"))
+                    }
+                }
+            },
+            { error: Throwable ->
+                LogUtils.error("Upload failed", error)
+                callback.onFailure(error)
+            }
+        ).also { disposable: Disposable ->
+            compositeDisposable.add(disposable)
+        }
     }
 
     // 识别MIME类型
@@ -199,7 +219,7 @@ class NetworkManager private constructor() {
             "3gp" -> "audio/3gpp"
             "wav" -> "audio/wav"
             "ogg" -> "audio/ogg"
-            else -> "application/octet-stream"
+            else -> URLConnection.guessContentTypeFromName(file.name) ?: "application/octet-stream"
         }
     }
 

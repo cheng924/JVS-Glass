@@ -35,7 +35,6 @@ fun AiMessageEntity.toAiMessage() = AiMessage(
     timestamp = this.timestamp,
     isSent = this.isSent,
     type = this.type,
-    duration = this.duration,
     path = this.path
 )
 
@@ -44,6 +43,5 @@ fun AiMessage.fromAiMessage() = AiMessageEntity(
     timestamp = this.timestamp,
     isSent = this.isSent,
     type = this.type,
-    duration = this.duration,
     path = this.path
 )

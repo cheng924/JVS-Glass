@@ -25,17 +25,9 @@ import java.util.Locale
 class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
     RecyclerView.Adapter<AiMessageAdapter.ViewHolder>() {
 
-    var onVoiceItemClickListener: OnVoiceItemClickListener? = null
-    var isPlayingCheck: (String) -> Boolean = { false }
-
-    interface OnVoiceItemClickListener {
-        fun onVoiceItemClick(filePath: String, position: Int)
-    }
-
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val llMessageLayout: LinearLayout = view.findViewById(R.id.llMessageLayout)
         val messageText: TextView = view.findViewById(R.id.tvMessage)
-        val ivVoiceIcon: ImageView = view.findViewById(R.id.ivVoiceIcon)
         val ivImage: ImageView = view.findViewById(R.id.ivImage)
         val llFile: LinearLayout = view.findViewById(R.id.llFile)
         val tvFileName: TextView = view.findViewById(R.id.tvFileName)
@@ -59,14 +51,13 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
 
         when (message.type) {
             AiMessage.TYPE_TEXT -> handleTextMessage(holder, message, params)
-            AiMessage.TYPE_VOICE -> handleVoiceMessage(holder, message, params)
             AiMessage.TYPE_IMAGE -> handleImageMessage(holder, message, params)
             AiMessage.TYPE_FILE -> handleFileMessage(holder, message, params)
         }
 
         holder.llMessageLayout.layoutParams = params
 
-        setupCommonClickListeners(holder, message, position)
+        setupCommonClickListeners(holder, message)
     }
 
     override fun getItemCount() = messages.size
@@ -78,7 +69,6 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
     private fun handleTextMessage(holder: ViewHolder, message: AiMessage, params: ViewGroup.MarginLayoutParams) {
         // 控件可见性设置
         holder.messageText.visibility = View.VISIBLE
-        holder.ivVoiceIcon.visibility = View.GONE
         holder.ivImage.visibility = View.GONE
         holder.llFile.visibility = View.GONE
 
@@ -91,34 +81,9 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
         holder.messageText.maxWidth = maxWidth
     }
 
-    private fun handleVoiceMessage(holder: ViewHolder, message: AiMessage, params: ViewGroup.MarginLayoutParams) {
-        // 控件可见性设置
-        holder.messageText.visibility = View.GONE
-        holder.ivVoiceIcon.visibility = View.VISIBLE
-        holder.ivImage.visibility = View.GONE
-        holder.llFile.visibility = View.GONE
-
-        // 布局样式配置
-        setupMessageLayoutAppearance(holder, message, params)
-
-        // 动态语音条宽度设置
-        val voiceDuration = message.duration // 单位：秒
-        val voiceParams = holder.ivVoiceIcon.layoutParams
-        voiceParams.width = when {
-            voiceDuration >= 60 -> dpToPx(300f, holder.itemView.context)
-            voiceDuration <= 30 -> dpToPx(150f, holder.itemView.context)
-            else -> {
-                val scale = (voiceDuration - 30) / 30f
-                dpToPx(150 + (150 * scale), holder.itemView.context)
-            }
-        }
-        holder.ivVoiceIcon.layoutParams = voiceParams
-    }
-
     private fun handleImageMessage(holder: ViewHolder, message: AiMessage, params: ViewGroup.MarginLayoutParams) {
         // 控件可见性设置
         holder.messageText.visibility = View.GONE
-        holder.ivVoiceIcon.visibility = View.GONE
         holder.ivImage.visibility = View.VISIBLE
         holder.llFile.visibility = View.GONE
 
@@ -137,7 +102,6 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
         params: ViewGroup.MarginLayoutParams
     ) {
         holder.messageText.visibility = View.GONE
-        holder.ivVoiceIcon.visibility = View.GONE
         holder.ivImage.visibility = View.GONE
         holder.llFile.visibility = View.VISIBLE
 
@@ -168,12 +132,7 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
             if (isSent) Gravity.END else Gravity.START
     }
 
-    private fun setupCommonClickListeners(holder: ViewHolder, message: AiMessage, position: Int) {
-        // 语音点击事件
-        holder.ivVoiceIcon.setOnClickListener {
-            onVoiceItemClickListener?.onVoiceItemClick(message.path, position)
-        }
-
+    private fun setupCommonClickListeners(holder: ViewHolder, message: AiMessage) {
         // 图片点击事件
         holder.ivImage.setOnClickListener {
             Intent(holder.itemView.context, FullScreenImageActivity::class.java).apply {
@@ -221,7 +180,7 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
     }
 
     private fun getMimeType(file: File): String {
-        return when (file.extension.toLowerCase(Locale.ROOT)) {
+        return when (file.extension.lowercase(Locale.ROOT)) {
             "pdf" -> "application/pdf"
             "txt" -> "text/plain"
             "doc" -> "application/msword"
