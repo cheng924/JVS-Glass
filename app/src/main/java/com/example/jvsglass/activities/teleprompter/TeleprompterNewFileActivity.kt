@@ -3,6 +3,7 @@ package com.example.jvsglass.activities.teleprompter
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -33,8 +34,12 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
         }
 
         findViewById<TextView>(R.id.tv_save_file).setOnClickListener {
-            ToastUtils.show(this, "保存文本")
-            saveToDatabase()
+            if (findViewById<EditText>(R.id.et_content).text.toString().trim().isNotEmpty()) {
+                ToastUtils.show(this, "保存文本")
+                saveToDatabase()
+            } else {
+                ToastUtils.show(this, "内容不能为空")
+            }
         }
     }
 

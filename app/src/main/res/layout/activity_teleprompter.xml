@@ -162,7 +162,7 @@
         android:layout_width="match_parent"
         android:layout_height="45dp"
         android:layout_marginHorizontal="20dp"
-        android:layout_marginBottom="40dp"
+        android:layout_marginBottom="65dp"
         android:orientation="horizontal"
         android:visibility="visible">
 
@@ -177,10 +177,10 @@
             android:background="@drawable/rounded_button">
 
             <ImageView
-                android:layout_width="25dp"
-                android:layout_height="25dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:layout_marginEnd="13dp"
-                android:src="@drawable/ic_stub"/>
+                android:src="@drawable/ic_add_file"/>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -202,10 +202,10 @@
             android:background="@drawable/rounded_button" >
 
             <ImageView
-                android:layout_width="25dp"
-                android:layout_height="25dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:layout_marginEnd="13dp"
-                android:src="@drawable/ic_stub"/>
+                android:src="@drawable/ic_import_in"/>
 
             <TextView
                 android:layout_width="wrap_content"

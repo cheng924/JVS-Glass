@@ -41,7 +41,7 @@ class MainActivity : AppCompatActivity() {
             FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompter), TeleprompterActivity::class.java),
             FunctionItem(R.drawable.ic_ai, getString(R.string.ai_beta), JVSAIActivity::class.java),
             FunctionItem(R.drawable.ic_transcribe, getString(R.string.transcribe), TranscribeActivity::class.java),
-            FunctionItem(R.drawable.ic_stub, getString(R.string.dashboard), DashboardActivity::class.java),
+            FunctionItem(R.drawable.ic_dash_board, getString(R.string.dashboard), DashboardActivity::class.java),
         )
 
         val recyclerView: RecyclerView = findViewById(R.id.rv_functions)
