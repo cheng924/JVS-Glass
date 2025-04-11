@@ -39,6 +39,7 @@ import com.example.jvsglass.network.TranscribeResponse
 import retrofit2.HttpException
 import java.io.File
 import androidx.core.graphics.drawable.toDrawable
+import com.example.jvsglass.network.TOSManager
 
 class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
@@ -329,7 +330,8 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 val imageFiles = pendingCards
                     .filter { it.tag == "IMAGE" }
                     .map { File(it.fileUri) }
-                sendImageToModel(message, imageFiles)
+//                sendImageToModel(message, imageFiles)
+                sendImageToCozeModel(message, imageFiles)
             }
 
             // 处理文件附件请求
@@ -531,6 +533,57 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 }
             }
         )
+    }
+
+    private fun sendImageToCozeModel(message: String, imageFiles: List<File>) {
+        val processingMessage = addMessage("识图中...", false)
+        val imageUrls = mutableListOf<String>()
+        val lock = Any()
+        var completedCount = 0
+
+        imageFiles.forEach { file ->
+            TOSManager.getInstance().uploadImageFile(
+                objectKey = file.name,
+                filePath = file.absolutePath
+            ) { url ->
+                synchronized(lock) {
+                    // 线程安全地更新状态
+                    url?.let { imageUrls.add(it) }
+                    completedCount++
+
+                    // 当所有文件处理完成时触发（无论成功失败）
+                    if (completedCount == imageFiles.size) {
+                        // 如果没有成功上传任何文件则报错
+                        if (imageUrls.isEmpty()) {
+                            updateMessage(processingMessage.id, "图片上传失败，请重试")
+                            return@synchronized
+                        }
+
+                        NetworkManager.getInstance().uploadImageCozeCompletion(
+                            images = imageUrls,
+                            question = message.takeIf { it.isNotEmpty() },
+                            object : NetworkManager.ModelCallback<ChatResponse> {
+                                override fun onSuccess(result: ChatResponse) {
+                                    result.choices.firstOrNull()?.let { choice ->
+                                        val aiContent = choice.message.content
+                                        chatMessages.add(ChatRequest.Message(
+                                            role = choice.message.role,
+                                            content = aiContent
+                                        ))
+                                        updateMessage(processingMessage.id, aiContent)
+                                    } ?: addMessage("未收到有效回复", false)
+                                }
+
+                                override fun onFailure(error: Throwable) {
+                                    updateMessage(processingMessage.id, "图片解析失败，请重试")
+                                    LogUtils.error("图片处理失败", error)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private fun updateMessage(messageId: String, newContent: String) {

@@ -32,6 +32,11 @@ android {
 
         val kouziSecretKey = localProperties.getProperty("KOUZI_AI_API_KEY") ?: ""
         buildConfigField("String", "KOUZI_AI_API_KEY", "\"$kouziSecretKey\"")
+
+        val tosAk = localProperties.getProperty("TOS_ACCESS_KEY") ?: ""
+        buildConfigField("String", "TOS_ACCESS_KEY", "\"$tosAk\"")
+        val tosSk = localProperties.getProperty("TOS_SECRET_KEY") ?: ""
+        buildConfigField("String", "TOS_SECRET_KEY", "\"$tosSk\"")
     }
 
     buildTypes {
@@ -44,6 +49,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -101,4 +107,7 @@ dependencies {
 
     implementation(libs.rxjava.core)
     implementation(libs.rxandroid)
+
+    implementation(libs.tos.android.sdk)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 }

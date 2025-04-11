@@ -31,11 +31,19 @@ interface ApiService {
         @Header("Authorization") auth: String = "Bearer ${BuildConfig.KOUZI_AI_API_KEY}"
     ): Observable<Response<ChatResponse>>
 
+    // 豆包预置 doubao-1.5-vision-pro-32k
     @POST("v1/chat/completions")
     @Headers("Content-Type: application/json")
     fun uploadImageCompletion(
         @Body request: ImageRequest,
         @Header("Authorization") auth: String = "Bearer ${BuildConfig.DOUBAO_AI_API_KEY}"
-//        @Header("Authorization") auth: String = "Bearer ${BuildConfig.KOUZI_AI_API_KEY}"
+    ): Single<Response<ChatResponse>>
+
+    // Coze工作流 doubao-1.5-vision-pro-32k
+    @POST("v1/chat/completions")
+    @Headers("Content-Type: application/json")
+    fun uploadImageCozeCompletion(
+        @Body request: ImageCozeRequest,
+        @Header("Authorization") auth: String = "Bearer ${BuildConfig.KOUZI_AI_API_KEY}"
     ): Single<Response<ChatResponse>>
 }

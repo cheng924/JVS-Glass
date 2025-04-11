@@ -171,14 +171,69 @@ class NetworkManager private constructor() {
 
             ImageRequest(
                 model = "doubao-1.5-vision-pro-32k",
-//                model = "7491501936588439591",
                 messages = listOf(ImageRequest.Message(role = "user", content = contentItems)),
                 maxTokens = 300,
             )
         }
+            .subscribeOn(Schedulers.io())
+            .flatMap { request: ImageRequest ->
+                apiService.uploadImageCompletion(request)
+                    .toObservable()
+                    .onErrorResumeNext { throwable: Throwable ->
+                        Observable.error(throwable)
+                    }
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                { response: Response<ChatResponse> ->
+                    when {
+                        response.isSuccessful && response.body() != null ->
+                            callback.onSuccess(response.body()!!)
+                        response.isSuccessful ->
+                            callback.onFailure(Exception("Empty response body"))
+                        else -> {
+                            val errorBody = response.errorBody()?.string()?.take(200) ?: "Unknown error"
+                            callback.onFailure(Exception("HTTP $response.code(): $errorBody"))
+                        }
+                    }
+                },
+                { error: Throwable ->
+                    LogUtils.error("Upload failed", error)
+                    callback.onFailure(error)
+                }
+            ).also { disposable: Disposable ->
+                compositeDisposable.add(disposable)
+            }
+    }
+
+    // Coze-DouBao图片识别
+    fun uploadImageCozeCompletion(
+        images: List<String>,
+        question: String?,
+        callback: ModelCallback<ChatResponse>
+    ) {
+        require(images.size in 1..9) { "图片数量需在1到9张之间" }
+
+        Observable.fromCallable {
+            val contentItems = mutableListOf<ImageCozeRequest.ContentItem>().apply {
+                question?.takeIf { it.isNotEmpty() }?.let {
+                    add(ImageCozeRequest.ContentItem.createTextContent(it))
+                }
+
+                images.forEach { url ->
+                    add(ImageCozeRequest.ContentItem.createImageContent(url))
+                }
+            }
+
+            ImageCozeRequest(
+                model = "7491501936588439591",
+                messages = listOf(ImageCozeRequest.Message(role = "user", content = contentItems)),
+                maxTokens = 300,
+            )
+        }
         .subscribeOn(Schedulers.io())
-        .flatMap { request: ImageRequest ->
-            apiService.uploadImageCompletion(request)
+        .flatMap { request: ImageCozeRequest ->
+            apiService.uploadImageCozeCompletion(request)
                 .toObservable()
                 .onErrorResumeNext { throwable: Throwable ->
                     Observable.error(throwable)

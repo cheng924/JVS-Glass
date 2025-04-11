@@ -25,6 +25,8 @@ okhttp = "4.9.3"
 rxjava = "2.2.21"
 rxandroid = "2.1.1"
 runtime = "1.0.0-alpha03"
+tos-android = "2.6.0"       # TOS SDK 版本
+desugar-jdk = "1.1.5"       # 脱糖库版本
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -69,6 +71,10 @@ okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-i
 rxjava-core = { group = "io.reactivex.rxjava2", name = "rxjava", version.ref = "rxjava" }
 rxandroid = { group = "io.reactivex.rxjava2", name = "rxandroid", version.ref = "rxandroid" }
 androidx-runtime = { group = "androidx.xr.runtime", name = "runtime", version.ref = "runtime" }
+# TOS Android SDK 依赖
+tos-android-sdk = { group = "com.volcengine", name = "ve-tos-android-sdk", version.ref = "tos-android" }
+# 脱糖库依赖
+desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar-jdk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
