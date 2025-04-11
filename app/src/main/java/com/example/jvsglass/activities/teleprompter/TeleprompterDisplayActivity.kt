@@ -140,7 +140,6 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         vibrator.vibrate(effect)
 
         tvContent.text = displayBlock
-        LogUtils.info("发送的内容：${sendBlock}")
         sendMessage(sendBlock)
     }
 

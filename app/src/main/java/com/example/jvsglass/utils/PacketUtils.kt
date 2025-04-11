@@ -1,54 +1,85 @@
 package com.example.jvsglass.utils
 
-import kotlin.math.ceil
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 object PacketUtils {
-    private const val HEADER_AA = 0xAA.toByte()
-    private const val HEADER_55 = 0x55.toByte()
-    private const val HEADER_SIZE = 5   // 5字节头部长度
-    private const val ATT_HEADER_LENGTH = 3  // 3字节ATT协议头长度
-    private const val SAFETY_MARGIN = 2  // 2字节安全余量
+    /**********
+     * 新协议结构：
+     * [0] BLE头 0x01
+     * [1] 指令 0x04
+     * [2] TLV头 0x80
+     * [3-4] TLV数据长度（小端）
+     * [5+] 嵌套的文本TLV块：
+     *      [0] 文本头 0x01
+     *      [1-2] 文本长度（小端）
+     *      [3+] 实际UTF-8文本数据
+     **********/
 
-    // 统一分包方法
-    fun createPackets(message: String, currentMtu: Int): List<ByteArray> {
-        val messageBytes = message.toByteArray(Charsets.UTF_8)
-        val packetSize = currentMtu - HEADER_SIZE - ATT_HEADER_LENGTH - SAFETY_MARGIN
-        val totalPackets = ceil(messageBytes.size.toDouble() / packetSize).toInt()
+    // ================== 协议常量 ==================
+    private const val BLE_HEADER = 0x01.toByte()
+    private const val BLE_COMMAND = 0x04.toByte()
+    private const val TLV_HEADER = 0x80.toByte()
+    private const val TEXT_HEADER = 0x01.toByte()
 
-        return (0 until totalPackets).map { i ->
-            val start = i * packetSize
-            val end = minOf(start + packetSize, messageBytes.size)
-            val payloadSize = end - start
-
-            ByteArray(HEADER_SIZE + payloadSize).apply { // 增加1字节存储payload长度
-                this[0] = HEADER_AA
-                this[1] = HEADER_55
-                this[2] = totalPackets.toByte()
-                this[3] = i.toByte()
-                this[4] = payloadSize.toByte()
-                System.arraycopy(messageBytes, start, this, HEADER_SIZE, payloadSize)
-            }
-        }
+    // ================== 创建数据包 ==================
+    fun createPacket(message: String): ByteArray {
+        val textData = message.toByteArray(Charsets.UTF_8)
+        val textBlock = buildTextBlock(textData)
+        return assemblePacket(textBlock)
     }
 
-    // 统一组包方法
-    fun processPacket(packet: ByteArray): ProcessResult {
-        return if (packet.size >= HEADER_SIZE &&
-            packet[0] == HEADER_AA &&
-            packet[1] == HEADER_55) {
-            val total = packet[2].toInt() and 0xFF
-            val index = packet[3].toInt() and 0xFF
-            val payloadSize = packet[4].toInt() and 0xFF // 读取实际长度
-            val payload = packet.copyOfRange(HEADER_SIZE, packet.size)
-            LogUtils.debug("[BLE Server] 收到分包：$index/$total (${payload.size}字节)")
-            ProcessResult.Partial(total, index, payloadSize, payload)
-        } else {
-            ProcessResult.Complete(String(packet, Charsets.UTF_8))
-        }
+    // ============== 私有构建方法 ==============
+    private fun buildTextBlock(textData: ByteArray): ByteArray {
+        val buffer = ByteBuffer.allocate(3 + textData.size).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put(TEXT_HEADER)
+        buffer.putShort(textData.size.toShort())
+        buffer.put(textData)
+        return buffer.array()
     }
 
-    sealed class ProcessResult {
-        class Partial(val total: Int, val index: Int, val payloadSize: Int, val payload: ByteArray) : ProcessResult()
-        class Complete(val message: String) : ProcessResult()
+    private fun assemblePacket(textBlock: ByteArray): ByteArray {
+        val tlvDataLength = textBlock.size
+        val buffer = ByteBuffer.allocate(5 + tlvDataLength).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put(BLE_HEADER)
+        buffer.put(BLE_COMMAND)
+        buffer.put(TLV_HEADER)
+        buffer.putShort(tlvDataLength.toShort())
+        buffer.put(textBlock)
+        return buffer.array()
+    }
+
+    // ================== 解析数据包 ==================
+    fun processPacket(packet: ByteArray): String {
+        // 验证基础协议头
+        if (packet.size < 5 ||
+            packet[0] != BLE_HEADER ||
+            packet[1] != BLE_COMMAND ||
+            packet[2] != TLV_HEADER) {
+            throw IllegalArgumentException("[协议错误] 无效包头")
+        }
+
+        // 解析TLV数据长度（小端）
+        val tlvDataLength = ByteBuffer.wrap(packet, 3, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt()
+
+        // 验证数据完整性
+        if (packet.size < 5 + tlvDataLength) {
+            throw IllegalArgumentException("[数据错误] TLV数据不完整")
+        }
+
+        // 提取TLV数据部分
+        val tlvData = packet.copyOfRange(5, 5 + tlvDataLength)
+
+        // 验证文本块
+        if (tlvData.isEmpty() || tlvData[0] != TEXT_HEADER) {
+            throw IllegalArgumentException("[协议错误] 无效文本块")
+        }
+
+        // 解析文本长度
+        val textLength = ByteBuffer.wrap(tlvData, 1, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt()
+
+        // 提取最终文本数据
+        val textData = tlvData.copyOfRange(3, 3 + textLength)
+        return String(textData, Charsets.UTF_8)
     }
 }

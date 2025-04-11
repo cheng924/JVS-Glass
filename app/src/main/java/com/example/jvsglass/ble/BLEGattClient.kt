@@ -13,8 +13,6 @@ import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.PacketUtils
 import com.example.jvsglass.utils.toHexString
 import java.lang.ref.WeakReference
-import java.nio.charset.StandardCharsets
-import java.util.concurrent.ConcurrentLinkedQueue
 
 class BLEGattClient private constructor(context: Context) {
     companion object {
@@ -34,14 +32,9 @@ class BLEGattClient private constructor(context: Context) {
     private var isDisconnecting = false // 断联状态标记
     private var connectionState = BluetoothProfile.STATE_DISCONNECTED // 连接状态跟踪
     private var retryCount = 0  // 重试计数
-
-    private val sendQueue = ConcurrentLinkedQueue<ByteArray>()
+    private var lastSentMessage: String? = null
     private var isSending = false
     var isConnecting = false
-
-    private val receivedPackets = mutableMapOf<Int, ByteArray>()
-    private var expectedTotalPackets = -1
-    private var currentReceivedCount = 0
 
     // 消息回调接口
     interface MessageListener {
@@ -110,10 +103,6 @@ class BLEGattClient private constructor(context: Context) {
             LogUtils.debug("[BLE] 启用通知结果：$enableNotify")
 
             val descriptor = characteristic.getDescriptor(BLEConstants.DESCRIPTOR_UUID)
-//            if (descriptor == null) {
-//                LogUtils.error("[BLE] 未找到描述符 UUID=${BLEConstants.DESCRIPTOR_UUID}")
-//                return
-//            }
 
             // 写入描述符值
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
@@ -134,57 +123,10 @@ class BLEGattClient private constructor(context: Context) {
         ) {
             Handler(Looper.getMainLooper()).post {
                 try {
-                    when (val result = PacketUtils.processPacket(value)) {
-                        is PacketUtils.ProcessResult.Partial -> {
-                            handlePartialPacket(result)
-                        }
-                        is PacketUtils.ProcessResult.Complete -> {
-                            messageListener?.onMessageReceived(result.message)
-                        }
-                    }
+                    val message = PacketUtils.processPacket(value)
+                    messageListener?.onMessageReceived(message)
                 } catch (e: Exception) {
                     LogUtils.error("[BLE] 消息解析异常，数据：${value.toHexString()}", e)
-                }
-            }
-        }
-
-        // 分包处理数据
-        private fun handlePartialPacket(result: PacketUtils.ProcessResult.Partial) {
-            synchronized(receivedPackets) {
-                // 初始化或重置
-                if (expectedTotalPackets != result.total) {
-                    receivedPackets.clear()
-                    expectedTotalPackets = result.total
-                    currentReceivedCount = 0
-                }
-
-                // 存储当前包
-                if (!receivedPackets.containsKey(result.index)) {
-                    receivedPackets[result.index] = result.payload
-                    currentReceivedCount++
-                }
-
-                // 检查是否收集完成
-                if (currentReceivedCount == expectedTotalPackets) {
-                    // 组合数据
-                    val fullData = ByteArray(receivedPackets.values.sumOf { it.size })
-                    var offset = 0
-                    for (i in 0 until expectedTotalPackets) {
-                        val part = receivedPackets[i] ?: break
-                        System.arraycopy(part, 0, fullData, offset, part.size)
-                        offset += part.size
-                    }
-
-                    // 处理完整数据
-                    val message = String(fullData, StandardCharsets.UTF_8)
-                    LogUtils.info("[BLE] 收到完整消息：$message")
-
-                    messageListener?.onMessageReceived(message)
-
-                    // 重置状态
-                    receivedPackets.clear()
-                    expectedTotalPackets = -1
-                    currentReceivedCount = 0
                 }
             }
         }
@@ -213,8 +155,14 @@ class BLEGattClient private constructor(context: Context) {
             characteristic: BluetoothGattCharacteristic,
             status: Int
         ) {
+            LogUtils.debug("[BLE] onCharacteristicWrite 状态码：$status")
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                processNextPacket() // 继续发送下一个包
+                LogUtils.debug("[BLE] 数据包已成功发送")
+                isSending = false
+                lastSentMessage?.let { msg ->
+                    messageListener?.onMessageSent(msg)
+                    lastSentMessage = null
+                }
             } else {
                 LogUtils.error("[BLE] 数据包发送失败，状态码：$status")
                 isSending = false
@@ -296,7 +244,6 @@ class BLEGattClient private constructor(context: Context) {
                     bluetoothGatt?.close()
                     bluetoothGatt = null
                     isDisconnecting = false
-                    sendQueue.clear() // 清空发送队列
                     isSending = false // 重置发送状态
                     isConnecting = false
                     connectionState = BluetoothProfile.STATE_DISCONNECTED
@@ -315,36 +262,24 @@ class BLEGattClient private constructor(context: Context) {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun sendMessage(message: String) {
-        // 在分包前立即触发完整消息的回调
-        messageListener?.onMessageSent(message)
+        lastSentMessage = message
 
-        val packets = PacketUtils.createPackets(message, CURRENT_MTU)
-        sendQueue.addAll(packets)
-
-        if (!isSending) {
-            processNextPacket()
-        }
+        val packet = PacketUtils.createPacket(message)
+        LogUtils.info("[BLE] 发送消息 $message")
+        sendPacket(packet)
     }
 
     // 分包发送逻辑
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    private fun processNextPacket() {
+    private fun sendPacket(packet: ByteArray) {
         val context = contextRef.get() ?: run {
             LogUtils.error("[BLE] 上下文已释放")
-            sendQueue.clear()
-            isSending = false
-            return
-        }
-
-        if (sendQueue.isEmpty()) {
-            LogUtils.debug("[BLE] 发送队列已清空")
             isSending = false
             return
         }
 
         val gatt = bluetoothGatt ?: run {
             LogUtils.error("[BLE] GATT连接不可用")
-            sendQueue.clear()
             isSending = false
             return
         }
@@ -352,7 +287,6 @@ class BLEGattClient private constructor(context: Context) {
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val device = connectedDevice ?: run {
             LogUtils.error("[BLE] 设备引用丢失")
-            sendQueue.clear()
             isSending = false
             return
         }
@@ -363,13 +297,11 @@ class BLEGattClient private constructor(context: Context) {
             }
             BluetoothProfile.STATE_DISCONNECTED -> {
                 LogUtils.error("[BLE] 设备已断开连接")
-                sendQueue.clear()
                 isSending = false
                 return
             }
             else -> {
                 LogUtils.error("[BLE] 设备连接状态异常")
-                sendQueue.clear()
                 isSending = false
                 return
             }
@@ -377,13 +309,13 @@ class BLEGattClient private constructor(context: Context) {
 
         val service = gatt.getService(BLEConstants.SERVICE_UUID) ?: run {
             LogUtils.error("[BLE] 服务不可用")
-            sendQueue.clear()
+            isSending = false
             return
         }
 
         val characteristic = service.getCharacteristic(BLEConstants.CHARACTERISTIC_UUID) ?: run {
             LogUtils.error("[BLE] 特征值不可用")
-            sendQueue.clear()
+            isSending = false
             return
         }
 
@@ -397,18 +329,12 @@ class BLEGattClient private constructor(context: Context) {
             }
             else -> {
                 LogUtils.error("[BLE] 特征值不支持写入")
-                sendQueue.clear()
+                isSending = false
                 return
             }
         }
 
-        val packet = sendQueue.poll() ?: run {
-            isSending = false
-            return
-        }
-
-        LogUtils.debug("[BLE] 发送数据包：${packet.toHexString()}")
-
+        LogUtils.info("[BLE] 发送数据包：${packet.toHexString()}")
 
         try {
             isSending = true
@@ -418,7 +344,7 @@ class BLEGattClient private constructor(context: Context) {
                 if (!gatt.writeCharacteristic(characteristic)) {
                     LogUtils.error("[BLE] 写入特征值失败")
                     LogUtils.debug("[BLE] 特征值UUID: ${characteristic.uuid}")
-                    LogUtils.debug("[BLE] 当前MTU: $CURRENT_MTU}")
+                    LogUtils.debug("[BLE] 当前MTU: $CURRENT_MTU")
                     LogUtils.debug("[BLE] 数据包长度: ${packet.size}")
                     isSending = false
                 } else {
