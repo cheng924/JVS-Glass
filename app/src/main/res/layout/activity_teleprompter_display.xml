@@ -139,7 +139,7 @@
                 android:layout_width="25dp"
                 android:layout_height="25dp"
                 android:layout_marginEnd="13dp"
-                android:src="@drawable/ic_teleprompter_display_start"/>
+                android:src="@drawable/ic_continue"/>
 
             <TextView
                 android:layout_width="wrap_content"

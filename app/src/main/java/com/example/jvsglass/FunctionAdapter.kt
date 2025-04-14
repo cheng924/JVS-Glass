@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.activities.jvsai.JVSAIActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
+import com.example.jvsglass.activities.translate.TranslateActivity
 import com.example.jvsglass.utils.ToastUtils
 
 class FunctionAdapter(private val items: List<FunctionItem>) :
@@ -40,6 +41,9 @@ class FunctionAdapter(private val items: List<FunctionItem>) :
                     context.startActivity(Intent(context, item.targetActivity))
                 }
                 JVSAIActivity::class.java -> {
+                    context.startActivity(Intent(context, item.targetActivity))
+                }
+                TranslateActivity::class.java -> {
                     context.startActivity(Intent(context, item.targetActivity))
                 }
                 else -> {

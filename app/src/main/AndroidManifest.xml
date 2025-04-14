@@ -53,6 +53,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
+            android:name=".activities.translate.TranslateRealtimeActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.translate.TranslateActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.jvsai.FileViewerActivity"
             android:exported="false" />
         <activity
@@ -87,8 +93,8 @@
             android:exported="false" />
         <activity
             android:name=".activities.jvsai.JVSAIActivity"
-            android:windowSoftInputMode="adjustPan|stateHidden"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustPan|stateHidden" />
         <activity
             android:name=".activities.teleprompter.TeleprompterActivity"
             android:exported="false" />

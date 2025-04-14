@@ -3,7 +3,7 @@
     <string name="app_name">JVS眼镜</string>
     <string name="connect_status">蓝牙正在连接中\n请稍后</string>
     <string name="quick_note">速记</string>
-    <string name="translate">翻译</string>
+    <string name="translate">翻译官</string>
     <string name="teleprompter">提词器</string>
     <string name="ai_beta">JVS AI功能</string>
     <string name="transcribe">音转文</string>
