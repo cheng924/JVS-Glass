@@ -1,6 +1,7 @@
 package com.example.jvsglass.network
 
 import android.util.Base64
+import com.example.jvsglass.BuildConfig
 import com.example.jvsglass.utils.LogUtils
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -260,6 +261,13 @@ class NetworkManager private constructor() {
         ).also { disposable: Disposable ->
             compositeDisposable.add(disposable)
         }
+    }
+
+    fun createRealtimeAsrClient(callback: RealtimeAsrClient.RealtimeAsrCallback): RealtimeAsrClient {
+        return RealtimeAsrClient(
+            apiKey = BuildConfig.DOUBAO_AI_API_KEY,
+            callback = callback
+        )
     }
 
     // 识别MIME类型

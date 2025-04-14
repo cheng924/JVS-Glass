@@ -28,9 +28,13 @@ class VoiceManager(private val context: Context) {
     private var currentAudioPath: String? = null
     private var currentPlayingPath: String? = null
 
+    interface AudioRecordCallback {
+        fun onAudioData(data: ByteArray) // 实时返回音频数据块
+    }
+
     // 录音控制
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun startRecording(): String? {
+    fun startRecording(callback: AudioRecordCallback): String? {
         val timestamp = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(Date())
         val fileName = "$timestamp.pcm"
         val outputFile = File(context.getExternalFilesDir(null), fileName) // 使用持久化存储
@@ -62,7 +66,9 @@ class VoiceManager(private val context: Context) {
                     while (isRecording) {
                         val bytesRead = audioRecord!!.read(buffer, 0, bufferSize)
                         if (bytesRead > 0) {
-                            fos.write(buffer, 0, bytesRead)
+                            val audioData = buffer.copyOf(bytesRead)
+                            callback.onAudioData(audioData) // 实时回调音频数据
+                            fos.write(audioData, 0, bytesRead) // 同时写入文件（可选）
                         }
                     }
                 }

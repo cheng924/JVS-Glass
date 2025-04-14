@@ -4,16 +4,12 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.res.Resources
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
-import android.view.Window
 import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -35,19 +31,16 @@ import com.example.jvsglass.utils.SystemFileOpener
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
 import com.example.jvsglass.network.NetworkManager
-import com.example.jvsglass.network.TranscribeResponse
-import retrofit2.HttpException
 import java.io.File
-import androidx.core.graphics.drawable.toDrawable
+import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.network.TOSManager
 
 class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     private lateinit var voiceManager: VoiceManager
     private lateinit var fileOpener: SystemFileOpener
+    private lateinit var realtimeAsrClient: RealtimeAsrClient
 
-    private var currentAudioPath: String? = null // 记录当前录音文件路径
-    private var loadingDialog: Dialog? = null
     private var isUiReady = false
     private val messageList = mutableListOf<AiMessage>()
     private val cardItems = mutableListOf<CardItem>()
@@ -56,6 +49,9 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private var isVoiceInput = false
     private var startY = 0f
     private var isCanceled = false
+
+    private var isStreaming = false
+    private var tempMessageId: String? = null // 用于跟踪临时消息
 
     private val chatMessages = mutableListOf<ChatRequest.Message>()
 
@@ -99,6 +95,9 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
         setupRecyclerView()
         setupClickListeners()
+        initRealtimeAsrClient()
+        realtimeAsrClient.connect()
+        realtimeAsrClient.keepConnectionOpen()
     }
 
     private fun setupUI() {
@@ -195,7 +194,14 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 MotionEvent.ACTION_DOWN -> {
                     startY = event.rawY
                     isCanceled = false
-                    startVoiceRecording()
+                    voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
+                        override fun onAudioData(data: ByteArray) {
+                            if (!isCanceled) {
+                                realtimeAsrClient.sendAudioChunk(data) // 实时发送音频块
+                                LogUtils.debug("实时发送音频块，大小=${data.size}字节")
+                            }
+                        }
+                    })
                     llVoiceInput.visibility = View.VISIBLE
                     llTextInput.visibility = View.GONE
                     tvVoiceInputTip.text = "松手发送，上移取消"
@@ -243,13 +249,21 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     if (isCanceled) {
                         LogUtils.info("取消录音")
                         voiceManager.stopRecording()
-                        currentAudioPath?.let { path ->
-                            File(path).delete() // 删除临时文件
-                            LogUtils.info("已删除录音文件: $path")
+
+                        tempMessageId?.let { tempId ->
+                            val index = messageList.indexOfFirst { it.id == tempId }
+                            if (index != -1) {
+                                messageList.removeAt(index)
+                                messageAdapter.notifyItemRemoved(index)
+                            }
+                            tempMessageId = null
                         }
-                        currentAudioPath = null
+                        // 重置ASR会话，清空之前的音频数据
+                        realtimeAsrClient.resetSession()
                     } else {
-                        stopVoiceRecording()
+                        voiceManager.stopRecording()
+                        realtimeAsrClient.commitAudio() // 提交音频缓冲区
+                        LogUtils.info("录音结束，提交音频缓冲区")
                     }
                     true
                 }
@@ -315,7 +329,19 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     }
 
     private fun sendMessage(messageText: String? = null) {
-        val message = messageText ?: etMessage.text.toString().trim()
+        var finalMessageText = messageText
+        // 删除临时语音识别消息
+        tempMessageId?.let { tempId ->
+            val index = messageList.indexOfFirst { it.id == tempId }
+            if (index != -1) {
+                val tempMessage = messageList.removeAt(index)
+                finalMessageText = tempMessage.message // 直接使用临时消息内容
+                messageAdapter.notifyItemRemoved(index)
+            }
+            tempMessageId = null
+        }
+
+        val message = finalMessageText ?: etMessage.text.toString().trim()
         val pendingCards = cardItems.toList()
 
         if (message.isEmpty() && pendingCards.isEmpty()) {
@@ -431,51 +457,64 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         ivSend.isVisible = hasContent
     }
 
-    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    private fun startVoiceRecording() {
-        LogUtils.info("开始录音...")
-        currentAudioPath = voiceManager.startRecording()
-        if (currentAudioPath == null) {
-            LogUtils.error("录音失败")
-        }
+    private fun initRealtimeAsrClient() {
+        realtimeAsrClient = NetworkManager.getInstance()
+            .createRealtimeAsrClient(object : RealtimeAsrClient.RealtimeAsrCallback {
+                override fun onPartialResult(text: String) {
+                    runOnUiThread { updateTranscript(text, isFinal = false) }
+                }
+
+                override fun onFinalResult(text: String) {
+                    runOnUiThread {
+                        updateTranscript(text, isFinal = true)
+                        messageList.find { it.id == tempMessageId }?.let { msg ->
+                            sendMessage(msg.message)
+                        }
+                    }
+                }
+
+                override fun onError(error: String) {
+                    runOnUiThread { LogUtils.error(error) }
+                }
+
+                override fun onConnectionChanged(connected: Boolean) {
+                    LogUtils.info("ASR连接状态: $connected")
+                    if (!connected) {
+                        runOnUiThread {
+                            tempMessageId = null
+                            isStreaming = false
+                        }
+                    }
+                }
+
+                override fun onSessionReady() {
+                    LogUtils.info("ASR session ready")
+                }
+            })
     }
 
-    private fun stopVoiceRecording() {
-        voiceManager.stopRecording()
-        currentAudioPath?.let { path ->
-            val audioFile = File(path)
-            if (audioFile.exists()) {
-                LogUtils.info("开始语音识别...")
-                showLoadingDialog()
-                NetworkManager.getInstance().transcribeAudio(
-                    audioFile,
-                    object : NetworkManager.ModelCallback<TranscribeResponse> {
-                        override fun onSuccess(result: TranscribeResponse) {
-                            dismissLoadingDialog()
-                            val pendingCards = cardItems.toList()
-                            if (pendingCards.isNotEmpty()) {
-                                sendMessage(result.text)
-                                cardItems.clear()
-                                currentAudioPath = null
-                                updateCardList()
-                            } else {
-                                sendMessage(result.text)
-                            }
-                        }
+    private fun updateTranscript(text: String, isFinal: Boolean) {
+        if (text.isBlank()) return // 过滤空结果
 
-                        override fun onFailure(error: Throwable) {
-                            dismissLoadingDialog()
-                            if (error is HttpException) {
-                                val code = error.code()
-                                val responseBody = error.response()?.errorBody()?.string()
-                                LogUtils.error("语音识别失败: HTTP $code, 响应: $responseBody")
-                            } else {
-                                LogUtils.error("语音识别失败: ${error.message}, 堆栈: ${error.stackTraceToString()}")
-                            }
-                        }
-                    })
-            } else {
-                ToastUtils.show(this, "录音文件不存在")
+        if (tempMessageId == null) {
+            val newMessage = addMessage(text, true).apply {
+                isTemp = !isFinal
+            }
+            tempMessageId = newMessage.id
+        } else {
+            messageList.find { it.id == tempMessageId }?.let { message ->
+                val index = messageList.indexOf(message)
+                val updated = message.copy(
+                    message = text,
+                    isTemp = !isFinal
+                )
+                messageList[index] = updated
+                messageAdapter.notifyItemChanged(index)
+
+                if (isFinal) {
+                    sendMessage(updated.message)
+                    tempMessageId = null
+                }
             }
         }
     }
@@ -689,39 +728,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
     }
 
-    private fun createLoadingDialog() {
-        if (isFinishing || isDestroyed) return
-
-        loadingDialog = Dialog(this).apply {
-            requestWindowFeature(Window.FEATURE_NO_TITLE)
-            setContentView(R.layout.dialog_loading)
-            window?.apply {
-                // 关键配置
-                setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
-                setDimAmount(0.2f) // 背景遮罩透明度
-                attributes = attributes.apply {
-                    width = ViewGroup.LayoutParams.WRAP_CONTENT
-                    height = ViewGroup.LayoutParams.WRAP_CONTENT
-                    gravity = Gravity.CENTER // 强制对话框居中
-                }
-            }
-            setCancelable(false)
-        }
-    }
-
-    private fun showLoadingDialog() {
-        if (loadingDialog == null) {
-            createLoadingDialog()
-        }
-        if (!isFinishing && !isDestroyed) {
-            loadingDialog?.show()
-        }
-    }
-
-    private fun dismissLoadingDialog() {
-        loadingDialog?.takeIf { it.isShowing }?.dismiss()
-    }
-
     override fun onError(errorMessage: String) {
         ToastUtils.show(this, errorMessage)
     }
@@ -730,6 +736,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         super.onDestroy()
         voiceManager.release()
         NetworkManager.getInstance().dispose()
-        dismissLoadingDialog()
+        realtimeAsrClient.shouldReconnect = false
+        realtimeAsrClient.disconnect()
     }
 }
