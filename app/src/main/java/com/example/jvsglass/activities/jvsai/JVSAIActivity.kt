@@ -2,7 +2,6 @@ package com.example.jvsglass.activities.jvsai
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Dialog
 import android.content.res.Resources
 import android.net.Uri
 import android.os.Bundle

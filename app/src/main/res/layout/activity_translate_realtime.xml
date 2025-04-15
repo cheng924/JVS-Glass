@@ -18,7 +18,8 @@
             android:layout_height="20dp"
             android:layout_centerVertical="true"
             android:layout_marginStart="20dp"
-            android:src="@drawable/ic_left"/>
+            android:src="@drawable/ic_left"
+            android:visibility="invisible"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -41,7 +42,7 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="80dp"
+        android:layout_height="60dp"
         android:orientation="horizontal"
         android:layout_marginTop="20dp"
         android:layout_marginHorizontal="20dp"
@@ -49,38 +50,41 @@
         android:background="@drawable/rounded_button">
 
         <TextView
+            android:id="@+id/tv_source_language"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_weight="3"
             android:gravity="center"
             android:text="CN"
             android:textSize="20sp"
             android:textColor="@color/white"/>
 
         <ImageView
+            android:id="@+id/iv_convert"
             android:layout_width="25dp"
             android:layout_height="25dp"
             android:layout_weight="1"
-            android:src="@drawable/ic_stub"/>
+            android:src="@drawable/ic_convert"/>
 
         <TextView
+            android:id="@+id/tv_target_language"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_weight="3"
             android:gravity="center"
             android:text="EN"
             android:textSize="20sp"
             android:textColor="@color/white"/>
     </LinearLayout>
 
-    <LinearLayout
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_translate_results"
         android:layout_width="match_parent"
-        android:layout_height="600dp"
-        android:orientation="vertical"
+        android:layout_height="550dp"
+        android:layout_marginTop="5dp"
         android:layout_marginHorizontal="20dp"
-        android:background="@drawable/rounded_button">
-
-    </LinearLayout>
+        android:padding="8dp"
+        android:background="@drawable/rounded_button"/>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -101,11 +105,12 @@
             android:background="@drawable/rounded_button">
 
             <TextView
+                android:id="@+id/tv_source_language_setting"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="CN"
                 android:textSize="18sp"
-                android:textColor="@color/button_text"
+                android:textColor="@color/white"
                 android:textAllCaps="false"/>
 
             <TextView
@@ -113,20 +118,21 @@
                 android:layout_height="wrap_content"
                 android:text=" · "
                 android:textSize="25sp"
-                android:textColor="@color/button_text"
+                android:textColor="@color/white"
                 android:textAllCaps="false"/>
 
             <TextView
+                android:id="@+id/tv_target_language_setting"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="EN"
                 android:textSize="18sp"
-                android:textColor="@color/button_text"
+                android:textColor="@color/white"
                 android:textAllCaps="false"/>
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/ll_suspend"
+            android:id="@+id/ll_translate_state"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -136,12 +142,14 @@
             android:background="@drawable/rounded_button" >
 
             <ImageView
+                android:id="@+id/iv_translate_state"
                 android:layout_width="25dp"
                 android:layout_height="25dp"
                 android:layout_marginEnd="10dp"
-                android:src="@drawable/ic_continue"/>
+                android:src="@drawable/ic_suspend"/>
 
             <TextView
+                android:id="@+id/tv_translate_state"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="暂停"
