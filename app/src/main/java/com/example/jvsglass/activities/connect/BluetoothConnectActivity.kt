@@ -137,6 +137,8 @@ class BluetoothConnectActivity : AppCompatActivity() {
         deviceListAdapter.setOnItemClickListener { position ->
             if (position < filteredDevicesList.size) {
                 val selectedDevice = filteredDevicesList[position]
+                LogUtils.info("[UI] 用户选择设备：${selectedDevice.name ?: "Unnamed"} (${selectedDevice.address})")
+                LogUtils.info("[UI] 设备类型：${selectedDevice.type}，绑定状态：${selectedDevice.bondState}")
                 ToastUtils.show(context, "已选择设备：${selectedDevice.name}")
                 bleClient.connectToDevice(selectedDevice)
                 binding.tvDevices.text = "已连接：" + selectedDevice.name
@@ -198,7 +200,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
     }
 
     private fun startDeviceScan() {
-        LogUtils.debug("[BLE Scan] 扫描回调初始化状态：已就绪")
+        LogUtils.info("[BLE Scan] 扫描回调初始化状态：已就绪")
 
         // 状态检查
         if (isScanning) {
@@ -355,7 +357,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (hasBluetoothPermissions()) {
-            LogUtils.debug("恢复客户端模式")
+            LogUtils.info("恢复客户端模式")
         } else {
             // 用户仍未授权，完全重置状态
             ToastUtils.show(context, "权限未授予，无法恢复模式")

@@ -99,7 +99,7 @@ class MainActivity : AppCompatActivity() {
 
     @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     fun onConnectionEvent(event: HeartbeatDetectorManager.ConnectionEvent) {
-        LogUtils.info("[MainActivity] Event received: ${event.isConnected}")
+        LogUtils.debug("[MainActivity] Event received: ${event.isConnected}")
         val statusText = if (event.isConnected) "Connected" else "Disconnected"
         findViewById<TextView>(R.id.tv_bluetooth_status).text = statusText
     }

@@ -49,16 +49,19 @@ class BLEGattClient private constructor(context: Context) {
 
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            LogUtils.info("[BLE-Callback] onConnectionStateChange: status=$status, newState=$newState")
             when (status) {
                 BluetoothGatt.GATT_SUCCESS -> {
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         LogUtils.info("[BLE] 已连接到设备 ${gatt.device.address}")
+                        LogUtils.info("[BLE] 协议栈版本：${gatt.device.type}，地址：${gatt.device.address}")
                         retryCount = 0
                         gatt.requestMtu(CURRENT_MTU)    // 连接成功时请求MTU
                         connectionState = BluetoothProfile.STATE_CONNECTED
                         isConnecting = false
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        LogUtils.info("[BLE] 连接已断开")
+                        LogUtils.info("[BLE] GATT_SUCCESS 物理层断开")
+                        LogUtils.info("[BLE] 断开时的连接参数：${gatt.device}")
                         if (isConnecting) {
                             Handler(Looper.getMainLooper()).postDelayed({
                                 reconnect()
@@ -81,8 +84,6 @@ class BLEGattClient private constructor(context: Context) {
                 LogUtils.error("[BLE] 服务发现失败，状态码：$status")
                 return
             }
-
-            LogUtils.info("[BLE] 服务发现成功，发现服务数量：${gatt.services.size}")
 
             // 获取服务
             val service = gatt.getService(BLEConstants.SERVICE_UUID)
@@ -134,6 +135,7 @@ class BLEGattClient private constructor(context: Context) {
         // MTU变化处理
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+            LogUtils.info("[BLE-Callback] onMtuChanged: status=$status, newMTU=$mtu")
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 CURRENT_MTU = mtu
                 LogUtils.info("[BLE] MTU更新为：$mtu")
@@ -155,7 +157,7 @@ class BLEGattClient private constructor(context: Context) {
             characteristic: BluetoothGattCharacteristic,
             status: Int
         ) {
-            LogUtils.debug("[BLE] onCharacteristicWrite 状态码：$status")
+            LogUtils.info("[BLE] onCharacteristicWrite 状态码：$status")
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 LogUtils.debug("[BLE] 数据包已成功发送")
                 isSending = false
@@ -217,13 +219,26 @@ class BLEGattClient private constructor(context: Context) {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connectToDevice(device: BluetoothDevice) {
-        if (isConnecting || connectionState == BluetoothProfile.STATE_CONNECTED) return
+        if (isConnecting || connectionState == BluetoothProfile.STATE_CONNECTED) {
+            LogUtils.info("[BLE] 已处于连接中或已连接，取消新连接请求")
+//            return
+        }
         isConnecting = true
 //        disconnect()    // 先关闭旧连接
         LogUtils.info("[BLE] 尝试连接设备 ${device.address}")
+        LogUtils.info("[BLE] 开始创建GATT连接，传输模式：${BluetoothDevice.TRANSPORT_LE}")
         connectedDevice = device // 保存设备对象
-        val ctx = contextRef.get() ?: return
-        bluetoothGatt = device.connectGatt(ctx, true, gattClientCallback, BluetoothDevice.TRANSPORT_LE)
+        val ctx = contextRef.get() ?: run {
+            LogUtils.error("[BLE] 上下文已释放，无法创建GATT连接")
+            return
+        }
+        bluetoothGatt = device.connectGatt(ctx, true, gattClientCallback, BluetoothDevice.TRANSPORT_LE).also {
+            if (it == null) {
+                LogUtils.error("[BLE] connectGatt返回空对象，可能达到连接数限制")
+            } else {
+                LogUtils.debug("[BLE] GATT对象创建成功：${it.device.address}")
+            }
+        }
         saveDeviceAddress(device.address) // 连接时保存设备地址
     }
 
