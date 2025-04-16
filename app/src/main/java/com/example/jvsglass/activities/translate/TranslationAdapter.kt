@@ -48,6 +48,15 @@ class TranslationAdapter(
         holder.tvTarget.text = item.targetText
     }
 
+    fun updatePartialResult(source: String, target: String) {
+        if (items.isNotEmpty() && items.last().isPartial) {
+            items[items.lastIndex] = TranslationResult(source, target, isPartial = true)
+        } else {
+            items.add(TranslationResult(source, target, isPartial = true))
+        }
+        notifyItemChanged(items.lastIndex)
+    }
+
     override fun getItemCount() = items.size
 
     @SuppressLint("NotifyDataSetChanged")

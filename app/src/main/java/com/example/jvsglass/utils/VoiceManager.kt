@@ -32,6 +32,8 @@ class VoiceManager(private val context: Context) {
         fun onAudioData(data: ByteArray) // 实时返回音频数据块
     }
 
+    fun isRecording() = isRecording
+
     // 录音控制
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startRecording(callback: AudioRecordCallback): String? {
