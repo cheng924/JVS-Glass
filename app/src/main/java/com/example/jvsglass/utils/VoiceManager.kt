@@ -34,6 +34,31 @@ class VoiceManager(private val context: Context) {
 
     fun isRecording() = isRecording
 
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    fun startStreaming(callback: AudioRecordCallback) {
+        val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            sampleRate,
+            channelConfig,
+            audioFormat,
+            bufferSize * 2
+        )
+
+        audioRecord!!.startRecording()
+        isRecording = true
+
+        recordingThread = Thread {
+            val buffer = ByteArray(bufferSize)
+            while (isRecording) {
+                val bytesRead = audioRecord!!.read(buffer, 0, bufferSize)
+                if (bytesRead > 0) {
+                    callback.onAudioData(buffer.copyOf(bytesRead))
+                }
+            }
+        }.apply { start() }
+    }
+
     // 录音控制
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startRecording(callback: AudioRecordCallback): String? {

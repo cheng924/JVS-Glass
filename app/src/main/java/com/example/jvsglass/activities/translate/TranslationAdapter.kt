@@ -48,13 +48,30 @@ class TranslationAdapter(
         holder.tvTarget.text = item.targetText
     }
 
-    fun updatePartialResult(source: String, target: String) {
+    /**
+     * 将传入的 source 与 target 累积更新到当前组中，
+     * 同时判断如果两侧都以标点结尾则认为该组完成（isPartial 置为 false），
+     * 否则保持临时状态（isPartial 为 true）。
+     *
+     * 当最后一项已非临时时，说明上一组已完成，新来的更新会开启新组显示。
+     */
+    fun updatePartialPair(source: String, target: String) {
+        // 判断是否同时以标点结尾
+        val finished = endsWithPunctuation(source) && endsWithPunctuation(target)
         if (items.isNotEmpty() && items.last().isPartial) {
-            items[items.lastIndex] = TranslationResult(source, target, isPartial = true)
+            items[items.lastIndex] = TranslationResult(source, target, isPartial = !finished)
+            notifyItemChanged(items.lastIndex)
         } else {
-            items.add(TranslationResult(source, target, isPartial = true))
+            items.add(TranslationResult(source, target, isPartial = !finished))
+            notifyItemInserted(items.lastIndex)
         }
-        notifyItemChanged(items.lastIndex)
+    }
+
+    // 简单判断字符串最后一个字符是否为常见标点符号
+    private fun endsWithPunctuation(text: String): Boolean {
+        if (text.isEmpty()) return false
+        val punctuations = listOf('.', '。', ',', '，', '!', '！', '?', '？')
+        return punctuations.contains(text.last())
     }
 
     override fun getItemCount() = items.size

@@ -1,6 +1,7 @@
 package com.example.jvsglass.network
 
 import android.os.Looper
+import android.util.Base64
 import com.example.jvsglass.utils.LogUtils
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -27,6 +28,7 @@ class RealtimeClasiClient(
     private val tag = "RealtimeClasiClient"
     private val gson = Gson()
     private var webSocket: WebSocket? = null
+    private val lock = Any()
     private var isConnected = false
     private val handler = android.os.Handler(Looper.getMainLooper())
     private var reconnectionScheduled = false
@@ -58,29 +60,38 @@ class RealtimeClasiClient(
     fun isConnected() = isConnected && isConfigSent
 
     fun connect() {
-        val request = Request.Builder()
-            .url("wss://ai-gateway.vei.volces.com/v1/realtime?model=doubao-clasi-s2t")
-            .header("Authorization", "Bearer $apiKey")
-            .build()
+        synchronized(lock) {
+            if (webSocket != null) return
 
-        webSocket = client.newWebSocket(request, this)
+            val request = Request.Builder()
+                .url("wss://ai-gateway.vei.volces.com/v1/realtime?model=doubao-clasi-s2t")
+                .header("Authorization", "Bearer $apiKey")
+                .build()
+
+            webSocket = client.newWebSocket(request, this)
+        }
+    }
+
+    fun setShouldReconnect(shouldReconnect: Boolean) {
+        this.shouldReconnect = shouldReconnect
     }
 
     fun updateLanguages(source: String, target: String) {
+        synchronized(lock) {
+            webSocket?.close(1000, "Language update") // 1000 = normal closure
+            webSocket = null
+            isConnected = false
+        }
+
         sourceLang = source
         targetLang = target
-        sendSessionConfig(source, target)
-        synchronized(audioQueue) {
-            audioQueue.clear() // 清空未发送的音频数据
-        }
-    }
 
-    fun scheduleConfigUpdate() {
-        coroutineScope.launch {
-            if (!isConfigSent) {
-                sendSessionConfig(sourceLang, targetLang)
-            }
+        synchronized(audioQueue) {
+            audioQueue.clear()
         }
+
+        shouldReconnect = true
+        connect()
     }
 
     fun sendAudioChunk(chunk: ByteArray) {
@@ -103,7 +114,11 @@ class RealtimeClasiClient(
             synchronized(audioQueue) {
                 if (audioQueue.isNotEmpty()) {
                     val chunk = audioQueue.removeAt(0)
-                    webSocket?.send(ByteString.of(*chunk)) // 直接发送二进制数据
+                    val event = JsonObject().apply {
+                        addProperty("type", "input_audio_buffer.append")
+                        addProperty("audio", Base64.encodeToString(chunk, Base64.NO_WRAP))
+                    }
+                    webSocket?.send(gson.toJson(event)) // 发送文本消息（JSON）
                     sendNextChunk()
                 } else {
                     isSending = false
@@ -120,14 +135,16 @@ class RealtimeClasiClient(
     }
 
     fun disconnect() {
-        coroutineScope.coroutineContext.cancel()
-        handler.removeCallbacksAndMessages(null)
-        webSocket?.close(1000, "Normal closure")
-        webSocket = null
-        isConnected = false
-        callback.onConnectionChanged(false)
-        shouldReconnect = false
-        reconnectionScheduled = false
+        synchronized(lock) {
+            coroutineScope.coroutineContext.cancel()
+            handler.removeCallbacksAndMessages(null)
+            webSocket?.close(1000, "Normal closure")
+            webSocket = null
+            isConnected = false
+            callback.onConnectionChanged(false)
+            shouldReconnect = false
+            reconnectionScheduled = false
+        }
     }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -213,7 +230,7 @@ class RealtimeClasiClient(
             handler.postDelayed({
                 if (shouldReconnect) connect()
                 reconnectionScheduled = false
-            }, 5000)
+            }, 2000)
         }
     }
 }

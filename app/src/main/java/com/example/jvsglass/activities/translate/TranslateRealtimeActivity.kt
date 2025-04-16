@@ -1,6 +1,7 @@
 package com.example.jvsglass.activities.translate
 
 import android.Manifest
+import android.app.AlertDialog
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -22,6 +23,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     private lateinit var translationAdapter: TranslationAdapter
     private lateinit var tvSourceLanguage: TextView
     private lateinit var tvTargetLanguage: TextView
+    private lateinit var rvTranslateResults: RecyclerView
     private lateinit var llTextSetting: LinearLayout
     private lateinit var tvSourceLanguageSetting: TextView
     private lateinit var tvTargetLanguageSetting: TextView
@@ -33,10 +35,13 @@ class TranslateRealtimeActivity : AppCompatActivity() {
 
     private lateinit var voiceManager: VoiceManager
     private lateinit var clasiClient: RealtimeClasiClient
-    private var isRecording = false
     private val executor = Executors.newSingleThreadExecutor()
     private var currentSourceText = ""
     private var currentTargetText = ""
+
+    private var errorDialog: AlertDialog? = null
+    private var isManualPause = false
+    private var isUpdatingLanguages = false
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,10 +67,10 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        val recyclerView = findViewById<RecyclerView>(R.id.rv_translate_results)
-        recyclerView.layoutManager = LinearLayoutManager(this)
+        rvTranslateResults = findViewById(R.id.rv_translate_results)
+        rvTranslateResults.layoutManager = LinearLayoutManager(this)
         translationAdapter = TranslationAdapter(this, mutableListOf(), languageStyleState)
-        recyclerView.adapter = translationAdapter
+        rvTranslateResults.adapter = translationAdapter
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
@@ -82,9 +87,11 @@ class TranslateRealtimeActivity : AppCompatActivity() {
             tvSourceLanguage.text = target
             tvTargetLanguage.text = source
 
+            isUpdatingLanguages = true
+            stopAudioRecording()
             clasiClient.updateLanguages(
-                tvSourceLanguage.text.toString().lowercase(),
-                tvTargetLanguage.text.toString().lowercase()
+                languageConvert(tvSourceLanguage.text.toString()),
+                languageConvert(tvTargetLanguage.text.toString())
             )
         }
 
@@ -111,74 +118,97 @@ class TranslateRealtimeActivity : AppCompatActivity() {
             translateState = (translateState + 1) % 2
             when (translateState) {
                 0 -> {
+                    isManualPause = false
                     ivTranslateState.setImageResource(R.drawable.ic_suspend)
                     tvTranslateState.text = "暂停"
+                    clasiClient.setShouldReconnect(true)
+                    if (!clasiClient.isConnected()) {
+                        clasiClient.connect()
+                    }
                     startAudioRecording()
-//                    addTranslationResult("你好", "Hello")
                 }
                 1 -> {
+                    isManualPause = true
                     ivTranslateState.setImageResource(R.drawable.ic_continue)
                     tvTranslateState.text = "继续"
                     stopAudioRecording()
-//                    addTranslationResult("再见", "Goodbye")
+                    clasiClient.setShouldReconnect(false)
                 }
             }
         }
     }
 
     private fun addTranslationResult(source: String, target: String) {
-        translationAdapter.addItem(TranslationResult(source, target))
-        findViewById<RecyclerView>(R.id.rv_translate_results).smoothScrollToPosition(translationAdapter.itemCount - 1)
+        translationAdapter.addItem(TranslationResult(source, target, isPartial = false))
+        rvTranslateResults.post {
+            rvTranslateResults.smoothScrollToPosition(translationAdapter.itemCount - 1)
+        }
     }
 
     private fun initClasiClient() {
         clasiClient = RealtimeClasiClient(
             apiKey = BuildConfig.DOUBAO_AI_API_KEY,
-            sourceLang = "zh",
-            targetLang = "en",
+            sourceLang = languageConvert(tvSourceLanguage.text.toString()),
+            targetLang = languageConvert(tvTargetLanguage.text.toString()),
             callback = object : RealtimeClasiClient.ClasiCallback {
                 override fun onTranscriptUpdate(text: String) {
-                    currentSourceText = text
-                    updatePartialDisplay()
+                    runOnUiThread {
+                        LogUtils.info("---1--- 收到实时语音识别结果：$text")
+                        currentSourceText += text
+                        updatePartialDisplay()
+                    }
                 }
 
                 override fun onTranslationUpdate(text: String) {
-                    currentTargetText = text
-                    updatePartialDisplay()
+                    runOnUiThread {
+                        LogUtils.info("---2--- 收到实时语音翻译结果：$text")
+                        currentTargetText += text
+                        updatePartialDisplay()
+                    }
                 }
 
                 override fun onFinalResult(transcript: String, translation: String) {
                     runOnUiThread {
+                        LogUtils.info("---3--- 收到实时语音识别结果：$transcript, 翻译结果：$translation")
                         addTranslationResult(transcript, translation)
-                        resetPartialDisplay()
+                        currentSourceText = ""
+                        currentTargetText = ""
                     }
                 }
 
                 override fun onError(error: String) {
                     runOnUiThread {
-                        LogUtils.error(error)
-                        stopAudioRecording()
-                    }
-                }
-
-                override fun onConnectionChanged(connected: Boolean) {
-                    runOnUiThread {
-                        ivTranslateState.setImageResource(
-                            if (connected) R.drawable.ic_suspend else R.drawable.ic_continue
-                        )
-
-                        if (!connected) {
+                        if (!isManualPause && !isUpdatingLanguages) {
+                            LogUtils.info("连接失败，停止录音")
+                            if (errorDialog?.isShowing != true) {
+                                errorDialog = AlertDialog.Builder(this@TranslateRealtimeActivity)
+                                    .setMessage("网络波动，请稍后")
+                                    .setCancelable(false) // 禁止点击外部关闭
+                                    .create()
+                                errorDialog?.show()
+                            }
+                            LogUtils.error(error)
                             stopAudioRecording()
-                            translateState = 0
-                            tvTranslateState.text = "继续"
                         }
                     }
                 }
 
+                override fun onConnectionChanged(connected: Boolean) { }
+
                 @RequiresPermission(Manifest.permission.RECORD_AUDIO)
                 override fun onSessionReady() {
-                    if (translateState == 0) {
-                        startAudioRecording()
+                    runOnUiThread {
+                        LogUtils.info("连接成功，开始录音")
+                        errorDialog?.dismiss()
+                        errorDialog = null
+
+                        translateState = 0
+                        ivTranslateState.setImageResource(R.drawable.ic_suspend)
+                        tvTranslateState.text = "暂停"
+                        isUpdatingLanguages = false
+                        if (!isManualPause) {
+                            startAudioRecording()
+                        }
                     }
                 }
             }
@@ -194,54 +224,65 @@ class TranslateRealtimeActivity : AppCompatActivity() {
             return
         }
 
-        voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
+        voiceManager.startStreaming(object : VoiceManager.AudioRecordCallback {
             override fun onAudioData(data: ByteArray) {
                 // 将音频数据发送到翻译服务
                 if (clasiClient.isConnected()) {
                     clasiClient.sendAudioChunk(data)
-                } else {
-                    runOnUiThread {
-                        stopAudioRecording()
-                        LogUtils.error("连接已断开")
-                    }
                 }
             }
-        })?.also { audioPath ->
-            LogUtils.info("开始录音，路径：$audioPath")
-            clasiClient.scheduleConfigUpdate()
-        }
+        })
+        LogUtils.info("实时语音采集已启动")
     }
 
     private fun stopAudioRecording() {
+        if (currentSourceText.isNotEmpty() || currentTargetText.isNotEmpty()) {
+            addTranslationResult(currentSourceText, currentTargetText)
+            currentSourceText = ""
+            currentTargetText = ""
+        }
+
         voiceManager.stopRecording()
         clasiClient.commitAudio() // 通知服务器音频结束
         LogUtils.info("停止录音")
     }
 
+    /**
+     * 累积更新显示当前组：
+     * 调用 adapter.updatePartialPair 将当前组（累积的 currentSourceText 与 currentTargetText）显示出来；
+     * 检查两侧是否都以标点结尾，若是则认为当前组完成，调用 addTranslationResult 固定显示，并重置累积变量。
+     */
     private fun updatePartialDisplay() {
-        runOnUiThread {
-            when (languageStyleState) {
-                0 -> { // 双语显示
-                    translationAdapter.updatePartialResult(currentSourceText, currentTargetText)
-                }
-                1 -> { // 只显示目标语言
-                    translationAdapter.updatePartialResult("", currentTargetText)
-                }
-                2 -> { // 只显示源语言
-                    translationAdapter.updatePartialResult(currentSourceText, "")
-                }
-            }
+        translationAdapter.updatePartialPair(currentSourceText, currentTargetText)
+        // 检查当前累积的文本是否都以标点结束
+        if (endsWithPunctuation(currentSourceText) && endsWithPunctuation(currentTargetText)) {
+            currentSourceText = ""
+            currentTargetText = ""
+        }
+        rvTranslateResults.post {
+            rvTranslateResults.smoothScrollToPosition(translationAdapter.itemCount - 1)
         }
     }
 
-    private fun resetPartialDisplay() {
-        currentSourceText = ""
-        currentTargetText = ""
-        translationAdapter.updatePartialResult("", "")
+    // 简单判断字符串最后一个字符是否为常见标点符号
+    private fun endsWithPunctuation(text: String): Boolean {
+        if (text.isEmpty()) return false
+        val punctuations = listOf('.', '。', ',', '，', '!', '！', '?', '？')
+        return punctuations.contains(text.last())
+    }
+
+    private fun languageConvert(language: String): String {
+        return when (language) {
+            "CN" -> "zh"
+            "EN" -> "en"
+            else -> "zh"
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        errorDialog?.dismiss()
+        errorDialog = null
         voiceManager.release()
         clasiClient.disconnect()
         executor.shutdown()
