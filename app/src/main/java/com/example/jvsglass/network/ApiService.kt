@@ -14,6 +14,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 
 interface ApiService {
+    // 豆包预置 语音识别
     @Multipart
     @POST("v1/audio/transcriptions")
     fun transcribeAudio(
@@ -24,6 +25,7 @@ interface ApiService {
         @Part timestampGranularities: List<MultipartBody.Part>
     ): Observable<Response<TranscribeResponse>>
 
+    // Coze工作流 doubao-1.5-pro-32k
     @POST("v1/chat/completions")
     @Headers("Content-Type: application/json")
     fun chatTextCompletion(
@@ -45,5 +47,13 @@ interface ApiService {
     fun uploadImageCozeCompletion(
         @Body request: ImageCozeRequest,
         @Header("Authorization") auth: String = "Bearer ${BuildConfig.KOUZI_AI_API_KEY}"
+    ): Single<Response<ChatResponse>>
+
+    // 豆包预置 doubao-1.5-pro-256k
+    @POST("v1/chat/completions")
+    @Headers("Content-Type: application/json")
+    fun uploadFileTextCompletion(
+        @Body request: ChatRequest,
+        @Header("Authorization") auth: String = "Bearer ${BuildConfig.DOUBAO_AI_API_KEY}"
     ): Single<Response<ChatResponse>>
 }

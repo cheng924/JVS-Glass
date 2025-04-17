@@ -263,6 +263,45 @@ class NetworkManager private constructor() {
         }
     }
 
+    fun uploadFileTextCompletion(
+        messages: List<ChatRequest.Message>,
+        temperature: Double = 0.7,
+        callback: ModelCallback<ChatResponse>
+    ) {
+        val request = ChatRequest(
+            model = "doubao-1.5-pro-256k",
+            messages = messages,
+            temperature = temperature
+        )
+
+        val disposable = apiService.uploadFileTextCompletion(request = request)
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                { response ->
+                    if (response.isSuccessful) {
+                        val chatResponse = response.body()
+                        if (chatResponse != null) {
+                            LogUtils.info("大模型响应: $chatResponse")
+                            callback.onSuccess(chatResponse)
+                        } else {
+                            callback.onFailure(Exception("空响应体，状态码: ${response.code()}"))
+                        }
+                    } else {
+                        val errorCode = response.code()
+                        val errorBody = response.errorBody()?.string() ?: "无错误详情"
+                        callback.onFailure(Exception("HTTP $errorCode: $errorBody"))
+                    }
+                },
+                { error ->
+                    LogUtils.error("请求失败", error)
+                    callback.onFailure(error)
+                }
+            )
+
+        compositeDisposable.add(disposable)
+    }
+
     fun createRealtimeAsrClient(callback: RealtimeAsrClient.RealtimeAsrCallback): RealtimeAsrClient {
         return RealtimeAsrClient(
             apiKey = BuildConfig.DOUBAO_AI_API_KEY,

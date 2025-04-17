@@ -18,6 +18,7 @@ import com.example.jvsglass.database.AppDatabase
 import com.example.jvsglass.database.AppDatabaseProvider
 import com.example.jvsglass.database.TeleprompterArticle
 import com.example.jvsglass.database.toFileItem
+import com.example.jvsglass.utils.FileHandler
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import kotlinx.coroutines.Dispatchers
@@ -26,10 +27,10 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultCallback {
+class TeleprompterActivity : AppCompatActivity(), FileHandler.FileReadResultCallback {
     private val db: AppDatabase by lazy { AppDatabaseProvider.db }
     private lateinit var adapter: FileAdapter
-    private lateinit var textFileReader: TextFileReader
+    private lateinit var fileHandler: FileHandler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,7 +87,7 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
         }
 
         findViewById<LinearLayout>(R.id.btnImport).setOnClickListener {
-            textFileReader.openFilePicker(this)
+            fileHandler.openFilePicker(this)
         }
 
         findViewById<LinearLayout>(R.id.ll_delete_bar).setOnClickListener {
@@ -104,7 +105,7 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
             adapter.selectAll()
         }
 
-        textFileReader = TextFileReader(this)
+        fileHandler = FileHandler(this)
         getFilesNum(tvTotalFiles)
     }
 
@@ -141,7 +142,7 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
         }
     }
 
-    override fun onSuccess(name: String, content: String) {
+    override fun onReadSuccess(name: String, content: String) {
         val fileName = name.substringBeforeLast(".", missingDelimiterValue = name)
         val fileDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
 
@@ -155,7 +156,7 @@ class TeleprompterActivity : AppCompatActivity(), TextFileReader.FileReadResultC
         startActivity(intent)
     }
 
-    override fun onFailure(errorMessage: String) {
+    override fun onReadFailure(errorMessage: String) {
         // 处理文件读取失败
         LogUtils.error("错误: $errorMessage")
     }

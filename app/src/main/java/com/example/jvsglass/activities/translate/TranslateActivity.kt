@@ -27,7 +27,7 @@ class TranslateActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_document_translate).setOnClickListener {
-            ToastUtils.show(this, "文档翻译暂未开放")
+            startActivity(Intent(this, TranslateFileActivity::class.java))
         }
     }
 }
