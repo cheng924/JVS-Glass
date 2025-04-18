@@ -3,6 +3,7 @@ package com.example.jvsglass.utils
 import android.Manifest
 import android.content.Context
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaPlayer
 import android.media.MediaRecorder
@@ -28,17 +29,33 @@ class VoiceManager(private val context: Context) {
     private var currentAudioPath: String? = null
     private var currentPlayingPath: String? = null
 
+    private var isScoOnForRecording = false // 记录是否用过蓝牙SCO录音
+
     interface AudioRecordCallback {
         fun onAudioData(data: ByteArray) // 实时返回音频数据块
+    }
+
+    private val audioManager by lazy {
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
     fun isRecording() = isRecording
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startStreaming(callback: AudioRecordCallback) {
+        // 如果支持蓝牙 SCO，就走蓝牙通道
+        val useBluetooth = audioManager.isBluetoothScoAvailableOffCall
+        if (useBluetooth) {
+            audioManager.startBluetoothSco()
+            audioManager.isBluetoothScoOn = true
+            isScoOnForRecording = true
+        } else {
+            isScoOnForRecording = false
+        }
+
         val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
         audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            if (useBluetooth) { MediaRecorder.AudioSource.VOICE_COMMUNICATION } else { MediaRecorder.AudioSource.MIC },
             sampleRate,
             channelConfig,
             audioFormat,
@@ -111,6 +128,13 @@ class VoiceManager(private val context: Context) {
     }
 
     fun stopRecording() {
+        if (isScoOnForRecording) {
+            // 停止录音后关闭SCO
+            audioManager.stopBluetoothSco()
+            audioManager.isBluetoothScoOn = false
+            isScoOnForRecording = false
+        }
+
         isRecording = false
         audioRecord?.apply {
             stop()

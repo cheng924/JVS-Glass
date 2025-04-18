@@ -2,6 +2,9 @@ package com.example.jvsglass.activities.translate
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Context
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -42,6 +45,10 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     private var errorDialog: AlertDialog? = null
     private var isManualPause = false
     private var isUpdatingLanguages = false
+
+    private val audioManager by lazy {
+        getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -218,6 +225,15 @@ class TranslateRealtimeActivity : AppCompatActivity() {
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun startAudioRecording() {
+        if (!isBluetoothHeadsetConnected()) {
+            AlertDialog.Builder(this)
+                .setTitle("蓝牙未连接")
+                .setMessage("请连接蓝牙耳机后重试")
+                .setPositiveButton("确定", null)
+                .show()
+            return
+        }
+
         if (!clasiClient.isConnected()) {
             LogUtils.error("连接未就绪，请稍后重试")
             translateState = 1
@@ -233,6 +249,12 @@ class TranslateRealtimeActivity : AppCompatActivity() {
             }
         })
         LogUtils.info("实时语音采集已启动")
+    }
+
+    private fun isBluetoothHeadsetConnected(): Boolean {
+        return audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        }
     }
 
     private fun stopAudioRecording() {
