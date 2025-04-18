@@ -6,7 +6,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
 import androidx.annotation.RequiresPermission
-import com.example.jvsglass.classic.ClassicConstants.BT_UUID
+import com.example.jvsglass.classic.ClassicConstants.UUID_RFCOMM
 import com.example.jvsglass.classic.ClassicConstants.SERVICE_NAME
 import com.example.jvsglass.utils.LogUtils
 import java.io.File
@@ -28,14 +28,14 @@ class ClassicRfcommServer(
     override fun run() {
         LogUtils.info("[BluetoothServer] 正在启动服务端线程...")
         try {
-            serverSocket = adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, BT_UUID)
+            serverSocket = adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, UUID_RFCOMM)
             LogUtils.info(
                 """
                 [BluetoothServer] 服务端启动成功
                 |- 本地蓝牙名称: ${adapter.name}
                 |- 本地蓝牙地址: ${adapter.address}
                 |- 服务名称: $SERVICE_NAME
-                |- 服务UUID: $BT_UUID
+                |- 服务UUID: $UUID_RFCOMM
                 """.trimIndent()
             )
 

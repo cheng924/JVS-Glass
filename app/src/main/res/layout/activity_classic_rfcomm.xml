@@ -8,6 +8,12 @@
     android:layout_marginTop="20dp">
 
     <Button
+        android:id="@+id/btnBack"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="返回"/>
+
+    <Button
         android:id="@+id/btnStartServer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -29,6 +35,13 @@
         android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"/>
+
+    <Button
+        android:id="@+id/btnDisconnect"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="手动断开连接"
         android:layout_marginTop="8dp"/>
 
     <Button

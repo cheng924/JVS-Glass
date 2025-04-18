@@ -29,6 +29,11 @@ import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        private const val REQUEST_BT = 1001
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -53,7 +58,7 @@ class MainActivity : AppCompatActivity() {
 //            ToastUtils.show(this, getString(R.string.development_tips))
 //            return@setOnClickListener
 //            startActivity(Intent(this, SettingsActivity::class.java))
-            startActivity(Intent(this, ClassicRfcommActivity::class.java))
+            startActivityForResult(Intent(this, ClassicRfcommActivity::class.java), REQUEST_BT)
         }
 
         findViewById<Button>(R.id.btn_bluetooth).setOnClickListener {
@@ -102,5 +107,18 @@ class MainActivity : AppCompatActivity() {
         LogUtils.debug("[MainActivity] Event received: ${event.isConnected}")
         val statusText = if (event.isConnected) "Connected" else "Disconnected"
         findViewById<TextView>(R.id.tv_bluetooth_status).text = statusText
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_BT) {
+            if (resultCode == RESULT_OK) {
+                val name = data?.getStringExtra("CONNECTED_DEVICE")
+                ToastUtils.show(this, "蓝牙已连接: $name")
+            } else {
+                ToastUtils.show(this, "未连接蓝牙")
+            }
+        }
     }
 }

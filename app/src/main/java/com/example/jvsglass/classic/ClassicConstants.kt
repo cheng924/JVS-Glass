@@ -4,7 +4,13 @@ import java.util.UUID
 
 object ClassicConstants {
     // 通用UUID
-    val BT_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+    val UUID_RFCOMM: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+    // A2DP音频传输
+    val A2DP_UUID: UUID = UUID.fromString("0000110b-0000-1000-8000-00805f9b34fb")
+    // HSP通话
+    val HSP_UUID: UUID = UUID.fromString("00001108-0000-1000-8000-00805f9b34fb")
+    // HFP免提协议
+    val HFP_UUID: UUID = UUID.fromString("00001112-0000-1000-8000-00805f9b34fb")
 
     // 服务名称
     const val SERVICE_NAME = "ClassicBluetoothDemo"
@@ -19,7 +25,7 @@ object ClassicConstants {
     const val RECONNECT_DELAY_MS = 3_000L
 
     // 连接超时
-    const val CONNECT_TIMEOUT_MS = 10_000L
+    const val CONNECT_TIMEOUT_MS = 30_000L
 
     // 接收缓冲区大小
     const val RECEIVE_BUFFER_SIZE = 1024

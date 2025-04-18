@@ -3,6 +3,7 @@ package com.example.jvsglass.classic
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -44,6 +45,7 @@ class ClassicRfcommActivity : AppCompatActivity() {
     private val messageHistory = mutableListOf<MessageItem>()
     private lateinit var messageAdapter: MessageAdapter
     private lateinit var core: BluetoothConnectionCore
+    private var connectedDeviceName: String? = null
 
     private var mediaRecorder: MediaRecorder? = null
     private var audioFilePath: String? = null
@@ -55,10 +57,13 @@ class ClassicRfcommActivity : AppCompatActivity() {
                 BluetoothDevice.ACTION_FOUND -> {
                     val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                     device?.let {
-                        LogUtils.info("[BluetoothActivity] 发现设备: ${device.name} (${device.address})")
+                        val typeName = client.getDeviceTypeName(device)
+                        LogUtils.info("[BluetoothActivity] 发现设备: ${device.name} (${device.address}) 类型: $typeName")
                         if (!discoveredDevices.contains(it) && it.name?.isNotEmpty() == true) {
-                            discoveredDevices.add(it)
-                            deviceListAdapter.add("${it.name} (${it.address})")
+                            if (device.bluetoothClass?.majorDeviceClass == BluetoothClass.Device.Major.AUDIO_VIDEO) {
+                                discoveredDevices.add(it)
+                                deviceListAdapter.add("${it.name} (${it.address})")
+                            }
                         }
                     }
                 }
@@ -79,6 +84,18 @@ class ClassicRfcommActivity : AppCompatActivity() {
         setupRecyclerView()
     }
 
+    private val bondReceiver = object: BroadcastReceiver() {
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        override fun onReceive(c: Context, i: Intent) {
+            val dev = i.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE) ?: return
+            val state = i.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1)
+            if (dev.address == client.pendingAddress && state == BluetoothDevice.BOND_BONDED) {
+                // 配对完成，真正去连
+                client.connectToDevice(dev)
+            }
+        }
+    }
+
     @SuppressLint("SetTextI18n")
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun setupBluetooth() {
@@ -89,6 +106,7 @@ class ClassicRfcommActivity : AppCompatActivity() {
 
         core = BluetoothConnectionCore(object : BluetoothCallback {
             override fun onConnectionSuccess(deviceName: String) = runOnUiThread {
+                connectedDeviceName = deviceName
                 statusText.text = "已连接到: $deviceName"
                 if (deviceName == "Server") requestDiscoverability() // 服务端启动时请求可发现性
             }
@@ -122,11 +140,13 @@ class ClassicRfcommActivity : AppCompatActivity() {
         checkPermissions()
         enableBluetooth()
 
-        val filter = IntentFilter().apply {
+        // 先注册 “扫描用” receiver
+        registerReceiver(receiver, IntentFilter().apply {
             addAction(BluetoothDevice.ACTION_FOUND)
             addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
-        }
-        registerReceiver(receiver, filter).also { LogUtils.info("[BluetoothActivity] 已注册广播接收器") }
+        })
+        // 再注册 “配对状态” receiver
+        registerReceiver(bondReceiver, IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED))
 
         server = ClassicRfcommServer(bluetoothAdapter, core, core.callback)
         client = ClassicRfcommClient(bluetoothAdapter, core, core.callback)
@@ -163,6 +183,18 @@ class ClassicRfcommActivity : AppCompatActivity() {
         val btnSendMessage = findViewById<Button>(R.id.btnSendMessage)
         val btnRecordVoice = findViewById<Button>(R.id.btnRecordVoice)
         val inputMessage = findViewById<EditText>(R.id.inputMessage)
+
+        findViewById<Button>(R.id.btnBack).setOnClickListener {
+            onBackPressed()
+        }
+
+        findViewById<Button>(R.id.btnDisconnect).setOnClickListener {
+            // 手动断开
+            client.disconnect()
+            server.cancel()
+            core.shutdown()
+            finish()
+        }
 
         deviceListAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1)
         deviceListView.adapter = deviceListAdapter
@@ -216,11 +248,20 @@ class ClassicRfcommActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        LogUtils.warn("[BluetoothActivity] 销毁资源...")
         unregisterReceiver(receiver)
-        server.cancel()
-        client.disconnect()
-        core.shutdown()
+        unregisterReceiver(bondReceiver)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (connectedDeviceName != null) {
+            setResult(RESULT_OK, Intent().apply {
+                putExtra("CONNECTED_DEVICE", connectedDeviceName)
+            })
+        } else {
+            setResult(RESULT_CANCELED)  // 用户没连上，则告知取消/失败
+        }
+        super.onBackPressed()
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
