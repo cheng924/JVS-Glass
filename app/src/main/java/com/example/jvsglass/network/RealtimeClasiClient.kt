@@ -8,7 +8,9 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.ticker
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -34,9 +36,16 @@ class RealtimeClasiClient(
     private var reconnectionScheduled = false
     private var shouldReconnect = true
     private val audioQueue = mutableListOf<ByteArray>()
-    private var isSending = false
     private val coroutineScope = CoroutineScope(Dispatchers.IO + Job())
     private var isConfigSent = false
+    private var senderJob: Job? = null
+
+    private val maxPacketDurationMs = 200
+    private val bytesPerSample = 2 // PCM16
+    private val sampleRate = 16000 // Hz
+    private val channels = 1
+    private val bytesPerMs: Int = sampleRate * bytesPerSample * channels / 1000
+    private val targetPacketSizeBytes: Int = bytesPerMs * maxPacketDurationMs
 
     interface ClasiCallback {
         fun onTranscriptUpdate(text: String)    // 原文更新
@@ -78,7 +87,7 @@ class RealtimeClasiClient(
 
     fun updateLanguages(source: String, target: String) {
         synchronized(lock) {
-            webSocket?.close(1000, "Language update") // 1000 = normal closure
+            webSocket?.close(1000, "Language update")
             webSocket = null
             isConnected = false
         }
@@ -102,30 +111,48 @@ class RealtimeClasiClient(
 
         synchronized(audioQueue) {
             audioQueue.add(chunk)
-            if (!isSending) {
-                isSending = true
-                sendNextChunk()
+        }
+        startSenderIfNeeded()
+    }
+
+    @OptIn(ObsoleteCoroutinesApi::class)
+    private fun startSenderIfNeeded() {
+        if (senderJob?.isActive == true) return
+        senderJob = CoroutineScope(Dispatchers.IO + Job()).launch {
+            val tickerChannel = ticker(delayMillis = 100, initialDelayMillis = 0)
+            try {
+                for (unit in tickerChannel) {
+                    // 合并多帧至一个包
+                    val packetChunks = mutableListOf<ByteArray>()
+                    var accumulatedSize = 0
+                    synchronized(audioQueue) {
+                        while (audioQueue.isNotEmpty() && accumulatedSize < targetPacketSizeBytes) {
+                            val c = audioQueue.removeAt(0)
+                            packetChunks.add(c)
+                            accumulatedSize += c.size
+                        }
+                    }
+                    if (packetChunks.isEmpty()) continue
+                    // 合并字节数组
+                    val merged = ByteArray(accumulatedSize)
+                    var offset = 0
+                    for (c in packetChunks) {
+                        System.arraycopy(c, 0, merged, offset, c.size)
+                        offset += c.size
+                    }
+
+                    val event = JsonObject().apply {
+                        addProperty("type", "input_audio_buffer.append")
+                        addProperty("audio", Base64.encodeToString(merged, Base64.NO_WRAP))
+                    }
+                    webSocket?.send(gson.toJson(event))
+                }
+            } finally {
+                tickerChannel.cancel()
             }
         }
     }
 
-    private fun sendNextChunk() {
-        coroutineScope.launch {
-            synchronized(audioQueue) {
-                if (audioQueue.isNotEmpty()) {
-                    val chunk = audioQueue.removeAt(0)
-                    val event = JsonObject().apply {
-                        addProperty("type", "input_audio_buffer.append")
-                        addProperty("audio", Base64.encodeToString(chunk, Base64.NO_WRAP))
-                    }
-                    webSocket?.send(gson.toJson(event)) // 发送文本消息（JSON）
-                    sendNextChunk()
-                } else {
-                    isSending = false
-                }
-            }
-        }
-    }
 
     fun commitAudio() {
         val doneMessage = JsonObject().apply {
@@ -136,6 +163,7 @@ class RealtimeClasiClient(
 
     fun disconnect() {
         synchronized(lock) {
+            senderJob?.cancel()
             coroutineScope.coroutineContext.cancel()
             handler.removeCallbacksAndMessages(null)
             webSocket?.close(1000, "Normal closure")

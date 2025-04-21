@@ -160,7 +160,6 @@ class TranslateRealtimeActivity : AppCompatActivity() {
             callback = object : RealtimeClasiClient.ClasiCallback {
                 override fun onTranscriptUpdate(text: String) {
                     runOnUiThread {
-                        LogUtils.info("---1--- 收到实时语音识别结果：$text")
                         currentSourceText += text
                         updatePartialDisplay()
                     }
@@ -168,7 +167,6 @@ class TranslateRealtimeActivity : AppCompatActivity() {
 
                 override fun onTranslationUpdate(text: String) {
                     runOnUiThread {
-                        LogUtils.info("---2--- 收到实时语音翻译结果：$text")
                         currentTargetText += text
                         updatePartialDisplay()
                     }
@@ -228,10 +226,9 @@ class TranslateRealtimeActivity : AppCompatActivity() {
         if (!isBluetoothHeadsetConnected()) {
             AlertDialog.Builder(this)
                 .setTitle("蓝牙未连接")
-                .setMessage("请连接蓝牙耳机后重试")
+                .setMessage("当前通过手机麦克风收声")
                 .setPositiveButton("确定", null)
                 .show()
-            return
         }
 
         if (!clasiClient.isConnected()) {
