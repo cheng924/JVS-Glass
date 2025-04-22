@@ -24,8 +24,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
     private lateinit var tvTranslateTitle: TextView
     private lateinit var svTranslateContent: ScrollView
     private lateinit var tvTranslateContent: TextView
-    private lateinit var llLanguagePicker: LinearLayout
-    private lateinit var tvSelectedLanguage: TextView
+    private lateinit var tvLanguagePicker: TextView
     private lateinit var llImport: LinearLayout
     private lateinit var llExport: LinearLayout
 
@@ -41,8 +40,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
     }
 
     private fun setupUI() {
-        llLanguagePicker = findViewById(R.id.ll_language_picker)
-        tvSelectedLanguage = findViewById(R.id.tv_selected_language)
+        tvLanguagePicker = findViewById(R.id.tv_language_picker)
         llImport = findViewById(R.id.ll_import)
         llExport = findViewById(R.id.ll_export)
         tvTranslateTitle = findViewById(R.id.tv_translate_title)
@@ -54,7 +52,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
             overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
-        llLanguagePicker.setOnClickListener {
+        tvLanguagePicker.setOnClickListener {
             showLanguagePickerDialog()
         }
 
@@ -91,7 +89,6 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
         LogUtils.error("错误: $errorMessage")
     }
 
-
     override fun onWriteSuccess(savedUri: Uri) {
         LogUtils.info("导出成功：$savedUri")
     }
@@ -107,7 +104,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
         val chatMessages = mutableListOf<ChatRequest.Message>()
         val userMsg = ChatRequest.Message(
             role = "user",
-            content = getTranslationInstruction(textName, textContent, tvSelectedLanguage.text.toString())
+            content = getTranslationInstruction(textName, textContent, tvLanguagePicker.text.toString())
         )
         chatMessages.add(userMsg)
 
@@ -200,7 +197,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
             currentLanguage = currentLanguage,
             onConfirm = { selectedLanguage ->
                 currentLanguage = selectedLanguage
-                tvSelectedLanguage.text = selectedLanguage
+                tvLanguagePicker.text = selectedLanguage
                 tvTranslateTitle.text = ""
                 tvTranslateContent.text = ""
             }

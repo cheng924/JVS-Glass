@@ -16,12 +16,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.BuildConfig
 import com.example.jvsglass.R
+import com.example.jvsglass.dialog.LanguagePickerDialog
 import com.example.jvsglass.network.RealtimeClasiClient
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.VoiceManager
 import java.util.concurrent.Executors
 
-class TranslateRealtimeActivity : AppCompatActivity() {
+class TranslateExchangeActivity : AppCompatActivity() {
 
     private lateinit var translationAdapter: TranslationAdapter
     private lateinit var tvSourceLanguage: TextView
@@ -46,6 +47,9 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     private var isManualPause = false
     private var isUpdatingLanguages = false
 
+    private var currentSourceLanguage = "中文(简体)"
+    private var currentTargetLanguage = "英语"
+
     private val audioManager by lazy {
         getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
@@ -53,20 +57,13 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_translate_realtime)
+        setContentView(R.layout.activity_translate_exchange)
 
         voiceManager = VoiceManager(this)
         setupUI()
         setupRecyclerView()
         setupButtonStyle()
         initClasiClient()
-
-        if (!isBluetoothHeadsetConnected()) {
-            AlertDialog.Builder(this)
-                .setTitle("眼镜未连接")
-                .setPositiveButton("确定", null)
-                .show()
-        }
     }
 
     private fun setupUI() {
@@ -114,6 +111,9 @@ class TranslateRealtimeActivity : AppCompatActivity() {
                 languageConvert(tvTargetLanguage.text.toString())
             )
         }
+
+        tvSourceLanguage.setOnClickListener { showSourceLanguagePickerDialog() }
+        tvTargetLanguage.setOnClickListener { showTargetLanguagePickerDialog() }
 
         llTextSetting.setOnClickListener {
             languageStyleState = (languageStyleState + 1) % 3
@@ -187,7 +187,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
 
                 override fun onFinalResult(transcript: String, translation: String) {
                     runOnUiThread {
-                        LogUtils.info("收到实时语音识别结果：$transcript, 翻译结果：$translation")
+                        LogUtils.info("---3--- 收到实时语音识别结果：$transcript, 翻译结果：$translation")
                         addTranslationResult(transcript, translation)
                         currentSourceText = ""
                         currentTargetText = ""
@@ -199,7 +199,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
                         if (!isManualPause && !isUpdatingLanguages) {
                             LogUtils.info("连接失败，停止录音")
                             if (errorDialog?.isShowing != true) {
-                                errorDialog = AlertDialog.Builder(this@TranslateRealtimeActivity)
+                                errorDialog = AlertDialog.Builder(this@TranslateExchangeActivity)
                                     .setMessage("网络波动，请稍后")
                                     .setCancelable(false) // 禁止点击外部关闭
                                     .create()
@@ -236,13 +236,25 @@ class TranslateRealtimeActivity : AppCompatActivity() {
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun startAudioRecording() {
+//        if (!isBluetoothHeadsetConnected()) {
+//            AlertDialog.Builder(this)
+//                .setTitle("眼镜未连接")
+//                .setMessage("请连接AR眼镜后再试！")
+//                .setPositiveButton("确定") { _, _ ->
+//                    finish()
+//                    overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+//                }
+//                .show()
+//            return
+//        }
+
         if (!clasiClient.isConnected()) {
             LogUtils.error("连接未就绪，请稍后重试")
             translateState = 1
             return
         }
 
-        voiceManager.startStreaming(true, object : VoiceManager.AudioRecordCallback {
+        voiceManager.startStreaming(false, object : VoiceManager.AudioRecordCallback {
             override fun onAudioData(data: ByteArray) {
                 // 将音频数据发送到翻译服务
                 if (clasiClient.isConnected()) {
@@ -299,8 +311,42 @@ class TranslateRealtimeActivity : AppCompatActivity() {
         return when (language) {
             "中文(简体)" -> "zh"
             "英语" -> "en"
+            "西班牙语" -> "es"
+            "德语" -> "de"
+            "日语" -> "ja"
+            "法语" -> "fr"
+            "韩语" -> "ko"
+            "意大利语" -> "it"
+            "俄语" -> "ru"
+            "阿拉伯语" -> "ar"
             else -> "zh"
         }
+    }
+
+    private fun showSourceLanguagePickerDialog() {
+        val dialog = LanguagePickerDialog(
+            context = this,
+            currentLanguage = currentSourceLanguage,
+            onConfirm = { selectedLanguage ->
+                currentSourceLanguage = selectedLanguage
+                tvSourceLanguage.text = selectedLanguage
+                tvSourceLanguageSetting.text = languageConvert(selectedLanguage).uppercase()
+            }
+        )
+        dialog.show()
+    }
+
+    private fun showTargetLanguagePickerDialog() {
+        val dialog = LanguagePickerDialog(
+            context = this,
+            currentLanguage = currentTargetLanguage,
+            onConfirm = { selectedLanguage ->
+                currentTargetLanguage = selectedLanguage
+                tvTargetLanguage.text = selectedLanguage
+                tvTargetLanguageSetting.text = languageConvert(selectedLanguage).uppercase()
+            }
+        )
+        dialog.show()
     }
 
     override fun onDestroy() {

@@ -42,20 +42,24 @@ class VoiceManager(private val context: Context) {
     fun isRecording() = isRecording
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun startStreaming(callback: AudioRecordCallback) {
-        // 如果支持蓝牙 SCO，就走蓝牙通道
-        val useBluetooth = audioManager.isBluetoothScoAvailableOffCall
-        if (useBluetooth) {
+    fun startStreaming(isPhoneMic: Boolean, callback: AudioRecordCallback) {
+        if (isPhoneMic) {
+            // 关闭蓝牙SCO录音
+            if (isScoOnForRecording) {
+                audioManager.stopBluetoothSco()
+                audioManager.isBluetoothScoOn = false
+                isScoOnForRecording = false
+            }
+        } else {
+            // 开启蓝牙SCO录音
             audioManager.startBluetoothSco()
             audioManager.isBluetoothScoOn = true
             isScoOnForRecording = true
-        } else {
-            isScoOnForRecording = false
         }
 
         val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
         audioRecord = AudioRecord(
-            if (useBluetooth) { MediaRecorder.AudioSource.VOICE_COMMUNICATION } else { MediaRecorder.AudioSource.MIC },
+            if (isPhoneMic) {MediaRecorder.AudioSource.MIC} else {MediaRecorder.AudioSource.VOICE_COMMUNICATION},
             sampleRate,
             channelConfig,
             audioFormat,
@@ -181,7 +185,7 @@ class VoiceManager(private val context: Context) {
         }
     }
 
-    fun stopPlayback() {
+    private fun stopPlayback() {
         mediaPlayer?.release()
         mediaPlayer = null
         currentPlayingPath = null
@@ -226,5 +230,5 @@ class VoiceManager(private val context: Context) {
         fun onPlaybackComplete(filePath: String)
     }
 
-    var onPlaybackCompleteListener: OnPlaybackCompleteListener? = null
+    private var onPlaybackCompleteListener: OnPlaybackCompleteListener? = null
 }

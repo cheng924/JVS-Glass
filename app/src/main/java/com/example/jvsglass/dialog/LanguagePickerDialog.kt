@@ -22,7 +22,7 @@ class LanguagePickerDialog(
         setCanceledOnTouchOutside(false)
 
         window?.apply {
-            // 再保证一下：宽度包裹内容，高度随内容
+            // 宽度包裹内容，高度随内容
             setLayout(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT

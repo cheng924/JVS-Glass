@@ -6,7 +6,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
-import com.example.jvsglass.utils.ToastUtils
 
 class TranslateActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,7 +22,7 @@ class TranslateActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_conversation_translate).setOnClickListener {
-            ToastUtils.show(this, "对话翻译暂未开放")
+            startActivity(Intent(this, TranslateExchangeActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.ll_document_translate).setOnClickListener {

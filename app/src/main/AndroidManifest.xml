@@ -67,6 +67,9 @@
             android:name=".activities.translate.TranslateFileActivity"
             android:exported="false" />
         <activity
+            android:name=".activities.translate.TranslateExchangeActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.translate.TranslateRealtimeActivity"
             android:exported="false" />
         <activity
