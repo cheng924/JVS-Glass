@@ -36,11 +36,22 @@ class SystemFileOpener(private val context: Context) {
 
     // 注册Activity结果启动器
     private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var pickImageLauncher: ActivityResultLauncher<String>
     private lateinit var cameraLauncher: ActivityResultLauncher<Intent>
     private lateinit var folderLauncher: ActivityResultLauncher<Intent>
 
     // 初始化所有启动器
     fun registerLaunchers(activity: FragmentActivity, callback: FileResultCallback) {
+        pickImageLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            if (uri != null) {
+                callback.onFileSelected(uri.toString())
+            } else {
+                callback.onError("未选择图片")
+            }
+        }
+
         requestPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
@@ -60,6 +71,7 @@ class SystemFileOpener(private val context: Context) {
                 cameraImageUri?.let { uri ->
                     context.contentResolver.delete(uri, null, null)
                 }
+                callback.onError("拍照取消或失败")
             }
         }
 
@@ -67,16 +79,30 @@ class SystemFileOpener(private val context: Context) {
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                result.data?.data?.let { uri ->
+                val uri = result.data?.data
+                if (uri == null) {
+                    callback.onError("未选择文件或图片")
+                } else {
                     thread {
-                        val newPath = copySelectedFile(uri)
+                        val mime = context.contentResolver.getType(uri) ?: ""
+                        val newPath = if (mime.startsWith("image/")) {
+                            copyGalleryImageToAppDir(uri)
+                        } else {
+                            copySelectedFile(uri)
+                        }
                         Handler(Looper.getMainLooper()).post {
-                            callback.onFileSelected(newPath)
+                            if (newPath != null) callback.onFileSelected(newPath)
+                            else callback.onError("文件复制失败")
                         }
                     }
                 }
             }
         }
+    }
+
+    // 打开相册
+    fun openGallery() {
+        pickImageLauncher.launch("image/*")
     }
 
     // 打开相机
@@ -143,6 +169,21 @@ class SystemFileOpener(private val context: Context) {
                 if (exists()) delete()
                 createNewFile() // 显式创建文件
             }
+        }
+    }
+
+    fun copyGalleryImageToAppDir(uri: Uri): String? {
+        return try {
+            val imgFile = createImageFile() ?: return null
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(imgFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            imgFile.absolutePath
+        } catch (e: Exception) {
+            LogUtils.error("复制相册图片失败: ${e.message}")
+            null
         }
     }
 

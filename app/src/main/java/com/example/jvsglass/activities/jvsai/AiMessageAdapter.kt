@@ -1,6 +1,5 @@
 package com.example.jvsglass.activities.jvsai
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.view.Gravity
@@ -11,7 +10,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.jvsglass.R
@@ -91,9 +90,15 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
         setupMessageLayoutAppearance(holder, message, params)
 
         // 图片加载与点击事件
-        Glide.with(holder.itemView.context)
-            .load(File(message.path))
-            .into(holder.ivImage)
+        if (message.path.startsWith("content://")) {
+            val uri = message.path.toUri()
+            try {
+                holder.itemView.context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Exception) { }
+            Glide.with(holder.itemView.context).load(uri).into(holder.ivImage)
+        } else {
+            Glide.with(holder.itemView.context).load(File(message.path)).into(holder.ivImage)
+        }
     }
 
     private fun handleFileMessage(

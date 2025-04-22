@@ -5,10 +5,12 @@ import android.app.AlertDialog
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -50,6 +52,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
         getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,6 +90,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
         rvTranslateResults.adapter = translationAdapter
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun setupButtonStyle() {
         findViewById<LinearLayout>(R.id.ll_stop).setOnClickListener {

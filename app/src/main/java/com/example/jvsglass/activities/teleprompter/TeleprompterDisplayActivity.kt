@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -11,11 +12,11 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
 import com.example.jvsglass.ble.BLEGattClient
-import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import kotlin.math.abs
 
@@ -36,6 +37,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         showScrollResult(deltaY)
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState : Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +59,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @SuppressLint("ClickableViewAccessibility")
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initView() {

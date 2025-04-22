@@ -1,12 +1,14 @@
 package com.example.jvsglass.activities.teleprompter
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -32,6 +34,7 @@ class TeleprompterActivity : AppCompatActivity(), FileHandler.FileReadResultCall
     private lateinit var adapter: FileAdapter
     private lateinit var fileHandler: FileHandler
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_teleprompter)

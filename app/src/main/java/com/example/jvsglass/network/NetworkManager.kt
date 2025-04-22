@@ -3,6 +3,7 @@ package com.example.jvsglass.network
 import android.util.Base64
 import com.example.jvsglass.BuildConfig
 import com.example.jvsglass.utils.LogUtils
+import com.google.gson.Gson
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
@@ -40,6 +41,12 @@ class NetworkManager private constructor() {
     interface ModelCallback<T> {
         fun onSuccess(result: T)
         fun onFailure(error: Throwable)
+    }
+
+    interface StreamCallback {
+        fun onNewMessage(text: String)  // 收到新的增量文本片段
+        fun onCompleted()   // 流结束
+        fun onError(error: Throwable)   // 出错
     }
 
     // 语音识别
@@ -143,6 +150,57 @@ class NetworkManager private constructor() {
             )
 
         compositeDisposable.add(disposable)
+    }
+
+    // DouBao文字聊天（流式响应）
+    fun chatTextCompletionStream(
+        messages: List<ChatRequest.Message>,
+        temperature: Double = 0.7,
+        callback: StreamCallback
+    ): Disposable {
+        require(messages.any { it.role == "user" }) { "至少需要一条用户消息" }
+        val request = ChatRequest(
+            model = "7491227972067377162",
+            messages = messages,
+            temperature = temperature,
+            stream = true
+        )
+
+        return apiService.chatTextCompletionStream(request)
+            .subscribeOn(Schedulers.io())
+            .flatMap { body ->
+                Observable.create<String> { emitter ->
+                    val source = body.source()
+                    try {
+                        while (!source.exhausted() && !emitter.isDisposed) {
+                            val line = source.readUtf8Line() ?: break
+                            if (!line.startsWith("data:")) continue
+
+                            val payload = line.removePrefix("data:").trim()
+                            if (payload == "[DONE]") {
+                                emitter.onComplete()
+                                break
+                            }
+
+                            val chunk = Gson().fromJson(payload, StreamResponse::class.java)
+                            val content = chunk.choices?.firstOrNull()?.delta?.content
+                            if (!content.isNullOrEmpty()) {
+                                emitter.onNext(content)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (!emitter.isDisposed) emitter.onError(e)
+                    } finally {
+                        body.close()
+                    }
+                }
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                { text -> callback.onNewMessage(text) },
+                { err -> callback.onError(err) },
+                { callback.onCompleted() }
+            )
     }
 
     // DouBao图片识别

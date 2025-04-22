@@ -10,11 +10,13 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -100,6 +102,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,6 +120,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
         bleClient = BLEGattClient.getInstance(this)
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initUI() {
         initDeviceList()
@@ -155,6 +159,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun checkPermissionsAndSetup() {
         if (!hasBluetoothPermissions()) {
@@ -181,6 +186,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
         )
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initButtons() {
         binding.btnClient.visibility = if (bleClient.isConnected()) View.GONE else View.VISIBLE

@@ -1,11 +1,13 @@
 package com.example.jvsglass.activities.translate
 
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
 import com.example.jvsglass.dialog.LanguagePickerDialog
@@ -31,6 +33,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
     private var currentLanguage = "英语"
     var translateContent: String = ""
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_translate_file)
@@ -39,6 +42,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
         setupUI()
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun setupUI() {
         tvLanguagePicker = findViewById(R.id.tv_language_picker)
         llImport = findViewById(R.id.ll_import)

@@ -2,10 +2,12 @@ package com.example.jvsglass.activities.teleprompter
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.os.Build
 import android.os.Bundle
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
@@ -22,6 +24,7 @@ import java.time.format.DateTimeFormatter
 class TeleprompterNewFileActivity : AppCompatActivity() {
     private val db: AppDatabase by lazy { AppDatabaseProvider.db }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +46,7 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun saveToDatabase() {
         val article = TeleprompterArticle(
             title = findViewById<TextView>(R.id.et_title).text.toString().ifEmpty { "Untitled" },
@@ -65,6 +69,7 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun finishWithAnimation() {
         setResult(Activity.RESULT_OK)
         finish()

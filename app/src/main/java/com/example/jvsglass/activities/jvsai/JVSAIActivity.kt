@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -16,6 +17,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.ViewSwitcher
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -33,6 +35,9 @@ import com.example.jvsglass.network.NetworkManager
 import java.io.File
 import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.network.TOSManager
+import io.reactivex.disposables.Disposable
+import androidx.core.net.toUri
+import java.util.Locale
 
 class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
@@ -48,11 +53,11 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private var isVoiceInput = false
     private var startY = 0f
     private var isCanceled = false
-
     private var isStreaming = false
     private var tempMessageId: String? = null // 用于跟踪临时消息
-
     private val chatMessages = mutableListOf<ChatRequest.Message>()
+    private var streamDisposable: Disposable? = null
+    private var currentVoicePath = ""
 
     private lateinit var rvMessages: RecyclerView
     private lateinit var rvCardView: RecyclerView
@@ -69,11 +74,15 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private lateinit var tvVoiceInput: TextView
 
     private lateinit var mediaButtons: LinearLayout
+    private lateinit var llPhotoAdd: LinearLayout
+    private lateinit var llGallery: LinearLayout
+    private lateinit var llCamera: LinearLayout
     private lateinit var icGallery: ImageView
     private lateinit var ivCamera: ImageView
     private lateinit var ivFile: ImageView
     private lateinit var ivCall: ImageView
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,10 +104,9 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         setupRecyclerView()
         setupClickListeners()
         initRealtimeAsrClient()
-        realtimeAsrClient.connect()
-        realtimeAsrClient.keepConnectionOpen()
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun setupUI() {
         rvMessages = findViewById(R.id.rvMessages)
         rvCardView = findViewById(R.id.rvCardView)
@@ -116,6 +124,9 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         tvVoiceInput = findViewById(R.id.tvVoiceInput)
 
         mediaButtons = findViewById(R.id.mediaButtons)
+        llPhotoAdd = findViewById(R.id.llPhotoAdd)
+        llGallery = findViewById(R.id.llGallery)
+        llCamera = findViewById(R.id.llCamera)
         icGallery = findViewById(R.id.icGallery)
         ivCamera = findViewById(R.id.ivCamera)
         ivFile = findViewById(R.id.ivFile)
@@ -148,7 +159,15 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 override fun onAddCardClicked(position: Int) {
                     if (cardItems.size < CardAdapter.MAX_CARD_ITEM) {
                         if (cardItems[0].tag == "IMAGE") {
-                            fileOpener.openCamera()
+                            llPhotoAdd.visibility = View.VISIBLE
+                            llGallery.setOnClickListener {
+                                fileOpener.openGallery()
+                                llPhotoAdd.visibility = View.GONE
+                            }
+                            llCamera.setOnClickListener {
+                                fileOpener.openCamera()
+                                llPhotoAdd.visibility = View.GONE
+                            }
                         } else {
                             fileOpener.openFilePicker()
                         }
@@ -193,14 +212,14 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 MotionEvent.ACTION_DOWN -> {
                     startY = event.rawY
                     isCanceled = false
-                    voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
+                    currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
                         override fun onAudioData(data: ByteArray) {
                             if (!isCanceled) {
                                 realtimeAsrClient.sendAudioChunk(data) // 实时发送音频块
                                 LogUtils.debug("实时发送音频块，大小=${data.size}字节")
                             }
                         }
-                    })
+                    }).toString()
                     llVoiceInput.visibility = View.VISIBLE
                     llTextInput.visibility = View.GONE
                     tvVoiceInputTip.text = "松手发送，上移取消"
@@ -248,7 +267,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     if (isCanceled) {
                         LogUtils.info("取消录音")
                         voiceManager.stopRecording()
-
+                        voiceManager.deleteVoiceFile(currentVoicePath)
                         tempMessageId?.let { tempId ->
                             val index = messageList.indexOfFirst { it.id == tempId }
                             if (index != -1) {
@@ -279,7 +298,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
 
         icGallery.setOnClickListener {
-            addMessage("[相册]", true)
+            fileOpener.openGallery()
             hideMediaButtons()
         }
 
@@ -322,7 +341,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
 
         ivCall.setOnClickListener {
-            addMessage("[打电话]", true)
+            ToastUtils.show(this, "开发中，敬请期待")
             hideMediaButtons()
         }
     }
@@ -355,8 +374,14 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 val imageFiles = pendingCards
                     .filter { it.tag == "IMAGE" }
                     .map { File(it.fileUri) }
-//                sendImageToModel(message, imageFiles)
-                sendImageToCozeModel(message, imageFiles)
+                    .filter { it.exists() }
+
+                if (imageFiles.isEmpty()) {
+                    ToastUtils.show(this, "无法获取图片文件")
+                } else {
+//                    sendImageToModel(message, imageFiles)
+                    sendImageToCozeModel(message, imageFiles)
+                }
             }
 
             // 处理文件附件请求
@@ -364,7 +389,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 //                sendFilesToModel(text, pendingCards)
             }
 
-            else -> sendTextToModel(message)
+            else -> sendTextToModelStream(message)
         }
 
         etMessage.text.clear()
@@ -434,8 +459,11 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         )
         if (isVoiceInput) {
             hideKeyboard()
+            realtimeAsrClient.connect()
+            realtimeAsrClient.keepConnectionOpen()
         } else {
             showKeyboard()
+            realtimeAsrClient.disconnect()
         }
     }
 
@@ -469,6 +497,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                         messageList.find { it.id == tempMessageId }?.let { msg ->
                             sendMessage(msg.message)
                         }
+                        voiceManager.deleteVoiceFile(currentVoicePath)
                     }
                 }
 
@@ -546,6 +575,34 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     LogUtils.error("请求失败: ${error.message?.substringBefore("\n") ?: "未知错误"}")
                 }
             })
+    }
+
+    private fun sendTextToModelStream(userMessage: String) {
+        val thinkingMessage = addMessage("思考中...", false)
+        val fullResponse = StringBuilder()
+        val userMsg = ChatRequest.Message(role = "user", content = userMessage)
+        chatMessages.add(userMsg)
+        streamDisposable = NetworkManager.getInstance().chatTextCompletionStream(
+            messages = chatMessages,
+            temperature = 0.7,
+            callback = object : NetworkManager.StreamCallback {
+                override fun onNewMessage(text: String) {
+                    fullResponse.append(text)
+                    LogUtils.info("收到消息：$text")
+                    updateMessage(thinkingMessage.id, fullResponse.toString())
+                }
+
+                override fun onCompleted() {
+                    LogUtils.info("对话结束")
+                    if (fullResponse.isEmpty()) updateMessage(thinkingMessage.id, "未收到有效回复")
+                }
+
+                override fun onError(error: Throwable) {
+                    LogUtils.error("出错了：${error.message}")
+                    updateMessage(thinkingMessage.id, "请求失败，请重试")
+                }
+            }
+        )
     }
 
     private fun sendImageToModel(message: String, imageFiles: List<File>) {
@@ -683,21 +740,46 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             return
         }
 
-        path?.let {
-            val fileExtension = it.substringAfterLast(".", "")
-            val fileName = File(it).name.substringAfter("FILE_").substringBefore(".")
+        val actualPath = run {
+            val uri = path?.toUri()
+            if (uri?.scheme == "content") {
+                fileOpener.copyGalleryImageToAppDir(uri)
+            } else {
+                path
+            }
+        } ?: run {
+            ToastUtils.show(this, "图片复制失败")
+            return
+        }
+
+        val lower = actualPath.lowercase(Locale.getDefault())
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") ||
+            lower.endsWith(".bmp") || lower.endsWith(".webp") || lower.endsWith(".gif")
+        ) {
+            val newCard = CardItem(
+                id = System.currentTimeMillis().toString(),
+                title = "待发送图片",
+                tag = "IMAGE",
+                fileUri = actualPath
+            )
+            if (cardItems.none { it.fileUri == actualPath }) {
+                cardItems.add(newCard)
+                updateCardList(scroll = true)
+                rvCardView.visibility = View.VISIBLE
+            }
+        } else {
+            val fileExtension = actualPath.substringAfterLast(".", "")
+            val fileName = File(actualPath).name.substringAfter("FILE_").substringBefore(".")
             val newCard = CardItem(
                 id = System.currentTimeMillis().toString(),
                 title = fileName,
                 tag = fileExtension,
-                fileUri = it
+                fileUri = actualPath
             )
 
             cardItems.add(newCard)
             updateCardList(scroll = true)
             rvCardView.visibility = View.VISIBLE
-        } ?: run {
-            ToastUtils.show(this, "文件保存失败")
         }
     }
 
@@ -733,6 +815,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     override fun onDestroy() {
         super.onDestroy()
+        streamDisposable?.dispose()
         voiceManager.release()
         NetworkManager.getInstance().dispose()
         realtimeAsrClient.shouldReconnect = false

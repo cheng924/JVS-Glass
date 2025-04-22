@@ -5,10 +5,12 @@ import android.app.AlertDialog
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -54,6 +56,7 @@ class TranslateExchangeActivity : AppCompatActivity() {
         getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +87,7 @@ class TranslateExchangeActivity : AppCompatActivity() {
         rvTranslateResults.adapter = translationAdapter
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun setupButtonStyle() {
         findViewById<LinearLayout>(R.id.ll_stop).setOnClickListener {
@@ -213,6 +217,7 @@ class TranslateExchangeActivity : AppCompatActivity() {
 
                 override fun onConnectionChanged(connected: Boolean) { }
 
+                @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
                 @RequiresPermission(Manifest.permission.RECORD_AUDIO)
                 override fun onSessionReady() {
                     runOnUiThread {
@@ -234,19 +239,20 @@ class TranslateExchangeActivity : AppCompatActivity() {
         clasiClient.connect()
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun startAudioRecording() {
-//        if (!isBluetoothHeadsetConnected()) {
-//            AlertDialog.Builder(this)
-//                .setTitle("眼镜未连接")
-//                .setMessage("请连接AR眼镜后再试！")
-//                .setPositiveButton("确定") { _, _ ->
-//                    finish()
-//                    overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
-//                }
-//                .show()
-//            return
-//        }
+        if (!isBluetoothHeadsetConnected()) {
+            AlertDialog.Builder(this)
+                .setTitle("眼镜未连接")
+                .setMessage("请连接AR眼镜后再试！")
+                .setPositiveButton("确定") { _, _ ->
+                    finish()
+                    overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+                }
+                .show()
+            return
+        }
 
         if (!clasiClient.isConnected()) {
             LogUtils.error("连接未就绪，请稍后重试")

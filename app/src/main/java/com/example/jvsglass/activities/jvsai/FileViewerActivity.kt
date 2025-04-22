@@ -1,17 +1,20 @@
 package com.example.jvsglass.activities.jvsai
 
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.webkit.WebView
 import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
 import com.example.jvsglass.utils.ToastUtils
 import java.io.File
 
 class FileViewerActivity : AppCompatActivity() {
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_file_viewer)
