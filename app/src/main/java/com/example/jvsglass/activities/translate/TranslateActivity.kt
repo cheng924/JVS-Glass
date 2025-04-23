@@ -17,7 +17,7 @@ class TranslateActivity : AppCompatActivity() {
 
         findViewById<ImageView>(R.id.ivBack).setOnClickListener {
             finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<LinearLayout>(R.id.ll_realtime_translate).setOnClickListener {

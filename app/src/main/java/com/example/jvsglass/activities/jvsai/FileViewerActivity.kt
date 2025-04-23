@@ -21,7 +21,7 @@ class FileViewerActivity : AppCompatActivity() {
 
         findViewById<ImageView>(R.id.ivClose).setOnClickListener {
             finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         // 加载文件内容

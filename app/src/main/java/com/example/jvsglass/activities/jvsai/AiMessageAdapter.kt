@@ -14,11 +14,11 @@ import androidx.core.net.toUri
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.jvsglass.R
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import com.example.jvsglass.utils.TextFormatter
 import com.example.jvsglass.utils.ToastUtils
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
@@ -41,10 +41,10 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val fileDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
-        holder.messageDate.text = fileDate
-
         val message = messages[position]
+        val displayTime = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
+
+        holder.messageDate.text = displayTime.format(Date(message.timestamp))
         holder.messageText.text = message.message
         val params = holder.llMessageLayout.layoutParams as ViewGroup.MarginLayoutParams
 

@@ -201,7 +201,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
 
         binding.btnBack.setOnClickListener {
             finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
     }
 

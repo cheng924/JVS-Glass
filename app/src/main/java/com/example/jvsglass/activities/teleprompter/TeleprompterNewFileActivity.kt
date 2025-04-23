@@ -13,7 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
 import com.example.jvsglass.database.AppDatabase
 import com.example.jvsglass.database.AppDatabaseProvider
-import com.example.jvsglass.database.TeleprompterArticle
+import com.example.jvsglass.database.TeleprompterArticleEntity
 import com.example.jvsglass.utils.ToastUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,7 +33,7 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tv_date).text = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
         findViewById<ImageView>(R.id.iv_back).setOnClickListener {
             finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<TextView>(R.id.tv_save_file).setOnClickListener {
@@ -48,7 +48,7 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun saveToDatabase() {
-        val article = TeleprompterArticle(
+        val article = TeleprompterArticleEntity(
             title = findViewById<TextView>(R.id.et_title).text.toString().ifEmpty { "Untitled" },
             createDate = findViewById<TextView>(R.id.tv_date).text.toString(),
             content = findViewById<TextView>(R.id.et_content).text.toString()
@@ -73,6 +73,6 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
     private fun finishWithAnimation() {
         setResult(Activity.RESULT_OK)
         finish()
-        overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 }

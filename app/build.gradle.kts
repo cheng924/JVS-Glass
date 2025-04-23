@@ -27,6 +27,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments += "room.schemaLocation" to "$projectDir/schemas"
+            }
+        }
+
         val secretKey = localProperties.getProperty("DOUBAO_AI_API_KEY") ?: ""
         buildConfigField("String", "DOUBAO_AI_API_KEY", "\"$secretKey\"")
 

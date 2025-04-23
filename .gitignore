@@ -13,3 +13,5 @@
 .kotlin/errors/
 # OAuth私钥文件
 /private_key.pem
+# 忽略 Room 自动生成的数据库模式文件
+app/schemas/**/*.json

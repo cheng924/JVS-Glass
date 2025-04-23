@@ -65,7 +65,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private fun initView() {
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
             finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<LinearLayout>(R.id.btnSettings).setOnClickListener {

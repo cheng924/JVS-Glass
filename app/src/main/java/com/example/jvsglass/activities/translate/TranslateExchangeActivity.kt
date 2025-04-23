@@ -92,7 +92,7 @@ class TranslateExchangeActivity : AppCompatActivity() {
     private fun setupButtonStyle() {
         findViewById<LinearLayout>(R.id.ll_stop).setOnClickListener {
             finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<ImageView>(R.id.iv_convert).setOnClickListener {
@@ -248,7 +248,7 @@ class TranslateExchangeActivity : AppCompatActivity() {
                 .setMessage("请连接AR眼镜后再试！")
                 .setPositiveButton("确定") { _, _ ->
                     finish()
-                    overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+                    overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
                 }
                 .show()
             return

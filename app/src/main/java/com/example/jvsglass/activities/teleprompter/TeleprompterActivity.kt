@@ -18,7 +18,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.database.AppDatabase
 import com.example.jvsglass.database.AppDatabaseProvider
-import com.example.jvsglass.database.TeleprompterArticle
+import com.example.jvsglass.database.TeleprompterArticleEntity
 import com.example.jvsglass.database.toFileItem
 import com.example.jvsglass.utils.FileHandler
 import com.example.jvsglass.utils.LogUtils
@@ -82,7 +82,7 @@ class TeleprompterActivity : AppCompatActivity(), FileHandler.FileReadResultCall
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
             finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<LinearLayout>(R.id.btnNew).setOnClickListener {
@@ -165,7 +165,7 @@ class TeleprompterActivity : AppCompatActivity(), FileHandler.FileReadResultCall
     }
 
     private fun saveToDatabase(fileName: String, fileDate: String, fileContent: String) {
-        val article = TeleprompterArticle(
+        val article = TeleprompterArticleEntity(
             title = fileName,
             createDate = fileDate,
             content = fileContent

@@ -2,6 +2,7 @@ package com.example.jvsglass.activities.jvsai
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
@@ -37,13 +38,24 @@ import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.network.TOSManager
 import io.reactivex.disposables.Disposable
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
+import com.example.jvsglass.MainActivity
+import com.example.jvsglass.database.AiConversationEntity
+import com.example.jvsglass.database.AiMessageEntity
+import com.example.jvsglass.database.AppDatabase
+import com.example.jvsglass.database.AppDatabaseProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
+import java.util.UUID
 
 class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     private lateinit var voiceManager: VoiceManager
     private lateinit var fileOpener: SystemFileOpener
     private lateinit var realtimeAsrClient: RealtimeAsrClient
+    private val db: AppDatabase by lazy { AppDatabaseProvider.db }
 
     private var isUiReady = false
     private val messageList = mutableListOf<AiMessage>()
@@ -54,11 +66,14 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private var startY = 0f
     private var isCanceled = false
     private var isStreaming = false
-    private var tempMessageId: String? = null // 用于跟踪临时消息
+    private var tempMessageId: String? = null // 跟踪临时消息
     private val chatMessages = mutableListOf<ChatRequest.Message>()
     private var streamDisposable: Disposable? = null
     private var currentVoicePath = ""
+    private var currentConversationId: String? = null
+    private var isLoadedFromHistory = false
 
+    private lateinit var tvConversationTitle: TextView
     private lateinit var rvMessages: RecyclerView
     private lateinit var rvCardView: RecyclerView
     private lateinit var llTextInput: LinearLayout
@@ -82,6 +97,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private lateinit var ivFile: ImageView
     private lateinit var ivCall: ImageView
 
+    @SuppressLint("NotifyDataSetChanged")
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,10 +120,13 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         setupRecyclerView()
         setupClickListeners()
         initRealtimeAsrClient()
+
+        handleHistoryIntent(intent)
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun setupUI() {
+        tvConversationTitle = findViewById(R.id.tvConversationTitle)
         rvMessages = findViewById(R.id.rvMessages)
         rvCardView = findViewById(R.id.rvCardView)
         rvCardView.layoutManager = LinearLayoutManager(this)
@@ -133,12 +152,13 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         ivCall = findViewById(R.id.ivCall)
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
-            finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            saveConversationToDb()
+            onBackPressed()
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<ImageView>(R.id.ivAiHistory).setOnClickListener {
-            ToastUtils.show(this@JVSAIActivity, "历史记录")
+            startActivity(Intent(this, AiHistoryActivity::class.java))
         }
 
         etMessage.addTextChangedListener(object : TextWatcher {
@@ -391,6 +411,11 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             else -> sendTextToCozeModelStream(message)
         }
 
+        if (tvConversationTitle.text == "AI助手") {
+            generateConversationTitle(message)
+        }
+
+        hideKeyboard()
         etMessage.text.clear()
         cardItems.clear()
         cardAdapter.submitList(cardItems.toList())
@@ -438,7 +463,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     ): AiMessage {
         val newMessage = AiMessage(
             message,
-            System.currentTimeMillis().toString(),
+            System.currentTimeMillis(),
             isSent,
             type,
             path
@@ -544,6 +569,33 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 }
             }
         }
+    }
+
+    private fun generateConversationTitle(firstMessage: String) {
+        // 构造一个只用来生成标题的请求
+        val titlePrompt = "请为以下用户提问生成一个不超过7个字的简洁会话标题：\n“$firstMessage”"
+        NetworkManager.getInstance().chatTextCompletion(
+            messages = listOf(ChatRequest.Message(role = "user", content = titlePrompt)),
+            temperature = 0.3,
+            object : NetworkManager.ModelCallback<ChatResponse> {
+                override fun onSuccess(result: ChatResponse) {
+                    val title = result.choices.firstOrNull()?.message?.content?.trim()
+                    runOnUiThread {
+                        if (!title.isNullOrEmpty()) {
+                            if (title.length <= 7)
+                                tvConversationTitle.text = title
+                            else {
+                                LogUtils.error("生成超长标题：$title")
+                            }
+                        }
+                    }
+                }
+                override fun onFailure(error: Throwable) {
+                    // 可以忽略错误，标题展示仍然使用默认
+                    LogUtils.error("生成标题失败：${error.message}")
+                }
+            }
+        )
     }
 
     private fun sendTextToCozeModel(userMessage: String) {
@@ -732,7 +784,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private fun updateMessage(messageId: String, newContent: String) {
         val index = messageList.indexOfFirst { it.id == messageId }
         if (index != -1) {
-            messageList[index] = messageList[index].copy(message = newContent)
+            messageList[index] = messageList[index].copy(message = newContent, timestamp = System.currentTimeMillis())
             messageAdapter.notifyItemChanged(index)
             rvMessages.scrollToPosition(messageList.size - 1)
         }
@@ -854,6 +906,104 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 }
             }
             updateButtonVisibility()
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private fun handleHistoryIntent(intent: Intent) {
+        intent.getStringExtra("conversationId")?.let { convId ->
+            if (!isLoadedFromHistory && messageList.isNotEmpty()) {
+                saveConversationToDb()
+            }
+
+            currentConversationId = convId
+            isLoadedFromHistory = true
+            messageList.clear()
+            messageAdapter.notifyDataSetChanged()
+            loadConversation(convId)
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private fun loadConversation(conversationId: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val conv = db.AiConversationDao().getById(conversationId)
+            val msgs = db.AiMessageDao().getByConversationId(conversationId)
+
+            val aiMessages = msgs.map { entity ->
+                AiMessage(
+                    message   = entity.message,
+                    timestamp = entity.timestamp,
+                    isSent    = entity.isSent,
+                    type      = entity.type,
+                    path      = entity.path
+                )
+            }
+            withContext(Dispatchers.Main) {
+                tvConversationTitle.text = conv.title
+                tvConversationTitle.visibility = View.VISIBLE
+
+                messageList.clear()
+                messageList.addAll(aiMessages)
+                messageAdapter.notifyDataSetChanged()
+                rvMessages.scrollToPosition(messageList.size - 1)
+            }
+        }
+    }
+
+    private fun saveConversationToDb() {
+        if (messageList.isEmpty()) return
+
+        val convId = currentConversationId ?: UUID.randomUUID().toString()
+        val title = tvConversationTitle.text.toString().ifBlank { "AI助手" }
+        val conversationTimeMillis = messageList.first().timestamp
+        val convEntity = AiConversationEntity(
+            conversationId = convId,
+            title = title,
+            timestamp = conversationTimeMillis
+        )
+
+        val msgEntities = messageList.map { msg ->
+            AiMessageEntity(
+                conversationId = convEntity.conversationId,
+                message = msg.message,
+                timestamp = msg.timestamp,
+                isSent = msg.isSent,
+                type = msg.type,
+                path = msg.path
+            )
+        }
+
+        // 协程存储
+        lifecycleScope.launch(Dispatchers.IO) {
+            // 先删旧的
+            db.AiMessageDao().deleteByConversationId(convId)
+            db.AiConversationDao().deleteById(convId)
+            // 再增新的
+            db.AiConversationDao().insert(convEntity)
+            db.AiMessageDao().insertAll(msgEntities)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // 更新内部 Intent，并重新处理历史
+        setIntent(intent)
+        handleHistoryIntent(intent)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (isLoadedFromHistory) {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                // 清掉其它中间所有 Activity，保证只剩下 Main
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            finish()  // 销毁当前
+        } else {
+            // 普通流程，空白页面或新会话，走默认返回
+            super.onBackPressed()
         }
     }
 

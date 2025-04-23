@@ -95,7 +95,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     private fun setupButtonStyle() {
         findViewById<LinearLayout>(R.id.ll_stop).setOnClickListener {
             finish()
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right)
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         findViewById<ImageView>(R.id.iv_convert).setOnClickListener {

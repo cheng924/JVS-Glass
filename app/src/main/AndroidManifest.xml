@@ -12,37 +12,27 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-    <!-- 蓝牙经典和BLE所需权限 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- 蓝牙经典和BLE所需权限 -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission
         android:name="android.permission.BLUETOOTH_PRIVILEGED"
         tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
-    <!-- Android 12+ 需要精确声明蓝牙用途 -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" /> <!-- Android 12+ 需要精确声明蓝牙用途 -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
-        android:usesPermissionFlags="neverForLocation" />
-
-    <!-- 位置权限用于设备发现 -->
+        android:usesPermissionFlags="neverForLocation" /> <!-- 位置权限用于设备发现 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
-    <!-- 蓝牙硬件特性 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- 蓝牙硬件特性 -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
     <uses-feature
         android:name="android.hardware.bluetooth"
-        android:required="true" />
-
-    <!-- 相机硬件特性：相机/自动对焦/闪光灯/前后置 -->
+        android:required="true" /> <!-- 相机硬件特性：相机/自动对焦/闪光灯/前后置 -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -63,6 +53,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
+        <activity
+            android:name=".activities.jvsai.AiHistoryActivity"
+            android:exported="false" />
         <activity
             android:name=".activities.translate.TranslateFileActivity"
             android:exported="false" />
