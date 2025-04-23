@@ -321,6 +321,72 @@ class NetworkManager private constructor() {
         }
     }
 
+    fun uploadImageCozeCompletionStream(
+        images: List<String>,
+        question: String?,
+        callback: StreamCallback
+    ): Disposable {
+        require(images.size in 1..9) { "图片数量需在1到9张之间" }
+
+        val request = ImageCozeRequest(
+            model = "7491501936588439591",
+            messages = listOf(
+                ImageCozeRequest.Message(
+                    role = "user",
+                    content = mutableListOf<ImageCozeRequest.ContentItem>().apply {
+                        question?.takeIf { it.isNotEmpty() }?.let {
+                            add(ImageCozeRequest.ContentItem.createTextContent(it))
+                        }
+                        images.forEach { url ->
+                            add(ImageCozeRequest.ContentItem.createImageContent(url))
+                        }
+                    }
+                )
+            ),
+            maxTokens = 300,
+            stream = true
+        )
+
+        return apiService.uploadImageCozeCompletionStream(request)
+            .subscribeOn(Schedulers.io())
+            .flatMap { body ->
+                Observable.create<String> { emitter ->
+                    val source = body.source()
+                    try {
+                        while (!source.exhausted() && !emitter.isDisposed) {
+                            val line = source.readUtf8Line() ?: break
+                            if (!line.startsWith("data:")) continue
+
+                            val payload = line.removePrefix("data:").trim()
+                            if (payload == "[DONE]") {
+                                emitter.onComplete()
+                                break
+                            }
+
+                            val chunk = Gson().fromJson(payload, StreamResponse::class.java)
+                            val content = chunk.choices
+                                ?.firstOrNull()
+                                ?.delta
+                                ?.content
+                            if (!content.isNullOrEmpty()) {
+                                emitter.onNext(content)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (!emitter.isDisposed) emitter.onError(e)
+                    } finally {
+                        body.close()
+                    }
+                }
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                { text -> callback.onNewMessage(text) },
+                { err  -> callback.onError(err) },
+                { callback.onCompleted() }
+            )
+    }
+
     fun uploadFileTextCompletion(
         messages: List<ChatRequest.Message>,
         temperature: Double = 0.7,

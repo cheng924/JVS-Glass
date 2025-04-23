@@ -27,7 +27,9 @@ interface ApiService {
         @Part timestampGranularities: List<MultipartBody.Part>
     ): Observable<Response<TranscribeResponse>>
 
-    // Coze工作流 doubao-1.5-pro-32k
+
+    /***** Coze工作流 doubao-1.5-pro-32k *****/
+    // 非流式响应
     @POST("v1/chat/completions")
     @Headers("Content-Type: application/json")
     fun chatTextCompletion(
@@ -35,7 +37,7 @@ interface ApiService {
         @Header("Authorization") auth: String = "Bearer ${BuildConfig.KOUZI_AI_API_KEY}"
     ): Observable<Response<ChatResponse>>
 
-    // Coze工作流 doubao-1.5-pro-32k（流式响应）
+    // 流式响应
     @Streaming
     @POST("v1/chat/completions")
     @Headers("Content-Type: application/json")
@@ -44,7 +46,9 @@ interface ApiService {
         @Header("Authorization") auth: String = "Bearer ${BuildConfig.KOUZI_AI_API_KEY}"
     ): Observable<ResponseBody>
 
-    // 豆包预置 doubao-1.5-vision-pro-32k
+
+    /***** doubao-1.5-vision-pro-32k *****/
+    // 豆包预置
     @POST("v1/chat/completions")
     @Headers("Content-Type: application/json")
     fun uploadImageCompletion(
@@ -52,7 +56,7 @@ interface ApiService {
         @Header("Authorization") auth: String = "Bearer ${BuildConfig.DOUBAO_AI_API_KEY}"
     ): Single<Response<ChatResponse>>
 
-    // Coze工作流 doubao-1.5-vision-pro-32k
+    // Coze工作流 非流式响应
     @POST("v1/chat/completions")
     @Headers("Content-Type: application/json")
     fun uploadImageCozeCompletion(
@@ -60,7 +64,18 @@ interface ApiService {
         @Header("Authorization") auth: String = "Bearer ${BuildConfig.KOUZI_AI_API_KEY}"
     ): Single<Response<ChatResponse>>
 
-    // 豆包预置 doubao-1.5-pro-256k
+    // Coze工作流 流式响应
+    @Streaming
+    @POST("v1/chat/completions")
+    @Headers("Content-Type: application/json")
+    fun uploadImageCozeCompletionStream(
+        @Body request: ImageCozeRequest,
+        @Header("Authorization") auth: String = "Bearer ${BuildConfig.KOUZI_AI_API_KEY}"
+    ): Observable<ResponseBody>
+
+
+    /***** doubao-1.5-pro-256k *****/
+    // 豆包预置
     @POST("v1/chat/completions")
     @Headers("Content-Type: application/json")
     fun uploadFileTextCompletion(

@@ -379,8 +379,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 if (imageFiles.isEmpty()) {
                     ToastUtils.show(this, "无法获取图片文件")
                 } else {
-//                    sendImageToModel(message, imageFiles)
-                    sendImageToCozeModel(message, imageFiles)
+                    sendImageToCozeModelStream(message, imageFiles)
                 }
             }
 
@@ -389,7 +388,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 //                sendFilesToModel(text, pendingCards)
             }
 
-            else -> sendTextToModelStream(message)
+            else -> sendTextToCozeModelStream(message)
         }
 
         etMessage.text.clear()
@@ -547,7 +546,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
     }
 
-    private fun sendTextToModel(userMessage: String) {
+    private fun sendTextToCozeModel(userMessage: String) {
         val thinkingMessage = addMessage("思考中...", false)
         val userMsg = ChatRequest.Message(
             role = "user",
@@ -577,7 +576,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             })
     }
 
-    private fun sendTextToModelStream(userMessage: String) {
+    private fun sendTextToCozeModelStream(userMessage: String) {
         val thinkingMessage = addMessage("思考中...", false)
         val fullResponse = StringBuilder()
         val userMsg = ChatRequest.Message(role = "user", content = userMessage)
@@ -680,6 +679,55 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             }
         }
     }
+
+    private fun sendImageToCozeModelStream(message: String, imageFiles: List<File>) {
+        val processingMessage = addMessage("识图中...", false)
+        val imageUrls = mutableListOf<String>()
+        val lock = Any()
+        var completedCount = 0
+
+        imageFiles.forEach { file ->
+            TOSManager.getInstance().uploadImageFile(
+                objectKey = file.name,
+                filePath = file.absolutePath
+            ) { url ->
+                synchronized(lock) {
+                    url?.let { imageUrls.add(it) }
+                    completedCount++
+
+                    if (completedCount == imageFiles.size) {
+                        if (imageUrls.isEmpty()) {
+                            updateMessage(processingMessage.id, "图片上传失败，请重试")
+                            return@synchronized
+                        }
+
+                        NetworkManager.getInstance().uploadImageCozeCompletionStream(
+                            images = imageUrls,
+                            question = message.takeIf { it.isNotEmpty() },
+                            object : NetworkManager.StreamCallback {
+                                private val buffer = StringBuilder()
+
+                                override fun onNewMessage(text: String) {
+                                    buffer.append(text)
+                                    updateMessage(processingMessage.id, buffer.toString())
+                                }
+
+                                override fun onCompleted() {
+                                    LogUtils.info("图片问答流式响应已完成")
+                                }
+
+                                override fun onError(error: Throwable) {
+                                    updateMessage(processingMessage.id, "图片解析失败，请重试")
+                                    LogUtils.error("流式解析出错", error)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
 
     private fun updateMessage(messageId: String, newContent: String) {
         val index = messageList.indexOfFirst { it.id == messageId }

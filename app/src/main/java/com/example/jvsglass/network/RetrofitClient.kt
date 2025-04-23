@@ -19,9 +19,9 @@ object RetrofitClient {
         level = HttpLoggingInterceptor.Level.BODY // 输出请求和响应详情
     }
 
-    // 用于打印头部并禁用 gzip 的拦截器
+    // 打印头部并禁用gzip拦截器
     private val headerInterceptor = Interceptor { chain ->
-        // 拦截请求，打印并改Accept-Encoding
+        // 拦截请求，打印并修改Accept-Encoding
         val original = chain.request()
         val req = original.newBuilder()
             .header("Accept-Encoding", "identity") // 强制不压缩
@@ -29,7 +29,7 @@ object RetrofitClient {
         LogUtils.info("→ Request → ${req.method} ${req.url}")
         req.headers.toMultimap().forEach { (name, values) ->
             values.forEach { value ->
-                LogUtils.info("   • $name: $value")
+                LogUtils.debug("   • $name: $value")
             }
         }
 
@@ -39,7 +39,7 @@ object RetrofitClient {
         LogUtils.info("← Response ← ${resp.code} ${resp.message}")
         resp.headers.toMultimap().forEach { (name, values) ->
             values.forEach { value ->
-                LogUtils.info("   • $name: $value")
+                LogUtils.debug("   • $name: $value")
             }
         }
 
