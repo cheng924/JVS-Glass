@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AiConversationDao {
@@ -18,4 +19,10 @@ interface AiConversationDao {
 
     @Query("DELETE FROM ai_conversations WHERE conversationId = :convId")
     suspend fun deleteById(convId: String)
+
+    @Query("SELECT COUNT(*) FROM ai_conversations")
+    fun getConversationCount(): Flow<Int>
+
+    @Query("DELETE FROM ai_conversations WHERE conversationId = :conversationId")
+    suspend fun delete(conversationId: String)
 }

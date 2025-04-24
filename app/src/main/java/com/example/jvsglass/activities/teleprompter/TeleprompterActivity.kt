@@ -46,7 +46,6 @@ class TeleprompterActivity : AppCompatActivity(), FileHandler.FileReadResultCall
         val recyclerView: RecyclerView = findViewById(R.id.rvFiles)
         val rlTotalFileBar: RelativeLayout = findViewById(R.id.rl_total_file_bar)
         val rlDeleteFileBar: RelativeLayout = findViewById(R.id.rl_delete_file_bar)
-
         val tvTotalFiles: TextView = findViewById(R.id.tv_total_files)
         val tvDeleteFiles: TextView = findViewById(R.id.tv_delete_files)
 

@@ -152,7 +152,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         ivCall = findViewById(R.id.ivCall)
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
-            saveConversationToDb()
             onBackPressed()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
@@ -310,6 +309,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
 
         ivAdd.setOnClickListener {
+            hideKeyboard()
             toggleMediaButtons()
         }
 
@@ -912,10 +912,10 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     @SuppressLint("NotifyDataSetChanged")
     private fun handleHistoryIntent(intent: Intent) {
         intent.getStringExtra("conversationId")?.let { convId ->
-            if (!isLoadedFromHistory && messageList.isNotEmpty()) {
+            val fromHistory = intent.getBooleanExtra("fromHistory", false)
+            if (fromHistory && messageList.isNotEmpty()) {
                 saveConversationToDb()
             }
-
             currentConversationId = convId
             isLoadedFromHistory = true
             messageList.clear()
@@ -994,6 +994,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        saveConversationToDb()
         if (isLoadedFromHistory) {
             val intent = Intent(this, MainActivity::class.java).apply {
                 // 清掉其它中间所有 Activity，保证只剩下 Main

@@ -32,11 +32,87 @@
 
     </RelativeLayout>
 
+    <RelativeLayout
+        android:id="@+id/rl_total_history_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="15dp"
+        android:paddingBottom="10dp"
+        android:visibility="visible">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="记录"
+            android:textSize="16sp"
+            android:textColor="@color/button_text"/>
+
+        <TextView
+            android:id="@+id/tv_total_histories"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:textSize="16sp"
+            android:textColor="@color/button_text"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/rl_delete_history_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="15dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="已选中"
+            android:textSize="16sp"
+            android:textColor="@color/button_text"/>
+
+        <TextView
+            android:id="@+id/tv_delete_histories"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:textSize="16sp"
+            android:textColor="@color/red_400"/>
+
+    </RelativeLayout>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvHistoryList"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="16dp"
+        android:layout_height="500dp"
+        android:paddingHorizontal="20dp"
         android:clipToPadding="false"/>
+
+    <LinearLayout
+        android:id="@+id/ll_delete_bar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginHorizontal="20dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingVertical="6dp"
+            android:gravity="center_horizontal"
+            android:text="删除"
+            android:textSize="18sp"
+            android:textColor="@color/red_400"
+            android:textAllCaps="false"
+            android:background="@drawable/rounded_button"/>
+
+    </LinearLayout>
 
 </LinearLayout>

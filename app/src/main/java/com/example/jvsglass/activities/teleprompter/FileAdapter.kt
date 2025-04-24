@@ -14,6 +14,7 @@ import com.example.jvsglass.R
 
 class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCallback()) {
     private var isSelectionMode = false
+    var onSelectionModeChangeListener: OnSelectionModeChangeListener? = null
     private val selectedItems = mutableSetOf<Int>()
     val selectedItem: Set<Int>
         get() = this.selectedItems.toSet()
@@ -22,8 +23,6 @@ class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCa
         fun onSelectionModeChanged(isActive: Boolean)
         fun onSelectedItemsChanged(selectedCount: Int)
     }
-
-    var onSelectionModeChangeListener: OnSelectionModeChangeListener? = null
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val fileItemContainer: androidx.constraintlayout.widget.ConstraintLayout = view.findViewById(R.id.cl_fileItem_container)
