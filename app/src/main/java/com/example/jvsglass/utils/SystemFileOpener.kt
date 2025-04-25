@@ -190,7 +190,7 @@ class SystemFileOpener(private val context: Context) {
     private fun copySelectedFile(uri: Uri): String? {
         val inputStream = context.contentResolver.openInputStream(uri) ?: return null
         val originalName = getFileName(uri) ?: "unknown_${System.currentTimeMillis()}"
-        val newFileName = "FILE_$originalName"
+        val newFileName = "FILE_${System.currentTimeMillis()}_${originalName}"
 
         return try {
             val outputDir = context.getExternalFilesDir(null)

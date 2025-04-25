@@ -89,7 +89,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private lateinit var tvVoiceInput: TextView
 
     private lateinit var mediaButtons: LinearLayout
-    private lateinit var llPhotoAdd: LinearLayout
+    private lateinit var llImageAdd: LinearLayout
     private lateinit var llGallery: LinearLayout
     private lateinit var llCamera: LinearLayout
     private lateinit var icGallery: ImageView
@@ -143,7 +143,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         tvVoiceInput = findViewById(R.id.tvVoiceInput)
 
         mediaButtons = findViewById(R.id.mediaButtons)
-        llPhotoAdd = findViewById(R.id.llPhotoAdd)
+        llImageAdd = findViewById(R.id.llImageAdd)
         llGallery = findViewById(R.id.llGallery)
         llCamera = findViewById(R.id.llCamera)
         icGallery = findViewById(R.id.icGallery)
@@ -178,14 +178,14 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 override fun onAddCardClicked(position: Int) {
                     if (cardItems.size < CardAdapter.MAX_CARD_ITEM) {
                         if (cardItems[0].tag == "IMAGE") {
-                            llPhotoAdd.visibility = View.VISIBLE
+                            llImageAdd.visibility = View.VISIBLE
                             llGallery.setOnClickListener {
                                 fileOpener.openGallery()
-                                llPhotoAdd.visibility = View.GONE
+                                llImageAdd.visibility = View.GONE
                             }
                             llCamera.setOnClickListener {
                                 fileOpener.openCamera()
-                                llPhotoAdd.visibility = View.GONE
+                                llImageAdd.visibility = View.GONE
                             }
                         } else {
                             fileOpener.openFilePicker()
@@ -447,6 +447,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     private fun deleteOldCard(deletedPosition: Int) {
         if (deletedPosition in 0 until cardItems.size) {
+            File(cardItems[deletedPosition].fileUri).takeIf { it.exists() }?.delete()
             val newList = cardItems.toMutableList().apply { removeAt(deletedPosition) }
             cardItems.clear()
             cardItems.addAll(newList)
@@ -780,7 +781,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
     }
 
-
     private fun updateMessage(messageId: String, newContent: String) {
         val index = messageList.indexOfFirst { it.id == messageId }
         if (index != -1) {
@@ -869,7 +869,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             }
         } else {
             val fileExtension = actualPath.substringAfterLast(".", "")
-            val fileName = File(actualPath).name.substringAfter("FILE_").substringBefore(".")
+            val fileName = File(actualPath).name.substringAfterLast("_").substringBefore(".")
             val newCard = CardItem(
                 id = System.currentTimeMillis().toString(),
                 title = fileName,

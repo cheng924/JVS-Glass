@@ -38,7 +38,7 @@ class FileViewerActivity : AppCompatActivity() {
 
     private fun showText(path: String) {
         try {
-            findViewById<TextView>(R.id.tvFileName).text = path.substringAfterLast('/').substringAfter("FILE_")
+            findViewById<TextView>(R.id.tvFileName).text = path.substringAfterLast('/').substringAfterLast("_")
             findViewById<TextView>(R.id.tvContent).apply {
                 visibility = View.VISIBLE
                 text = File(path).readText()

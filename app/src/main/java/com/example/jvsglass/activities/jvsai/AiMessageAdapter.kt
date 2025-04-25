@@ -112,7 +112,7 @@ class AiMessageAdapter(private val messages: MutableList<AiMessage>) :
 
         // 文件名显示
         holder.tvFileName.text = TextFormatter.formatFileName(
-            message.path.substringAfterLast('/').substringAfter("FILE_")
+            message.path.substringAfterLast('/').substringAfterLast("_")
         )
 
         // 布局样式配置
