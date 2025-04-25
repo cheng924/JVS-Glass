@@ -48,7 +48,7 @@ interface ApiService {
 
 
     /***** doubao-1.5-vision-pro-32k *****/
-    // 豆包预置
+    // 豆包预置 非流式响应
     @POST("v1/chat/completions")
     @Headers("Content-Type: application/json")
     fun uploadImageCompletion(

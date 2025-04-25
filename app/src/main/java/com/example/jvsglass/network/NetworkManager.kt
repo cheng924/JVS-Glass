@@ -44,9 +44,9 @@ class NetworkManager private constructor() {
     }
 
     interface StreamCallback {
-        fun onNewMessage(text: String)  // 收到新的增量文本片段
-        fun onCompleted()   // 流结束
-        fun onError(error: Throwable)   // 出错
+        fun onNewMessage(text: String)
+        fun onCompleted()
+        fun onError(error: Throwable)
     }
 
     // 语音识别

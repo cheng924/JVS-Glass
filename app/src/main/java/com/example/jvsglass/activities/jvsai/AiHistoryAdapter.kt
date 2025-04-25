@@ -63,13 +63,12 @@ class AiHistoryAdapter(
 
         holder.itemView.setOnLongClickListener {
             if (!isSelectionMode) {
-                isSelectionMode = true
-                toggleSelection(position)
+                enterSelectionMode(position)
             }
             true
         }
 
-        holder.ivDelete.visibility = View.VISIBLE
+        holder.ivDelete.visibility = if (isSelectionMode) View.INVISIBLE else View.VISIBLE
         holder.ivDelete.setOnClickListener {
             onDeleteClick(item)
         }
@@ -82,6 +81,14 @@ class AiHistoryAdapter(
         notifyItemChanged(position)
         onSelectionCountChanged(selectedPositions.size)
         if (selectedPositions.isEmpty()) exitSelectionMode()
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private fun enterSelectionMode(position: Int) {
+        isSelectionMode = true
+        selectedPositions.add(position)
+        notifyDataSetChanged()
+        onSelectionCountChanged(selectedPositions.size)
     }
 
     @SuppressLint("NotifyDataSetChanged")

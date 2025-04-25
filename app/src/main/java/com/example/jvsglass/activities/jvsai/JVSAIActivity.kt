@@ -405,7 +405,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
             // 处理文件附件请求
             pendingCards.isNotEmpty() -> {
-//                sendFilesToModel(text, pendingCards)
+                sendFilesToModel(message, pendingCards)
             }
 
             else -> sendTextToCozeModelStream(message)
@@ -573,11 +573,10 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     }
 
     private fun generateConversationTitle(firstMessage: String) {
-        // 构造一个只用来生成标题的请求
-        val titlePrompt = "请为以下用户提问生成一个不超过7个字的简洁会话标题：\n“$firstMessage”"
+        val titlePrompt = "请为以下用户提问生成一个不超过7个字的简洁会话标题，不能叫\"AI助手\"：\n“$firstMessage”"
         NetworkManager.getInstance().chatTextCompletion(
             messages = listOf(ChatRequest.Message(role = "user", content = titlePrompt)),
-            temperature = 0.3,
+            temperature = 0.7,
             object : NetworkManager.ModelCallback<ChatResponse> {
                 override fun onSuccess(result: ChatResponse) {
                     val title = result.choices.firstOrNull()?.message?.content?.trim()
@@ -592,7 +591,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     }
                 }
                 override fun onFailure(error: Throwable) {
-                    // 可以忽略错误，标题展示仍然使用默认
                     LogUtils.error("生成标题失败：${error.message}")
                 }
             }
@@ -779,6 +777,45 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 }
             }
         }
+    }
+
+    private fun sendFilesToModel(message: String, files: List<CardItem>) {
+        val processingMessage = addMessage("处理中...", false)
+
+        val fileContents = files.joinToString("\n\n") { card ->
+            val path = card.fileUri
+            val title = card.title.ifBlank { File(path).name }
+            val content = runCatching { File(path).readText() }
+                .getOrNull()
+                ?: "[无法读取文件内容]"
+            "文件【$title】内容：\n$content"
+        }
+
+        LogUtils.info("文件内容：\n$fileContents")
+
+        val instruction = buildString {
+            append("请根据以下文件内容和用户需求给出回答：\n\n")
+            append(fileContents)
+            append("\n\n用户需求：\n$message")
+        }
+
+        val userMsg = ChatRequest.Message(role = "user", content = instruction)
+        NetworkManager.getInstance().uploadFileTextCompletion(
+            messages = listOf(userMsg),
+            temperature = 0.7,
+            object : NetworkManager.ModelCallback<ChatResponse> {
+                override fun onSuccess(result: ChatResponse) {
+                    val aiContent = result.choices.firstOrNull()?.message?.content ?: "未收到有效回复"
+                    chatMessages.add(ChatRequest.Message(role = "assistant", content = aiContent))
+                    updateMessage(processingMessage.id, aiContent)
+                }
+
+                override fun onFailure(error: Throwable) {
+                    updateMessage(processingMessage.id, "文件处理失败，请重试")
+                    LogUtils.error("文件处理失败", error)
+                }
+            }
+        )
     }
 
     private fun updateMessage(messageId: String, newContent: String) {
