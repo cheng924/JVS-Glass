@@ -2,19 +2,25 @@ package com.example.jvsglass.activities.teleprompter
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GestureDetectorCompat
 import com.example.jvsglass.R
 import com.example.jvsglass.ble.BLEGattClient
 import com.example.jvsglass.utils.ToastUtils
@@ -31,6 +37,15 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
     private lateinit var scrollView: ScrollView
     private lateinit var tvContent: TextView
+
+    private val editFileLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // 新建/编辑保存成功，自己finish掉，回到上一个界面
+            finish()
+        }
+    }
 
     @SuppressLint("MissingPermission")
     private val scrollDetector = VerticalScrollDetector { deltaY ->
@@ -86,10 +101,23 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         tvContent.text = splitResult.displayBlock
         totalLines = splitResult.totalLines
 
+        val gestureDetector = GestureDetectorCompat(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onLongPress(e: MotionEvent) {
+                super.onLongPress(e)
+                val intent = Intent(this@TeleprompterDisplayActivity, TeleprompterNewFileActivity::class.java).apply {
+                    putExtra("fileName", findViewById<TextView>(R.id.tv_title).text.toString())
+                    putExtra("fileDate", findViewById<TextView>(R.id.tv_date).text.toString())
+                    putExtra("fileContent", fileContent)
+                }
+                editFileLauncher.launch(intent)
+            }
+        })
+
         scrollView = findViewById(R.id.scrollView)
         scrollView.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
             scrollDetector.handleTouchEvent(event)
-            true
+            false
         }
     }
 

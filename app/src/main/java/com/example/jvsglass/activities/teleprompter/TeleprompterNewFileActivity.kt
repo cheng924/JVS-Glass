@@ -30,7 +30,15 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_teleprompter_new_file)
 
-        findViewById<TextView>(R.id.tv_date).text = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
+        val tvDate = findViewById<TextView>(R.id.tv_date)
+        val defaultDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
+        tvDate.text = intent.getStringExtra("fileDate") ?: defaultDate
+
+        val etTitle = findViewById<EditText>(R.id.et_title)
+        val etContent = findViewById<EditText>(R.id.et_content)
+        intent.getStringExtra("fileName")?.let { etTitle.setText(it) }
+        intent.getStringExtra("fileContent")?.let { etContent.setText(it) }
+
         findViewById<ImageView>(R.id.iv_back).setOnClickListener {
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
@@ -48,14 +56,19 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun saveToDatabase() {
+        val titleStr = findViewById<EditText>(R.id.et_title).text.toString().ifEmpty { "Untitled" }
+        val dateStr = findViewById<TextView>(R.id.tv_date).text.toString()
+        val contentStr = findViewById<EditText>(R.id.et_content).text.toString()
+
         val article = TeleprompterArticleEntity(
-            title = findViewById<TextView>(R.id.et_title).text.toString().ifEmpty { "Untitled" },
-            createDate = findViewById<TextView>(R.id.tv_date).text.toString(),
-            content = findViewById<TextView>(R.id.et_content).text.toString()
+            title = titleStr,
+            createDate = dateStr,
+            content = contentStr
         )
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                db.TeleprompterArticleDao().delete(dateStr)
                 db.TeleprompterArticleDao().insert(article)
                 withContext(Dispatchers.Main) {
                     ToastUtils.show(this@TeleprompterNewFileActivity, "保存成功")
