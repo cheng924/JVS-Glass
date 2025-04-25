@@ -9,7 +9,7 @@ object SmartTextScroller {
         val sendBlock: String       // 发送的文本块
     )
 
-    private const val MAX_DISPLAY_LINES = 4
+    private const val MAX_DISPLAY_LINES = 2
 
     fun splitIntoBlocks(content: String, scrollLines: Int): SplitResult {
         val lines = mutableListOf<String>()

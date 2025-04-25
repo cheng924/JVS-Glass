@@ -87,7 +87,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginTop="115dp"
+            android:layout_marginTop="55dp"
             android:background="@color/background2_mask"/>
 
     </FrameLayout>
