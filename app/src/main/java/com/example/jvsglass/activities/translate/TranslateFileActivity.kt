@@ -5,10 +5,12 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.dialog.LanguagePickerDialog
 import com.example.jvsglass.dialog.WaitingDialog
@@ -18,20 +20,29 @@ import com.example.jvsglass.network.ChatResponse
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
-import com.example.jvsglass.utils.WarningDialogUtil
+import com.example.jvsglass.dialog.WarningDialog
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCallback, FileHandler.FileWriteResultCallback {
+    private lateinit var translationAdapter: TranslationAdapter
 
-    private lateinit var fileHandler: FileHandler
-    private lateinit var tvTranslateTitle: TextView
-    private lateinit var svTranslateContent: ScrollView
-    private lateinit var tvTranslateContent: TextView
     private lateinit var tvLanguagePicker: TextView
     private lateinit var llImport: LinearLayout
     private lateinit var llExport: LinearLayout
 
+    private lateinit var fileHandler: FileHandler
+    private lateinit var tvTranslateTitle: TextView
+    private lateinit var rvTranslateResults: RecyclerView
+
+    private lateinit var llTextSetting: LinearLayout
+    private lateinit var tvSourceLanguageSetting: TextView
+    private lateinit var tvTargetLanguageSetting: TextView
+    private var languageStyleState = 0
+
     private var currentLanguage = "英语"
-    var translateContent: String = ""
+    private var translateContent: String = ""
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,6 +51,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
 
         fileHandler = FileHandler(this)
         setupUI()
+        setupRecyclerView()
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
@@ -48,8 +60,11 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
         llImport = findViewById(R.id.ll_import)
         llExport = findViewById(R.id.ll_export)
         tvTranslateTitle = findViewById(R.id.tv_translate_title)
-        svTranslateContent = findViewById(R.id.sv_translate_content)
-        tvTranslateContent = findViewById(R.id.tv_translate_content)
+        rvTranslateResults = findViewById(R.id.rv_translate_results)
+
+        llTextSetting = findViewById(R.id.ll_text_setting)
+        tvSourceLanguageSetting = findViewById(R.id.tv_source_language_setting)
+        tvTargetLanguageSetting = findViewById(R.id.tv_target_language_setting)
 
         findViewById<ImageView>(R.id.ivBack).setOnClickListener {
             finish()
@@ -60,14 +75,33 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
             showLanguagePickerDialog()
         }
 
+        llTextSetting.setOnClickListener {
+            languageStyleState = (languageStyleState + 1) % 3
+            when (languageStyleState) {
+                0 -> {
+                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
+                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
+                }
+                1 -> {
+                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
+                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.button_text)) }
+                }
+                2 -> {
+                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.button_text)) }
+                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
+                }
+            }
+            translationAdapter.updateDisplayMode(languageStyleState)
+        }
+
         llImport.setOnClickListener {
-            WarningDialogUtil.showDialog(
+            WarningDialog.showDialog(
                 context = this@TranslateFileActivity,
                 title = "文件格式提示",
                 message = "当前仅支持导入txt格式文本",
                 positiveButtonText = "确定",
                 negativeButtonText = "取消",
-                listener = object : WarningDialogUtil.DialogButtonClickListener {
+                listener = object : WarningDialog.DialogButtonClickListener {
                     override fun onPositiveButtonClick() {
                         fileHandler.openFilePicker(this@TranslateFileActivity)
                     }
@@ -81,12 +115,23 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
                 ToastUtils.show(this@TranslateFileActivity, "无文本导出")
                 return@setOnClickListener
             }
-            fileHandler.saveFile(tvTranslateContent.text.toString(), translateContent, this@TranslateFileActivity)
+            fileHandler.saveFile(
+                "翻译导出_${SimpleDateFormat("MMdd_HHmmss", Locale.getDefault()).format(Date())}.txt",
+                exportFile(translateContent, languageStyleState),
+                this@TranslateFileActivity)
         }
     }
 
+    private fun setupRecyclerView() {
+        rvTranslateResults = findViewById(R.id.rv_translate_results)
+        rvTranslateResults.layoutManager = LinearLayoutManager(this)
+        translationAdapter = TranslationAdapter(this, mutableListOf(), languageStyleState)
+        rvTranslateResults.adapter = translationAdapter
+    }
+
     override fun onReadSuccess(name: String, content: String) {
-        sendTextToTranslateModel(name.substringBefore(".txt"), content)
+//        translateTitle(name, tvLanguagePicker.text.toString())
+        sendTextToTranslateModel(content)
     }
 
     override fun onReadFailure(errorMessage: String) {
@@ -101,14 +146,35 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
         LogUtils.error("导出失败，错误信息：$errorMessage")
     }
 
-    private fun sendTextToTranslateModel(textName: String, textContent: String) {
+    private fun translateTitle(filename: String, targetLanguage: String) {
+        val titlePrompt = "$filename，将以上内容翻译成${targetLanguage}"
+        NetworkManager.getInstance().chatTextCompletion(
+            messages = listOf(ChatRequest.Message(role = "user", content = titlePrompt)),
+            temperature = 0.7,
+            object : NetworkManager.ModelCallback<ChatResponse> {
+                override fun onSuccess(result: ChatResponse) {
+                    val title = result.choices.firstOrNull()?.message?.content?.trim()
+                    runOnUiThread {
+                        if (!title.isNullOrEmpty()) {
+                            tvTranslateTitle.text = title
+                        }
+                    }
+                }
+                override fun onFailure(error: Throwable) {
+                    LogUtils.error("生成标题失败：${error.message}")
+                }
+            }
+        )
+    }
+
+    private fun sendTextToTranslateModel(textContent: String) {
         val waitingDialog = WaitingDialog.show(this@TranslateFileActivity)
         waitingDialog.setMessage("翻译中，请稍候...")
 
         val chatMessages = mutableListOf<ChatRequest.Message>()
         val userMsg = ChatRequest.Message(
             role = "user",
-            content = getTranslationInstruction(textName, textContent, tvLanguagePicker.text.toString())
+            content = getTranslationInstruction(textContent, tvLanguagePicker.text.toString())
         )
         chatMessages.add(userMsg)
 
@@ -125,13 +191,9 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
                             role = choice.message.role,
                             content = aiContent
                         ))
+                        translateContent = aiContent
                         LogUtils.info(aiContent)
-                        val filename = extractFilename(aiContent)
-                        tvTranslateTitle.text = filename.uppercase()
-                        translateContent = extractFileContent(filename, aiContent)
-                        val combinedText = combineBilingualText(textContent, translateContent)
-                        LogUtils.info(combinedText)
-                        tvTranslateContent.text = combinedText.trim()
+                        parseText(aiContent)
                     }
                 }
 
@@ -142,55 +204,52 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
             })
     }
 
-    fun extractFilename(translated: String): String {
-        return translated.substringBefore('\n').trim()
-    }
-
-    fun extractFileContent(filename: String, translated: String): String {
-        return translated.substringAfter(filename)
-    }
-
-    fun combineBilingualText(original: String, translated: String): String {
-        // 用一个或多个换行符作为分隔符
-        val paraRegex = Regex("""\r?\n+""")
-
-        // 拆分、去首尾空白并过滤掉完全空的段
-        val origParas = original
-            .split(paraRegex)
+    private fun parseText(aiContent: String) {
+        aiContent
+            .split(Regex("\\r?\\n{2,}"))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
-
-        val transParas = translated
-            .split(paraRegex)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-
-        // 按最大段数对齐，多出的部分用空串补齐
-        val maxCount = maxOf(origParas.size, transParas.size)
-
-        return buildString {
-            for (i in 0 until maxCount) {
-                val o = origParas.getOrElse(i) { "" }
-                val t = transParas.getOrElse(i) { "" }
-
-                // 原文段
-                append(o)
-                // 如果有译文段，加一行再写译文
-                if (t.isNotEmpty()) {
-                    append("\n")
-                    append(t)
-                }
-                // 段与段之间空两行
-                if (i < maxCount - 1) append("\n\n")
+            .forEach { block ->
+                val lines = block.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                val source = lines.firstOrNull() ?: ""
+                val target = lines.drop(1).joinToString("")
+                translationAdapter.updatePartialPair(source, target)
             }
-        }
     }
 
-    private fun getTranslationInstruction(filename: String, content: String, targetLanguage: String): String {
+    private fun exportFile(content: String, languageStyleState: Int): String {
+        val stringBuilder = StringBuilder()
+        content
+            .split(Regex("\\r?\\n{2,}"))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .forEach { block ->
+                val lines = block.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                val source = lines.firstOrNull() ?: ""
+                val target = lines.drop(1).joinToString("")
+
+                when (languageStyleState) {
+                    0 -> { // 双语：原文 + 换行 + 译文
+                        stringBuilder.append(source)
+                        stringBuilder.append("\n")
+                        stringBuilder.append(target)
+                    }
+                    1 -> { // 仅原文
+                        stringBuilder.append(source)
+                    }
+                    2 -> { // 仅译文
+                        stringBuilder.append(target)
+                    }
+                }
+                stringBuilder.append("\n\n")
+            }
+        return stringBuilder.toString().trimEnd()
+    }
+
+    private fun getTranslationInstruction(content: String, targetLanguage: String): String {
         return """
-            $filename
             $content
-            将以上文件名及内容都翻译成${targetLanguage}，无需出现原文，以两个换行符分段。
+            将以上内容都翻译成${targetLanguage}，一句原文一句译文，以一个换行符分段。
             请严格按照原文段落格式输出，不要改变句式及段落结构。
         """.trimIndent()
     }
@@ -203,7 +262,7 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
                 currentLanguage = selectedLanguage
                 tvLanguagePicker.text = selectedLanguage
                 tvTranslateTitle.text = ""
-                tvTranslateContent.text = ""
+                translationAdapter.clear()
             }
         )
         dialog.show()

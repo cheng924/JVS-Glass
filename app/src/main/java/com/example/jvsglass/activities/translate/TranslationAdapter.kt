@@ -86,4 +86,10 @@ class TranslationAdapter(
         items.add(item)
         notifyItemInserted(items.size - 1)
     }
+
+    @SuppressLint("NotifyDataSetChanged")
+    fun clear() {
+        items.clear()
+        notifyDataSetChanged()
+    }
 }

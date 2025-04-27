@@ -1,10 +1,10 @@
-package com.example.jvsglass.utils
+package com.example.jvsglass.dialog
 
 import android.app.AlertDialog
 import android.content.Context
 import com.example.jvsglass.R
 
-class WarningDialogUtil {
+class WarningDialog {
 
     interface DialogButtonClickListener {
         fun onPositiveButtonClick()

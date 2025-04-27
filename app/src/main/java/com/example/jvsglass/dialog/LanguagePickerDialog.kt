@@ -28,8 +28,8 @@ class LanguagePickerDialog(
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             setGravity(Gravity.CENTER)
-            // 半透明背景遮罩
-            setDimAmount(0.5f)
+            // 设置背景遮罩
+            setDimAmount(0.9f)
         }
 
         val languagePickView = findViewById<LanguagePickView>(R.id.languagePickView)
