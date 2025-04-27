@@ -13,11 +13,11 @@ import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.activities.connect.BluetoothConnectActivity
-import com.example.jvsglass.activities.DashboardActivity
-import com.example.jvsglass.activities.jvsai.JVSAIActivity
-import com.example.jvsglass.activities.QuickNoteActivity
+import com.example.jvsglass.activities.ai.JVSAIActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.TranscribeActivity
+import com.example.jvsglass.activities.DashboardActivity
+import com.example.jvsglass.activities.QuickNoteActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
 import com.example.jvsglass.ble.HeartbeatDetectorManager
 import com.example.jvsglass.classic.ClassicConstants
@@ -44,9 +44,9 @@ class MainActivity : AppCompatActivity() {
             FunctionItem(R.drawable.ic_translate, getString(R.string.translate), TranslateActivity::class.java),
             FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompter), TeleprompterActivity::class.java),
             FunctionItem(R.drawable.ic_ai, getString(R.string.ai_beta), JVSAIActivity::class.java),
-            FunctionItem(R.drawable.ic_transcribe, getString(R.string.transcribe), TranscribeActivity::class.java),
-            FunctionItem(R.drawable.ic_dash_board, getString(R.string.dashboard), DashboardActivity::class.java),
-            FunctionItem(R.drawable.ic_quicknote, getString(R.string.quick_note), QuickNoteActivity::class.java)
+//            FunctionItem(R.drawable.ic_transcribe, getString(R.string.transcribe), TranscribeActivity::class.java),
+//            FunctionItem(R.drawable.ic_dash_board, getString(R.string.dashboard), DashboardActivity::class.java),
+//            FunctionItem(R.drawable.ic_quicknote, getString(R.string.quick_note), QuickNoteActivity::class.java)
         )
 
         val recyclerView: RecyclerView = findViewById(R.id.rv_functions)
@@ -105,8 +105,11 @@ class MainActivity : AppCompatActivity() {
     @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     fun onConnectionEvent(event: HeartbeatDetectorManager.ConnectionEvent) {
         LogUtils.debug("[MainActivity] Event received: ${event.isConnected}")
-        val statusText = if (event.isConnected) "Connected" else "Disconnected"
+        val statusText = if (event.isConnected) "已连接" else "未连接"
         findViewById<TextView>(R.id.tv_bluetooth_status).text = statusText
+
+        val statusText2 = if (event.isConnected) "蓝牙已连接" else "蓝牙未连接"
+        findViewById<TextView>(R.id.btn_bluetooth).text = statusText2
     }
 
     @Deprecated("Deprecated in Java")

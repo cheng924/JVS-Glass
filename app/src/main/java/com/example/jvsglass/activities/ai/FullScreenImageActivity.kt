@@ -1,4 +1,4 @@
-package com.example.jvsglass.activities.jvsai
+package com.example.jvsglass.activities.ai
 
 import android.os.Bundle
 import android.widget.ImageView

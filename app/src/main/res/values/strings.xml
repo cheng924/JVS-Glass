@@ -1,23 +1,21 @@
 <resources>
     <!--    中文-->
-    <string name="app_name">JVS眼镜</string>
-    <string name="connect_status">蓝牙正在连接中\n请稍后</string>
+    <string name="app_name">AR眼镜</string>
     <string name="quick_note">速记</string>
     <string name="translate">翻译官</string>
     <string name="teleprompter">提词器</string>
-    <string name="ai_beta">JVS AI功能</string>
+    <string name="ai_beta">AI助手</string>
     <string name="transcribe">音转文</string>
     <string name="dashboard">数据看板</string>
     <string name="development_tips">功能尚未开放，敬请期待</string>
     <string name="search_hint">搜索</string>
 
     <!--    英文-->
-    <!--    <string name="app_name">JVS Glass</string>-->
-    <!--    <string name="connect_status">Bluetooth Reconnecting\nPlease wait a moment</string>-->
+    <!--    <string name="app_name">AR Glass</string>-->
     <!--    <string name="quick_note">QuickNote</string>-->
     <!--    <string name="translate">Translate</string>-->
     <!--    <string name="teleprompter">Teleprompter</string>-->
-    <!--    <string name="ai_beta">JVS AI</string>-->
+    <!--    <string name="ai_beta">AI Assistant</string>-->
     <!--    <string name="transcribe">Transcribe</string>-->
     <!--    <string name="dashboard">Dashboard</string>-->
     <!--    <string name="development_tips">The feature is not yet available,\nStay tuned</string>-->

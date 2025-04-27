@@ -57,7 +57,7 @@
             android:name=".activities.teleprompter.TeleprompterSettingActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.jvsai.AiHistoryActivity"
+            android:name=".activities.ai.AiHistoryActivity"
             android:exported="false" />
         <activity
             android:name=".activities.translate.TranslateFileActivity"
@@ -72,10 +72,10 @@
             android:name=".activities.translate.TranslateActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.jvsai.FileViewerActivity"
+            android:name=".activities.ai.FileViewerActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.jvsai.FullScreenImageActivity"
+            android:name=".activities.ai.FullScreenImageActivity"
             android:exported="false" />
 
         <provider
@@ -105,7 +105,7 @@
             android:name=".activities.TranscribeActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.jvsai.JVSAIActivity"
+            android:name=".activities.ai.JVSAIActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan|stateHidden" />
         <activity
