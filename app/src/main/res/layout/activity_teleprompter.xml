@@ -37,7 +37,8 @@
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
             android:layout_marginEnd="20dp"
-            android:src="@drawable/ic_teleprompter_settings"/>
+            android:src="@drawable/ic_teleprompter_settings"
+            android:visibility="invisible"/>
 
     </RelativeLayout>
 

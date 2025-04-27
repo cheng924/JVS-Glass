@@ -54,6 +54,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
+            android:name=".activities.teleprompter.TeleprompterSettingActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.jvsai.AiHistoryActivity"
             android:exported="false" />
         <activity

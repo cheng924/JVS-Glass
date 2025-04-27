@@ -27,6 +27,15 @@
             android:textSize="20sp"
             android:layout_centerInParent="true"/>
 
+        <ImageView
+            android:id="@+id/teleprompter_settings"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="20dp"
+            android:src="@drawable/ic_teleprompter_display_settings"/>
+
     </RelativeLayout>
 
     <LinearLayout
@@ -103,7 +112,7 @@
         android:orientation="horizontal" >
 
         <LinearLayout
-            android:id="@+id/btnSettings"
+            android:id="@+id/ll_voice_control"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -116,19 +125,19 @@
                 android:layout_width="25dp"
                 android:layout_height="25dp"
                 android:layout_marginEnd="13dp"
-                android:src="@drawable/ic_teleprompter_display_settings"/>
+                android:src="@drawable/ic_voice_control"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="设置"
+                android:text="动态滚动"
                 android:textSize="18sp"
                 android:textColor="@color/button_text"
                 android:textAllCaps="false"/>
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/btnStart"
+            android:id="@+id/ll_continue_scroll"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -138,15 +147,17 @@
             android:background="@drawable/rounded_button" >
 
             <ImageView
+                android:id="@+id/iv_scroll_status"
                 android:layout_width="25dp"
                 android:layout_height="25dp"
                 android:layout_marginEnd="13dp"
                 android:src="@drawable/ic_continue"/>
 
             <TextView
+                android:id="@+id/tv_scroll_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="开始"
+                android:text="匀速滚动"
                 android:textSize="18sp"
                 android:textColor="@color/button_text"
                 android:textAllCaps="false"/>

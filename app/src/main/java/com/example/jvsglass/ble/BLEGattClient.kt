@@ -186,7 +186,7 @@ class BLEGattClient private constructor(context: Context) {
 
     @SuppressLint("MissingPermission")
     fun autoConnect() {
-        getSavedDeviceAddress()?.let { address ->
+        getDeviceAddress()?.let { address ->
             val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
             if (bluetoothAdapter.isEnabled) {
                 val device = bluetoothAdapter.getRemoteDevice(address)
@@ -385,7 +385,7 @@ class BLEGattClient private constructor(context: Context) {
             ?.putString("last_connected_device", address)?.apply()
     }
 
-    private fun getSavedDeviceAddress(): String? {
+    private fun getDeviceAddress(): String? {
         return contextRef.get()?.getSharedPreferences("ble_prefs", Context.MODE_PRIVATE)
             ?.getString("last_connected_device", null)
     }

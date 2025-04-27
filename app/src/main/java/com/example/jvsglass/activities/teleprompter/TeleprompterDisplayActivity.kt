@@ -12,6 +12,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -21,9 +22,16 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GestureDetectorCompat
+import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
 import com.example.jvsglass.ble.BLEGattClient
 import com.example.jvsglass.utils.ToastUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 class TeleprompterDisplayActivity : AppCompatActivity() {
@@ -34,9 +42,24 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private var scrollLines = 0
     private var fileContent = ""
     private var isAtTopOrBottom = false
+    private lateinit var gestureDetector: GestureDetectorCompat
+    private var autoScrollJob: Job? = null
+    private var scrollIntervalMs = 15_000L
 
     private lateinit var scrollView: ScrollView
     private lateinit var tvContent: TextView
+
+    @SuppressLint("ClickableViewAccessibility")
+    private val manualTouchListener = View.OnTouchListener { _, event ->
+        gestureDetector.onTouchEvent(event)
+        scrollDetector.handleTouchEvent(event)
+        false
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private val disabledTouchListener = View.OnTouchListener { _, _ ->
+        true
+    }
 
     private val editFileLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -44,6 +67,15 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         if (result.resultCode == Activity.RESULT_OK) {
             // 新建/编辑保存成功，自己finish掉，回到上一个界面
             finish()
+        }
+    }
+
+    private val settingLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val newMs = result.data?.getLongExtra("scrollIntervalMs", scrollIntervalMs)
+            if (newMs != null) scrollIntervalMs = newMs
         }
     }
 
@@ -58,6 +90,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_teleprompter_display)
 
+        initSetting()
         initBluetoothConnection()
         initView()
     }
@@ -83,13 +116,8 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
-        findViewById<LinearLayout>(R.id.btnSettings).setOnClickListener {
-            ToastUtils.show(this, "设置文本")
-        }
-
-        findViewById<LinearLayout>(R.id.btnStart).setOnClickListener {
-            ToastUtils.show(this, "开始")
-            sendMessage(fileContent)
+        findViewById<LinearLayout>(R.id.ll_voice_control).setOnClickListener {
+            ToastUtils.show(this, "正在开发")
         }
 
         findViewById<TextView>(R.id.tv_title).text = intent.getStringExtra("fileName") ?: ""
@@ -101,7 +129,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         tvContent.text = splitResult.displayBlock
         totalLines = splitResult.totalLines
 
-        val gestureDetector = GestureDetectorCompat(this, object : GestureDetector.SimpleOnGestureListener() {
+        gestureDetector = GestureDetectorCompat(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
                 super.onLongPress(e)
                 val intent = Intent(this@TeleprompterDisplayActivity, TeleprompterNewFileActivity::class.java).apply {
@@ -114,10 +142,75 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         })
 
         scrollView = findViewById(R.id.scrollView)
-        scrollView.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
-            scrollDetector.handleTouchEvent(event)
-            false
+        scrollView.setOnTouchListener(manualTouchListener)
+
+        findViewById<ImageView>(R.id.teleprompter_settings).setOnClickListener {
+            if (autoScrollJob?.isActive == true) {
+                ToastUtils.show(this, "请先“停止滚动”")
+                return@setOnClickListener
+            }
+            val intent = Intent(this, TeleprompterSettingActivity::class.java)
+                .putExtra("scrollIntervalMs", scrollIntervalMs)
+            settingLauncher.launch(intent)
+        }
+
+        findViewById<LinearLayout>(R.id.ll_continue_scroll).setOnClickListener {
+            if (autoScrollJob?.isActive == true) {
+                autoScrollJob?.cancel()
+                scrollView.setOnTouchListener(manualTouchListener)
+                ToastUtils.show(this, "已停止自动滚动")
+                findViewById<TextView>(R.id.tv_scroll_status)?.text = "匀速滚动"
+                findViewById<ImageView>(R.id.iv_scroll_status).setImageResource(R.drawable.ic_continue)
+            } else {
+                if (scrollLines == totalLines - 1) {
+                    scrollLines = 0
+                    // 重置文本块
+                    val split0 = SmartTextScroller.splitIntoBlocks(fileContent, 0)
+                    tvContent.text = split0.displayBlock
+                    scrollView.scrollTo(0, 0)
+                    sendMessage(split0.sendBlock)
+                }
+                scrollView.setOnTouchListener(disabledTouchListener)
+                startAutoScroll(scrollIntervalMs)
+                ToastUtils.show(this, "开始自动滚动：${scrollIntervalMs/1000}秒/行")
+                findViewById<TextView>(R.id.tv_scroll_status)?.text = "停止滚动"
+                findViewById<ImageView>(R.id.iv_scroll_status).setImageResource(R.drawable.ic_suspend)
+            }
+        }
+    }
+
+    private fun initSetting() {
+        val prefs = getSharedPreferences("teleprompter_setting", Context.MODE_PRIVATE)
+        scrollIntervalMs = prefs.getLong("speed", 15_000L)
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun startAutoScroll(intervalMs: Long) {
+        // 先停掉任何已有的自动滚动
+        autoScrollJob?.cancel()
+        autoScrollJob = lifecycleScope.launch {
+            // 从当前的scrollLines继续
+            while (isActive) {
+                delay(intervalMs)
+                // 计算下一行的索引，最多到最后一行
+                scrollLines = (scrollLines + 1).coerceAtMost(totalLines - 1)
+                val split = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+                tvContent.text = split.displayBlock
+                scrollView.scrollTo(0, 0)   // 每次重置ScrollView到顶部，确保从第0像素开始
+
+                sendMessage(split.sendBlock)
+
+                if (scrollLines == totalLines - 1) {
+                    withContext(Dispatchers.Main) {
+                        scrollView.setOnTouchListener(manualTouchListener)
+                        ToastUtils.show(this@TeleprompterDisplayActivity, "已滚动到末尾")
+                        findViewById<TextView>(R.id.tv_scroll_status)?.text = "重新开始"
+                        findViewById<ImageView>(R.id.iv_scroll_status).setImageResource(R.drawable.ic_continue)
+                    }
+                    break
+                }
+            }
         }
     }
 
@@ -171,7 +264,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         vibrator.vibrate(effect)
 
         tvContent.text = displayBlock
-        sendMessage(sendBlock)
+//        sendMessage(sendBlock)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)

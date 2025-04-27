@@ -24,6 +24,11 @@ import java.time.format.DateTimeFormatter
 class TeleprompterNewFileActivity : AppCompatActivity() {
     private val db: AppDatabase by lazy { AppDatabaseProvider.db }
 
+    private var originalTitle: String? = null
+    private var originalContent: String? = null
+    private var originalDate: String? = null
+    private var isChanged: Boolean = false
+
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,12 +37,15 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
 
         val tvDate = findViewById<TextView>(R.id.tv_date)
         val defaultDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
-        tvDate.text = intent.getStringExtra("fileDate") ?: defaultDate
+        originalDate = intent.getStringExtra("fileDate") ?: defaultDate
+        tvDate.text = originalDate
 
         val etTitle = findViewById<EditText>(R.id.et_title)
         val etContent = findViewById<EditText>(R.id.et_content)
-        intent.getStringExtra("fileName")?.let { etTitle.setText(it) }
-        intent.getStringExtra("fileContent")?.let { etContent.setText(it) }
+        originalTitle = intent.getStringExtra("fileName")
+        originalContent = intent.getStringExtra("fileContent")
+        etTitle.setText(originalTitle)
+        etContent.setText(originalContent)
 
         findViewById<ImageView>(R.id.iv_back).setOnClickListener {
             finish()
@@ -46,7 +54,6 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.tv_save_file).setOnClickListener {
             if (findViewById<EditText>(R.id.et_content).text.toString().trim().isNotEmpty()) {
-                ToastUtils.show(this, "保存文本")
                 saveToDatabase()
             } else {
                 ToastUtils.show(this, "内容不能为空")
@@ -57,7 +64,7 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun saveToDatabase() {
         val titleStr = findViewById<EditText>(R.id.et_title).text.toString().ifEmpty { "Untitled" }
-        val dateStr = findViewById<TextView>(R.id.tv_date).text.toString()
+        val dateStr = changeDate()
         val contentStr = findViewById<EditText>(R.id.et_content).text.toString()
 
         val article = TeleprompterArticleEntity(
@@ -68,17 +75,35 @@ class TeleprompterNewFileActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                db.TeleprompterArticleDao().delete(dateStr)
-                db.TeleprompterArticleDao().insert(article)
-                withContext(Dispatchers.Main) {
-                    ToastUtils.show(this@TeleprompterNewFileActivity, "保存成功")
-                    finishWithAnimation()
+                if (isChanged) {
+                    db.TeleprompterArticleDao().delete(originalDate!!)
+                    db.TeleprompterArticleDao().insert(article)
+                    withContext(Dispatchers.Main) {
+                        ToastUtils.show(this@TeleprompterNewFileActivity, "保存成功")
+                        finishWithAnimation()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        finishWithAnimation()
+                    }
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    ToastUtils.show(this@TeleprompterNewFileActivity, "保存失败：${e.message}")
+                if (isChanged) {
+                    withContext(Dispatchers.Main) {
+                        ToastUtils.show(this@TeleprompterNewFileActivity, "保存失败：${e.message}")
+                    }
                 }
             }
+        }
+    }
+
+    private fun changeDate(): String {
+        return if (originalTitle != findViewById<EditText>(R.id.et_title).text.toString() ||
+                    originalContent != findViewById<EditText>(R.id.et_content).text.toString()) {
+            isChanged = true
+            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
+        } else {
+            findViewById<TextView>(R.id.tv_date).text.toString()
         }
     }
 
