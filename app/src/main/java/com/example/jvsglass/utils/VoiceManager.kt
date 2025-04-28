@@ -9,13 +9,16 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class VoiceManager(private val context: Context) {
+class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListener {
     private var audioRecord: AudioRecord? = null
     private var recordingThread: Thread? = null
     private var isRecording = false
@@ -28,6 +31,7 @@ class VoiceManager(private val context: Context) {
     private var mediaPlayer: MediaPlayer? = null
     private var currentAudioPath: String? = null
     private var currentPlayingPath: String? = null
+    private var isPaused = false
 
     private var isScoOnForRecording = false // 记录是否用过蓝牙SCO录音
 
@@ -35,11 +39,17 @@ class VoiceManager(private val context: Context) {
         fun onAudioData(data: ByteArray) // 实时返回音频数据块
     }
 
+    fun setOnPlaybackCompleteListener(listener: OnPlaybackCompleteListener) {
+        this.onPlaybackCompleteListener = listener
+    }
+
     private val audioManager by lazy {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
-    fun isRecording() = isRecording
+    interface OnPlaybackCompleteListener {
+        fun onPlaybackComplete(filePath: String)
+    }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startStreaming(isPhoneMic: Boolean, callback: AudioRecordCallback) {
@@ -181,34 +191,36 @@ class VoiceManager(private val context: Context) {
         LogUtils.info("[VoiceManager] PCM录音已停止")
     }
 
-    fun isPlaying(filePath: String): Boolean {
-        return currentPlayingPath == filePath && mediaPlayer?.isPlaying == true
-    }
-
     // 语音播放
     fun playVoiceMessage(filePath: String) {
-        if (mediaPlayer?.isPlaying == true) {
+        LogUtils.info("[VoiceManager] 播放语音: $filePath")
+        if (currentPlayingPath == filePath && isPaused) {
+            resumePlayback()
+            return
+        }
+
+        if (currentPlayingPath == filePath && mediaPlayer?.isPlaying == true) {
             stopPlayback()
             return
         }
 
-        if (currentPlayingPath == filePath) {
-            stopPlayback()
-            return
-        }
         stopPlayback()
         currentPlayingPath = filePath
+        isPaused = false
+        if (filePath.endsWith(".pcm")) {
+            pcmToWav(filePath)?.let { wav ->
+                currentPlayingPath = wav
+                LogUtils.info("[VoiceManager] 已转换为 WAV: $wav")
+            }
+        }
 
         try {
             mediaPlayer?.release()
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(filePath)
+                setDataSource(currentPlayingPath)
                 prepare()
                 start()
-                setOnCompletionListener {
-                    stopPlayback()
-                    onPlaybackCompleteListener?.onPlaybackComplete(filePath)
-                }
+                setOnCompletionListener(this@VoiceManager)
             }
             LogUtils.info("[VoiceManager] 开始播放语音: $filePath")
         } catch (e: IOException) {
@@ -216,10 +228,103 @@ class VoiceManager(private val context: Context) {
         }
     }
 
-    private fun stopPlayback() {
+    fun stopPlayback() {
         mediaPlayer?.release()
         mediaPlayer = null
         currentPlayingPath = null
+        isPaused = false
+        LogUtils.info("[VoiceManager] 播放已停止")
+    }
+
+    // 暂停播放
+    fun pausePlayback() {
+        mediaPlayer?.let {
+            if (it.isPlaying) {
+                it.pause()
+                isPaused = true
+                LogUtils.info("[VoiceManager] 播放已暂停")
+            }
+        }
+    }
+
+    // 继续播放
+    private fun resumePlayback() {
+        mediaPlayer?.let {
+            if (isPaused) {
+                it.start()
+                isPaused = false
+                LogUtils.info("[VoiceManager] 播放已继续")
+            }
+        }
+    }
+
+    override fun onCompletion(mp: MediaPlayer) {
+        stopPlayback()
+        onPlaybackCompleteListener?.onPlaybackComplete(currentPlayingPath ?: "")
+    }
+
+    // 将 PCM 原始数据转为 WAV 文件，并返回新 WAV 路径
+    private fun pcmToWav(pcmPath: String): String? {
+        val pcmFile = File(pcmPath)
+        if (!pcmFile.exists()) return null
+
+        val wavFile = File(pcmFile.parent, pcmFile.nameWithoutExtension + ".wav")
+        try {
+            FileInputStream(pcmFile).use { `in` ->
+                FileOutputStream(wavFile).use { out ->
+                    val totalAudioLen = pcmFile.length()
+                    val totalDataLen = totalAudioLen + 36
+                    val channels = 1
+                    val byteRate = 16 * sampleRate * channels / 8
+
+                    // 写 WAV header
+                    val header = ByteArray(44)
+                    // ChunkID "RIFF"
+                    System.arraycopy("RIFF".toByteArray(), 0, header, 0, 4)
+                    // ChunkSize
+                    ByteBuffer.wrap(header, 4, 4).order(ByteOrder.LITTLE_ENDIAN)
+                        .putInt((totalDataLen).toInt())
+                    // Format "WAVE"
+                    System.arraycopy("WAVE".toByteArray(), 0, header, 8, 4)
+                    // Subchunk1ID "fmt "
+                    System.arraycopy("fmt ".toByteArray(), 0, header, 12, 4)
+                    // Subchunk1Size (16 for PCM)
+                    ByteBuffer.wrap(header, 16, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(16)
+                    // AudioFormat (1 for PCM)
+                    ByteBuffer.wrap(header, 20, 2).order(ByteOrder.LITTLE_ENDIAN).putShort(1)
+                    // NumChannels
+                    ByteBuffer.wrap(header, 22, 2).order(ByteOrder.LITTLE_ENDIAN)
+                        .putShort(channels.toShort())
+                    // SampleRate
+                    ByteBuffer.wrap(header, 24, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(sampleRate)
+                    // ByteRate
+                    ByteBuffer.wrap(header, 28, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(byteRate)
+                    // BlockAlign = NumChannels * BitsPerSample/8
+                    ByteBuffer.wrap(header, 32, 2).order(ByteOrder.LITTLE_ENDIAN)
+                        .putShort((channels * 16 / 8).toShort())
+                    // BitsPerSample
+                    ByteBuffer.wrap(header, 34, 2).order(ByteOrder.LITTLE_ENDIAN).putShort(16)
+                    // Subchunk2ID "data"
+                    System.arraycopy("data".toByteArray(), 0, header, 36, 4)
+                    // Subchunk2Size
+                    ByteBuffer.wrap(header, 40, 4).order(ByteOrder.LITTLE_ENDIAN)
+                        .putInt(totalAudioLen.toInt())
+
+                    out.write(header)
+                    // 写 PCM 数据
+                    val buffer = ByteArray(1024)
+                    var bytesRead: Int
+                    while (`in`.read(buffer).also { bytesRead = it } != -1) {
+                        out.write(buffer, 0, bytesRead)
+                    }
+                    out.flush()
+                }
+            }
+            return wavFile.absolutePath
+        } catch (e: IOException) {
+            e.printStackTrace()
+            return null
+        }
     }
 
     // 删除语音文件
@@ -254,10 +359,6 @@ class VoiceManager(private val context: Context) {
         mediaPlayer?.release()
         mediaPlayer = null
         LogUtils.info("[VoiceManager] 所有资源已释放")
-    }
-
-    interface OnPlaybackCompleteListener {
-        fun onPlaybackComplete(filePath: String)
     }
 
     private var onPlaybackCompleteListener: OnPlaybackCompleteListener? = null

@@ -67,8 +67,9 @@
     <TextView
         android:id="@+id/tv_realtime_history"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:layout_marginTop="15dp"
+        android:gravity="center"
         android:paddingBottom="2dp"
         android:text="历史记录"
         android:textSize="16sp"
@@ -102,8 +103,9 @@
 
     <TextView
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:layout_marginTop="15dp"
+        android:gravity="center"
         android:paddingBottom="2dp"
         android:text="历史记录"
         android:textSize="16sp"
@@ -138,8 +140,9 @@
     <TextView
         android:id="@+id/tv_document_history"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:layout_marginTop="15dp"
+        android:gravity="center"
         android:paddingBottom="2dp"
         android:text="历史记录"
         android:textSize="16sp"
