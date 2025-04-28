@@ -64,6 +64,17 @@
 
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/tv_realtime_history"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:paddingBottom="2dp"
+        android:text="历史记录"
+        android:textSize="16sp"
+        android:textColor="@color/button_text"
+        android:background="@drawable/text_underline"/>
+
     <LinearLayout
         android:id="@+id/ll_conversation_translate"
         android:layout_width="wrap_content"
@@ -89,6 +100,17 @@
 
     </LinearLayout>
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:paddingBottom="2dp"
+        android:text="历史记录"
+        android:textSize="16sp"
+        android:textColor="@color/button_text"
+        android:background="@drawable/text_underline"
+        android:visibility="gone"/>
+
     <LinearLayout
         android:id="@+id/ll_document_translate"
         android:layout_width="wrap_content"
@@ -112,5 +134,16 @@
             android:textColor="@color/button_text"/>
 
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_document_history"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:paddingBottom="2dp"
+        android:text="历史记录"
+        android:textSize="16sp"
+        android:textColor="@color/button_text"
+        android:background="@drawable/text_underline"/>
 
 </LinearLayout>

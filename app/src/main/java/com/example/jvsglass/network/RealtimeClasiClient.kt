@@ -190,7 +190,7 @@ class RealtimeClasiClient(
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
-        LogUtils.info("$tag onMessage (text) called with: $text")
+//        LogUtils.info("$tag onMessage (text) called with: $text")
         if (text.trim().isEmpty()) {
             return
         }

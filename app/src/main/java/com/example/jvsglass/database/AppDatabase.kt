@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [TeleprompterArticleEntity::class, AiMessageEntity::class,
+                TranslateHistoryEntity::class, TranslateItemEntity::class,
                 AiConversationEntity::class],
     version = 1,
     exportSchema = true
@@ -15,6 +16,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun TeleprompterArticleDao(): TeleprompterArticleDao
     abstract fun AiMessageDao(): AiMessageDao
     abstract fun AiConversationDao(): AiConversationDao
+    abstract fun TranslateHistoryDao(): TranslateHistoryDao
 
     companion object {
         @Volatile

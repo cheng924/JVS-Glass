@@ -87,6 +87,8 @@ class TranslationAdapter(
         notifyItemInserted(items.size - 1)
     }
 
+    fun getItems(): List<TranslationResult> = items
+
     @SuppressLint("NotifyDataSetChanged")
     fun clear() {
         items.clear()

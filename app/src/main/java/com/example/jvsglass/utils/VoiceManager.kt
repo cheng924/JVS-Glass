@@ -80,7 +80,6 @@ class VoiceManager(private val context: Context) {
         }.apply { start() }
     }
 
-    // 录音控制
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startRecording(callback: AudioRecordCallback): String? {
         val timestamp = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(Date())
@@ -129,6 +128,38 @@ class VoiceManager(private val context: Context) {
             LogUtils.error("[VoiceManager] 录音失败: ${e.stackTraceToString()}")
             null
         }
+    }
+
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    fun startStreamingAndRecording(callback: AudioRecordCallback): String? {
+        val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+        val timestamp = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(Date())
+        val fileName = "$timestamp.pcm"
+        val outputFile = File(context.getExternalFilesDir(null), fileName)
+
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            sampleRate, channelConfig, audioFormat, bufferSize * 2
+        )
+        audioRecord!!.startRecording()
+        isRecording = true
+
+        recordingThread = Thread {
+            val buffer = ByteArray(bufferSize)
+            FileOutputStream(outputFile).use { fos ->
+                while (isRecording) {
+                    val bytesRead = audioRecord!!.read(buffer, 0, bufferSize)
+                    if (bytesRead > 0) {
+                        val audioData = buffer.copyOf(bytesRead)
+                        callback.onAudioData(audioData)
+                        fos.write(audioData, 0, bytesRead)
+                    }
+                }
+            }
+        }.apply { start() }
+        currentAudioPath = outputFile.absolutePath
+        LogUtils.info("[VoiceManager] 开始流式+文件录音: $currentAudioPath")
+        return currentAudioPath
     }
 
     fun stopRecording() {
@@ -216,7 +247,6 @@ class VoiceManager(private val context: Context) {
             false
         }
     }
-
 
     // 资源释放
     fun release() {

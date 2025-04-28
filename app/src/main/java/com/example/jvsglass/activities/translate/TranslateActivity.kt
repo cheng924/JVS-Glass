@@ -5,9 +5,11 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
+import com.example.jvsglass.utils.ToastUtils
 
 class TranslateActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
@@ -30,6 +32,15 @@ class TranslateActivity : AppCompatActivity() {
 
         findViewById<LinearLayout>(R.id.ll_document_translate).setOnClickListener {
             startActivity(Intent(this, TranslateFileActivity::class.java))
+        }
+
+        findViewById<TextView>(R.id.tv_realtime_history).setOnClickListener {
+            startActivity(Intent(this, TranslateRealtimeHistoryActivity::class.java))
+        }
+
+        findViewById<TextView>(R.id.tv_document_history).setOnClickListener {
+            ToastUtils.show(this, "待开发，暂未开放")
+//            startActivity(Intent(this, TranslatePhotoActivity::class.java))
         }
     }
 }
