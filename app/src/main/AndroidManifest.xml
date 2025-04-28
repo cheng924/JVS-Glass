@@ -54,7 +54,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
-            android:name=".activities.translate.TranslateRealtimeHistoryActivity"
+            android:name=".activities.translate.TranslateHistoryItemActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.translate.TranslateHistoryActivity"
             android:exported="false" />
         <activity
             android:name=".activities.teleprompter.TeleprompterSettingActivity"

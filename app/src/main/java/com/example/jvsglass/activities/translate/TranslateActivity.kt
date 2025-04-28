@@ -35,7 +35,7 @@ class TranslateActivity : AppCompatActivity() {
         }
 
         findViewById<TextView>(R.id.tv_realtime_history).setOnClickListener {
-            startActivity(Intent(this, TranslateRealtimeHistoryActivity::class.java))
+            startActivity(Intent(this, TranslateHistoryActivity::class.java))
         }
 
         findViewById<TextView>(R.id.tv_document_history).setOnClickListener {
