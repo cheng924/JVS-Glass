@@ -52,9 +52,7 @@ class TranslateExchangeActivity : AppCompatActivity() {
     private var currentSourceLanguage = "中文(简体)"
     private var currentTargetLanguage = "英语"
 
-    private val audioManager by lazy {
-        getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    }
+    private val audioManager by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)

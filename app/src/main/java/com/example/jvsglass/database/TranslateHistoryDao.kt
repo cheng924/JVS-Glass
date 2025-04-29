@@ -41,6 +41,10 @@ interface TranslateHistoryDao {
     suspend fun getAllHistoriesWithItems(): List<HistoryWithItems>
 
     @Transaction
+    @Query("SELECT * FROM translate_history WHERE type = :type ORDER BY timestamp DESC")
+    suspend fun getHistoriesByType(type: Int): List<HistoryWithItems>
+
+    @Transaction
     @Query("SELECT * FROM translate_history WHERE id = :sessionId")
     suspend fun getHistoryById(sessionId: Long): HistoryWithItems?
 

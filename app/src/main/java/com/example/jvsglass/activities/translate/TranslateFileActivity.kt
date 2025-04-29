@@ -9,9 +9,14 @@ import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
+import com.example.jvsglass.database.AppDatabase
+import com.example.jvsglass.database.AppDatabaseProvider
+import com.example.jvsglass.database.TranslateHistoryEntity
+import com.example.jvsglass.database.TranslateItemEntity
 import com.example.jvsglass.dialog.LanguagePickerDialog
 import com.example.jvsglass.dialog.WaitingDialog
 import com.example.jvsglass.utils.FileHandler
@@ -21,11 +26,17 @@ import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.dialog.WarningDialog
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCallback, FileHandler.FileWriteResultCallback {
+class TranslateFileActivity :
+    AppCompatActivity(),
+    FileHandler.FileReadResultCallback,
+    FileHandler.FileWriteResultCallback
+{
+    private val db: AppDatabase by lazy { AppDatabaseProvider.db }
     private lateinit var translationAdapter: TranslationAdapter
 
     private lateinit var tvLanguagePicker: TextView
@@ -43,6 +54,8 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
 
     private var currentLanguage = "英语"
     private var translateContent: String = ""
+    private var filename: String = ""
+    private var timestamp: Long = 0L
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,8 +80,28 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
         tvTargetLanguageSetting = findViewById(R.id.tv_target_language_setting)
 
         findViewById<ImageView>(R.id.ivBack).setOnClickListener {
-            finish()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            if (translationAdapter.getItems().isNotEmpty()) {
+                WarningDialog.showDialog(
+                    context = this@TranslateFileActivity,
+                    title = "数据存储提示",
+                    message = "本次翻译是否需要记录？",
+                    positiveButtonText = "保存",
+                    negativeButtonText = "取消",
+                    listener = object : WarningDialog.DialogButtonClickListener {
+                        override fun onPositiveButtonClick() {
+                            saveHistory()
+                        }
+
+                        override fun onNegativeButtonClick() {
+                            LogUtils.info("[TranslateFileActivity] 取消保存")
+                            finish()
+                            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+                        }
+                    })
+            } else {
+                finish()
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            }
         }
 
         tvLanguagePicker.setOnClickListener {
@@ -130,6 +163,8 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
     }
 
     override fun onReadSuccess(name: String, content: String) {
+        filename = name
+        timestamp = System.currentTimeMillis()
 //        translateTitle(name, tvLanguagePicker.text.toString())
         sendTextToTranslateModel(content)
     }
@@ -244,6 +279,32 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
                 stringBuilder.append("\n\n")
             }
         return stringBuilder.toString().trimEnd()
+    }
+
+    private fun saveHistory() {
+        val session = TranslateHistoryEntity(
+            timestamp = timestamp,
+            type = 2,
+            content = "源语言/$currentLanguage",
+            extra = filename
+        )
+
+        val items = translationAdapter.getItems().mapIndexed { index, result ->
+            TranslateItemEntity(
+                orderIndex  = index,
+                sourceText  = result.sourceText,
+                targetText  = result.targetText
+            )
+        }
+
+        lifecycleScope.launch {
+            db.TranslateHistoryDao().saveFullSession(session, items)
+            runOnUiThread {
+                ToastUtils.show(this@TranslateFileActivity, "保存成功")
+                finish()
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            }
+        }
     }
 
     private fun getTranslationInstruction(content: String, targetLanguage: String): String {

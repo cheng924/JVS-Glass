@@ -3,6 +3,7 @@ package com.example.jvsglass.activities.translate
 import android.content.Intent
 import android.os.Bundle
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -18,10 +19,18 @@ import kotlinx.coroutines.withContext
 class TranslateHistoryActivity : AppCompatActivity() {
     private val db: AppDatabase by lazy { AppDatabaseProvider.db }
     private lateinit var translateHistoryAdapter: TranslateHistoryAdapter
+    private var translateType: Int = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_translate_history)
+
+        translateType = intent.getIntExtra("translate_type", -1)
+        findViewById<TextView>(R.id.tv_title).text = when (translateType) {
+            1 -> { "同声传译 - 历史记录" }
+            2 -> { "文档翻译 - 历史记录" }
+            else -> { "同声传译 - 历史记录" }
+        }
 
         findViewById<ImageView>(R.id.ivBack).setOnClickListener {
             finish()
@@ -45,9 +54,12 @@ class TranslateHistoryActivity : AppCompatActivity() {
         })
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val sessions = db.TranslateHistoryDao()
-                .getAllHistoriesWithItems()
-                .map { it.history }
+            val listWithItems = if (translateType == 1 || translateType == 2) {
+                db.TranslateHistoryDao().getHistoriesByType(translateType)
+            } else {
+                db.TranslateHistoryDao().getAllHistoriesWithItems()
+            }
+            val sessions = listWithItems.map { it.history }
             withContext(Dispatchers.Main) {
                 translateHistoryAdapter.setData(sessions)
             }

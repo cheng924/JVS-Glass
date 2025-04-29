@@ -6,4 +6,6 @@
     android:padding="15dp"
     android:textSize="20sp"
     android:textColor="@color/white"
-    android:background="@drawable/rounded_button"/>
+    android:background="@drawable/rounded_button"
+    android:maxLines="1"
+    android:ellipsize="end"/>

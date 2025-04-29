@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -50,13 +51,13 @@ class TranslateHistoryItemActivity :
 
     private var timestamp: Long = 0L
     private var type: Int = 1
-    private var audioPath: String? = null
+    private var extra: String? = null
     private enum class PlayState { STOPPED, PLAYING, PAUSED }
     private var playState = PlayState.STOPPED
     private val uiHandler = Handler(Looper.getMainLooper())
     private val progressUpdater = object : Runnable {
         override fun run() {
-            audioPath?.let {
+            extra?.let {
                 // 更新进度
                 val pos = voiceManager.getCurrentPosition()
                 seekBar.progress = pos
@@ -85,7 +86,7 @@ class TranslateHistoryItemActivity :
         llTextSetting = findViewById(R.id.ll_text_setting)
         tvSourceLanguageSetting = findViewById(R.id.tv_source_language_setting)
         tvTargetLanguageSetting = findViewById(R.id.tv_target_language_setting)
-        ivPlay = findViewById(R.id.ivPlay)
+        ivPlay = findViewById(R.id.iv_play)
         ivPlay.setImageResource(R.drawable.ic_continue)
         playState = PlayState.STOPPED
 
@@ -94,13 +95,13 @@ class TranslateHistoryItemActivity :
         translationAdapter = TranslationAdapter(this, mutableListOf(), languageStyleState)
         rvTranslateResults.adapter = translationAdapter
 
-        findViewById<ImageView>(R.id.ivBack).setOnClickListener {
+        findViewById<ImageView>(R.id.iv_back).setOnClickListener {
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         ivPlay.setOnClickListener {
-            audioPath?.let { path ->
+            extra?.let { path ->
                 when (playState) {
                     PlayState.STOPPED -> {
                         voiceManager.playVoiceMessage(path)
@@ -161,7 +162,7 @@ class TranslateHistoryItemActivity :
                 this@TranslateHistoryItemActivity)
         }
 
-        seekBar = findViewById(R.id.seekBar)
+        seekBar = findViewById(R.id.seek_bar)
         seekBar.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
@@ -183,7 +184,9 @@ class TranslateHistoryItemActivity :
                     withContext(Dispatchers.Main) {
                         timestamp = items.history.timestamp
                         type = items.history.type
-                        audioPath = items.history.extra
+                        extra = items.history.extra
+                        tvTitle.text = if (type == 1) "同声传译 - 历史记录" else "《${extra!!.substringBefore(".txt")}》"
+                        llVoiceControl.visibility = if (type == 1) View.VISIBLE else View.GONE
                         translationAdapter.clear()
                         items.items.sortedBy { it.orderIndex }.forEach {
                             translationAdapter.addItem(

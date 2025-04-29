@@ -41,9 +41,13 @@ class TranslateHistoryAdapter : RecyclerView.Adapter<TranslateHistoryAdapter.Vie
         return ViewHolder(tv)
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val session = items[position]
-        holder.tv.text = dateFormat.format(Date(session.timestamp))
+        if (session.type == 1)
+            holder.tv.text = dateFormat.format(Date(session.timestamp))
+        else
+            holder.tv.text = "《${session.extra.substringBefore(".txt")}》"
     }
 
     override fun getItemCount() = items.size

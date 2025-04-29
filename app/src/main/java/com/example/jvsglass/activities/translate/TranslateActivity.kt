@@ -9,7 +9,6 @@ import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
-import com.example.jvsglass.utils.ToastUtils
 
 class TranslateActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
@@ -35,12 +34,17 @@ class TranslateActivity : AppCompatActivity() {
         }
 
         findViewById<TextView>(R.id.tv_realtime_history).setOnClickListener {
-            startActivity(Intent(this, TranslateHistoryActivity::class.java))
+            val intent = Intent(this, TranslateHistoryActivity::class.java).apply {
+                putExtra("translate_type", 1)
+            }
+            startActivity(intent)
         }
 
         findViewById<TextView>(R.id.tv_document_history).setOnClickListener {
-            ToastUtils.show(this, "待开发，暂未开放")
-//            startActivity(Intent(this, TranslatePhotoActivity::class.java))
+            val intent = Intent(this, TranslateHistoryActivity::class.java).apply {
+                putExtra("translate_type", 2)
+            }
+            startActivity(intent)
         }
     }
 }
