@@ -12,6 +12,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.text.SimpleDateFormat
@@ -34,6 +35,7 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
     private var isPaused = false
 
     private var isScoOnForRecording = false // 记录是否用过蓝牙SCO录音
+    private var onPlaybackCompleteListener: OnPlaybackCompleteListener? = null
 
     interface AudioRecordCallback {
         fun onAudioData(data: ByteArray) // 实时返回音频数据块
@@ -144,7 +146,7 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
     fun startStreamingAndRecording(callback: AudioRecordCallback): String? {
         val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
         val timestamp = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(Date())
-        val fileName = "$timestamp.pcm"
+        val fileName = "$timestamp.wav"
         val outputFile = File(context.getExternalFilesDir(null), fileName)
 
         audioRecord = AudioRecord(
@@ -154,23 +156,54 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         audioRecord!!.startRecording()
         isRecording = true
 
+        val fos = RandomAccessFile(outputFile, "rw")
+        // header模板先全填0
+        val header = ByteArray(44)
+        fos.write(header)
+
         recordingThread = Thread {
             val buffer = ByteArray(bufferSize)
-            FileOutputStream(outputFile).use { fos ->
+            var totalDataBytes = 0L
+            try {
                 while (isRecording) {
-                    val bytesRead = audioRecord!!.read(buffer, 0, bufferSize)
-                    if (bytesRead > 0) {
-                        val audioData = buffer.copyOf(bytesRead)
-                        callback.onAudioData(audioData)
-                        fos.write(audioData, 0, bytesRead)
+                    val read = audioRecord!!.read(buffer, 0, bufferSize)
+                    if (read > 0) {
+                        fos.write(buffer, 0, read)
+                        totalDataBytes += read
+                        callback.onAudioData(buffer.copyOf(read))
                     }
                 }
+                // 停止时填写header
+                val totalFileLen = totalDataBytes + 44
+                val byteRate = 16 * sampleRate * 1 / 8
+
+                fos.seek(0)
+                fos.writeBytes("RIFF")
+                fos.writeIntLE((totalFileLen - 8).toInt())
+                fos.writeBytes("WAVE")
+                fos.writeBytes("fmt ")
+                fos.writeIntLE(16)
+                fos.writeShortLE(1)
+                fos.writeShortLE(1)
+                fos.writeIntLE(sampleRate)
+                fos.writeIntLE(byteRate)
+                fos.writeShortLE((1 * 16 / 8).toShort())
+                fos.writeShortLE(16)
+
+                fos.writeBytes("data")
+                fos.writeIntLE(totalDataBytes.toInt())
+            } catch (e: IOException) {
+                LogUtils.error("[VoiceManager] WAV 写入失败: ${e.message}")
+            } finally {
+                fos.close()
             }
         }.apply { start() }
+
         currentAudioPath = outputFile.absolutePath
-        LogUtils.info("[VoiceManager] 开始流式+文件录音: $currentAudioPath")
+        LogUtils.info("[VoiceManager] 开始 WAV 录音: $currentAudioPath")
         return currentAudioPath
     }
+
 
     fun stopRecording() {
         if (isScoOnForRecording) {
@@ -263,7 +296,7 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         onPlaybackCompleteListener?.onPlaybackComplete(currentPlayingPath ?: "")
     }
 
-    // 将 PCM 原始数据转为 WAV 文件，并返回新 WAV 路径
+    // 将PCM原始数据转为WAV文件，并返回新WAV路径
     private fun pcmToWav(pcmPath: String): String? {
         val pcmFile = File(pcmPath)
         if (!pcmFile.exists()) return null
@@ -327,6 +360,16 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         }
     }
 
+    // 写小端4字节
+    private fun RandomAccessFile.writeIntLE(value: Int) {
+        this.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(value).array())
+    }
+
+    // 写小端2字节
+    private fun RandomAccessFile.writeShortLE(value: Short) {
+        this.write(ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(value).array())
+    }
+
     // 删除语音文件
     fun deleteVoiceFile(filePath: String): Boolean {
         return try {
@@ -360,6 +403,4 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         mediaPlayer = null
         LogUtils.info("[VoiceManager] 所有资源已释放")
     }
-
-    private var onPlaybackCompleteListener: OnPlaybackCompleteListener? = null
 }
