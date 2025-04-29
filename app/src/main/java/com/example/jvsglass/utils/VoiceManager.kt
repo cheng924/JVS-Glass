@@ -41,6 +41,10 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         fun onAudioData(data: ByteArray) // 实时返回音频数据块
     }
 
+    interface OnPlaybackCompleteListener {
+        fun onPlaybackComplete(filePath: String)
+    }
+
     fun setOnPlaybackCompleteListener(listener: OnPlaybackCompleteListener) {
         this.onPlaybackCompleteListener = listener
     }
@@ -49,9 +53,14 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
-    interface OnPlaybackCompleteListener {
-        fun onPlaybackComplete(filePath: String)
-    }
+    // 返回当前播放时长（ms）
+    fun getDuration(): Int = mediaPlayer?.duration ?: 0
+
+    // 返回当前播放位置（ms）
+    fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
+
+    // 跳到指定位置（ms）
+    fun seekTo(position: Int) { mediaPlayer?.seekTo(position) }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startStreaming(isPhoneMic: Boolean, callback: AudioRecordCallback) {
@@ -204,7 +213,6 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         return currentAudioPath
     }
 
-
     fun stopRecording() {
         if (isScoOnForRecording) {
             // 停止录音后关闭SCO
@@ -261,7 +269,7 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         }
     }
 
-    fun stopPlayback() {
+    private fun stopPlayback() {
         mediaPlayer?.release()
         mediaPlayer = null
         currentPlayingPath = null

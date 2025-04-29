@@ -2,8 +2,11 @@ package com.example.jvsglass.activities.translate
 
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -21,7 +24,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 class TranslateHistoryItemActivity :
@@ -34,16 +36,35 @@ class TranslateHistoryItemActivity :
     private lateinit var fileHandler: FileHandler
     private lateinit var voiceManager: VoiceManager
 
+    private lateinit var tvTitle: TextView
+    private lateinit var llVoiceControl: LinearLayout
+    private lateinit var seekBar: SeekBar
+    private lateinit var tvCurrentTime: TextView
+    private lateinit var tvTotalDuration: TextView
+    private lateinit var ivPlay: ImageView
     private lateinit var rvTranslateResults: RecyclerView
     private lateinit var llTextSetting: LinearLayout
     private lateinit var tvSourceLanguageSetting: TextView
     private lateinit var tvTargetLanguageSetting: TextView
     private var languageStyleState = 0
 
-    private lateinit var ivPlay: ImageView
+    private var timestamp: Long = 0L
+    private var type: Int = 1
     private var audioPath: String? = null
     private enum class PlayState { STOPPED, PLAYING, PAUSED }
     private var playState = PlayState.STOPPED
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private val progressUpdater = object : Runnable {
+        override fun run() {
+            audioPath?.let {
+                // 更新进度
+                val pos = voiceManager.getCurrentPosition()
+                seekBar.progress = pos
+                tvCurrentTime.text = formatTime(pos)
+                uiHandler.postDelayed(this, 500)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +78,10 @@ class TranslateHistoryItemActivity :
     }
 
     private fun setupUI() {
+        tvTitle = findViewById(R.id.tv_title)
+        llVoiceControl = findViewById(R.id.ll_voice_control)
+        tvCurrentTime = findViewById(R.id.tv_current_time)
+        tvTotalDuration = findViewById(R.id.tv_total_duration)
         llTextSetting = findViewById(R.id.ll_text_setting)
         tvSourceLanguageSetting = findViewById(R.id.tv_source_language_setting)
         tvTargetLanguageSetting = findViewById(R.id.tv_target_language_setting)
@@ -79,16 +104,23 @@ class TranslateHistoryItemActivity :
                 when (playState) {
                     PlayState.STOPPED -> {
                         voiceManager.playVoiceMessage(path)
+                        val duration = voiceManager.getDuration()
+                        seekBar.max = duration
+                        tvTotalDuration.text = formatTime(duration)
+                        tvCurrentTime.text = formatTime(0)
+                        uiHandler.post(progressUpdater)
                         ivPlay.setImageResource(R.drawable.ic_suspend)
                         playState = PlayState.PLAYING
                     }
                     PlayState.PLAYING -> {
                         voiceManager.pausePlayback()
+                        uiHandler.removeCallbacks(progressUpdater)
                         ivPlay.setImageResource(R.drawable.ic_continue)
                         playState = PlayState.PAUSED
                     }
                     PlayState.PAUSED -> {
                         voiceManager.playVoiceMessage(path)
+                        uiHandler.post(progressUpdater)
                         ivPlay.setImageResource(R.drawable.ic_suspend)
                         playState = PlayState.PLAYING
                     }
@@ -102,16 +134,16 @@ class TranslateHistoryItemActivity :
             languageStyleState = (languageStyleState + 1) % 3
             when (languageStyleState) {
                 0 -> {
-                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
-                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
+                    tvSourceLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.white))
+                    tvTargetLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.white))
                 }
                 1 -> {
-                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
-                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.button_text)) }
+                    tvSourceLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.white))
+                    tvTargetLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.button_text))
                 }
                 2 -> {
-                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.button_text)) }
-                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
+                    tvSourceLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.button_text))
+                    tvTargetLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.white))
                 }
             }
             translationAdapter.updateDisplayMode(languageStyleState)
@@ -122,11 +154,24 @@ class TranslateHistoryItemActivity :
                 ToastUtils.show(this@TranslateHistoryItemActivity, "无文本导出")
                 return@setOnClickListener
             }
+            val fileType = if (type == 1) "同声传译" else "文本翻译"
             fileHandler.saveFile(
-                "同声传译导出_${SimpleDateFormat("MMdd_HHmmss", Locale.getDefault()).format(Date())}.txt",
+                "${fileType}导出_${SimpleDateFormat("MMdd_HHmmss", Locale.getDefault()).format(timestamp)}.txt",
                 buildExportText(),
                 this@TranslateHistoryItemActivity)
         }
+
+        seekBar = findViewById(R.id.seekBar)
+        seekBar.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    voiceManager.seekTo(progress)
+                    tvCurrentTime.text = formatTime(progress)
+                }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
     }
 
     private fun initViews() {
@@ -136,6 +181,8 @@ class TranslateHistoryItemActivity :
                 val historyWithItems = db.TranslateHistoryDao().getHistoryById(sessionId)
                 historyWithItems?.let { items ->
                     withContext(Dispatchers.Main) {
+                        timestamp = items.history.timestamp
+                        type = items.history.type
                         audioPath = items.history.extra
                         translationAdapter.clear()
                         items.items.sortedBy { it.orderIndex }.forEach {
@@ -170,6 +217,9 @@ class TranslateHistoryItemActivity :
 
     override fun onPlaybackComplete(filePath: String) {
         runOnUiThread {
+            uiHandler.removeCallbacks(progressUpdater)
+            seekBar.progress = 0
+            tvCurrentTime.text = formatTime(0)
             ivPlay.setImageResource(R.drawable.ic_continue)
             playState = PlayState.STOPPED
         }
@@ -178,5 +228,12 @@ class TranslateHistoryItemActivity :
     override fun onDestroy() {
         super.onDestroy()
         voiceManager.release()
+    }
+
+    private fun formatTime(milliseconds: Int): String {
+        val totalSeconds = milliseconds / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format(Locale.getDefault(), "%02d : %02d", minutes, seconds)
     }
 }

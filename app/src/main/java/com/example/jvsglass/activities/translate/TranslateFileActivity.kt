@@ -79,16 +79,16 @@ class TranslateFileActivity : AppCompatActivity(), FileHandler.FileReadResultCal
             languageStyleState = (languageStyleState + 1) % 3
             when (languageStyleState) {
                 0 -> {
-                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
-                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
+                    tvSourceLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.white))
+                    tvTargetLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.white))
                 }
                 1 -> {
-                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
-                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.button_text)) }
+                    tvSourceLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.white))
+                    tvTargetLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.button_text))
                 }
                 2 -> {
-                    tvSourceLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.button_text)) }
-                    tvTargetLanguageSetting.apply { setTextColor(ContextCompat.getColor(context, R.color.white)) }
+                    tvSourceLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.button_text))
+                    tvTargetLanguageSetting.setTextColor(ContextCompat.getColor(this, R.color.white))
                 }
             }
             translationAdapter.updateDisplayMode(languageStyleState)
