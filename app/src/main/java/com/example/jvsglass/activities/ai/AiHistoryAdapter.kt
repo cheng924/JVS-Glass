@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.database.AiConversationEntity
@@ -23,7 +24,7 @@ class AiHistoryAdapter(
     private val selectedPositions = mutableSetOf<Int>()
 
     inner class VH(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val clHistoryItemContainer: androidx.constraintlayout.widget.ConstraintLayout = itemView.findViewById(R.id.clHistoryItemContainer)
+        val clHistoryItemContainer: ConstraintLayout = itemView.findViewById(R.id.clHistoryItemContainer)
         val tvTitle: TextView = itemView.findViewById(R.id.tvTitle)
         val tvTime : TextView = itemView.findViewById(R.id.tvTime)
         val ivSelectionDot: ImageView = itemView.findViewById(R.id.ivSelectionDot)

@@ -6,7 +6,6 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.annotation.RequiresApi
@@ -32,7 +31,7 @@ class AiHistoryActivity : AppCompatActivity() {
     private lateinit var rlDeleteHistoryBar: RelativeLayout
     private lateinit var tvDeleteHistories: TextView
     private lateinit var rvHistoryList: RecyclerView
-    private lateinit var llDeleteBar: LinearLayout
+    private lateinit var tvDelete: TextView
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,11 +42,11 @@ class AiHistoryActivity : AppCompatActivity() {
         tvTotalHistories = findViewById(R.id.tv_total_histories)
         rlDeleteHistoryBar = findViewById(R.id.rl_delete_history_bar)
         tvDeleteHistories = findViewById(R.id.tv_delete_histories)
-        rvHistoryList = findViewById(R.id.rvHistoryList)
-        llDeleteBar = findViewById(R.id.ll_delete_bar)
+        rvHistoryList = findViewById(R.id.rv_history_list)
+        tvDelete = findViewById(R.id.tv_delete)
 
         rlDeleteHistoryBar.visibility = View.GONE
-        llDeleteBar.visibility = View.GONE
+        tvDelete.visibility = View.GONE
         rlTotalHistoryBar.visibility = View.VISIBLE
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
@@ -55,7 +54,7 @@ class AiHistoryActivity : AppCompatActivity() {
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
-        llDeleteBar.setOnClickListener {
+        tvDelete.setOnClickListener {
             confirmAndDeleteSelected()
         }
 
@@ -96,7 +95,7 @@ class AiHistoryActivity : AppCompatActivity() {
                         onSelectionCountChanged = { selCount ->
                             rlDeleteHistoryBar.visibility = if (selCount > 0) View.VISIBLE else View.GONE
                             rlTotalHistoryBar.visibility = if (selCount > 0) View.GONE else View.VISIBLE
-                            llDeleteBar.visibility = if (selCount > 0) View.VISIBLE else View.GONE
+                            tvDelete.visibility = if (selCount > 0) View.VISIBLE else View.GONE
                             tvDeleteHistories.text = selCount.toString()
                         },
                         onDeleteClick = { conv ->
