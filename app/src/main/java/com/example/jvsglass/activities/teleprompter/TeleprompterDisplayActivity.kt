@@ -25,7 +25,12 @@ import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
 import com.example.jvsglass.ble.BLEGattClient
+import com.example.jvsglass.dialog.WarningDialog
+import com.example.jvsglass.network.NetworkManager
+import com.example.jvsglass.network.RealtimeAsrClient
+import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
+import com.example.jvsglass.utils.VoiceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -35,7 +40,10 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 class TeleprompterDisplayActivity : AppCompatActivity() {
+    private lateinit var voiceManager: VoiceManager
+    private lateinit var realtimeAsrClient: RealtimeAsrClient
 
+    private var currentVoicePath = ""
     private val bleClient by lazy { BLEGattClient.getInstance(this) }
     private val vibrator by lazy { getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
     private var totalLines = 0
@@ -45,9 +53,19 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private lateinit var gestureDetector: GestureDetectorCompat
     private var autoScrollJob: Job? = null
     private var scrollIntervalMs = 15_000L
+    private var micControl = true
+    private var lastProcessedLength = 0
+    private var lastSentBlock: String = ""
 
     private lateinit var scrollView: ScrollView
     private lateinit var tvContent: TextView
+
+    private lateinit var llVoiceControl: LinearLayout
+    private lateinit var ivMicControl: ImageView
+    private lateinit var tvMicControl: TextView
+    private lateinit var llContinueScroll: LinearLayout
+    private lateinit var ivScrollStatus: ImageView
+    private lateinit var tvScrollStatus: TextView
 
     @SuppressLint("ClickableViewAccessibility")
     private val manualTouchListener = View.OnTouchListener { _, event ->
@@ -85,14 +103,20 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(
+        allOf = [Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.BLUETOOTH_CONNECT]
+    )
     override fun onCreate(savedInstanceState : Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_teleprompter_display)
 
+        voiceManager = VoiceManager(this)
+
         initSetting()
         initBluetoothConnection()
         initView()
+        initRealtimeAsrClient()
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -108,16 +132,22 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @RequiresPermission(
+        allOf = [Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.BLUETOOTH_CONNECT]
+    )
     @SuppressLint("ClickableViewAccessibility")
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initView() {
+        llVoiceControl = findViewById(R.id.ll_voice_control)
+        ivMicControl = findViewById(R.id.iv_mic_control)
+        tvMicControl = findViewById(R.id.tv_mic_control)
+        llContinueScroll = findViewById(R.id.ll_continue_scroll)
+        ivScrollStatus = findViewById(R.id.iv_scroll_status)
+        tvScrollStatus = findViewById(R.id.tv_scroll_status)
+
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-        }
-
-        findViewById<LinearLayout>(R.id.ll_voice_control).setOnClickListener {
-            ToastUtils.show(this, "正在开发")
         }
 
         findViewById<TextView>(R.id.tv_title).text = intent.getStringExtra("fileName") ?: ""
@@ -145,7 +175,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         scrollView.setOnTouchListener(manualTouchListener)
 
         findViewById<ImageView>(R.id.teleprompter_settings).setOnClickListener {
-            if (autoScrollJob?.isActive == true) {
+            if (autoScrollJob?.isActive == true || !micControl) {
                 ToastUtils.show(this, "请先“停止滚动”")
                 return@setOnClickListener
             }
@@ -154,13 +184,63 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
             settingLauncher.launch(intent)
         }
 
-        findViewById<LinearLayout>(R.id.ll_continue_scroll).setOnClickListener {
+        llVoiceControl.setOnClickListener {
+            if (micControl) {
+                WarningDialog.showDialog(
+                    context = this@TeleprompterDisplayActivity,
+                    title = "动态滚动使用提示",
+                    message = """
+                        本功能依赖语音识别技术，环境噪音或口音可能导致偶发误识别。
+                        建议在相对安静的环境下使用，并尽量保持吐字清晰。
+                        我们将持续优化体验，感谢理解与支持！
+                    """.trimIndent(),
+                    positiveButtonText = "开始使用",
+                    negativeButtonText = "暂不使用",
+                    listener = object : WarningDialog.DialogButtonClickListener {
+                        @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+                        override fun onPositiveButtonClick() {
+                            tvMicControl.text = "停止滚动"
+                            ivMicControl.setImageResource(R.drawable.ic_mic_off)
+                            llVoiceControl.setBackgroundResource(R.drawable.rounded_button_selected)
+                            llContinueScroll.isClickable = false
+
+                            realtimeAsrClient.connect()
+                            realtimeAsrClient.keepConnectionOpen()
+
+                            scrollView.setOnTouchListener(disabledTouchListener)
+
+                            currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
+                                override fun onAudioData(data: ByteArray) {
+                                    realtimeAsrClient.sendAudioChunk(data)
+                                }
+                            }).toString()
+                        }
+
+                        override fun onNegativeButtonClick() { micControl = true }
+                    })
+            } else {
+                tvMicControl.text = "动态滚动"
+                ivMicControl.setImageResource(R.drawable.ic_mic_on)
+                llVoiceControl.setBackgroundResource(R.drawable.rounded_button)
+                llContinueScroll.isClickable = true
+
+                voiceManager.stopRecording()
+                voiceManager.deleteVoiceFile(currentVoicePath)
+                realtimeAsrClient.disconnect()
+
+                scrollView.setOnTouchListener(manualTouchListener)
+            }
+            micControl = !micControl
+        }
+
+        llContinueScroll.setOnClickListener {
             if (autoScrollJob?.isActive == true) {
                 autoScrollJob?.cancel()
                 scrollView.setOnTouchListener(manualTouchListener)
-                ToastUtils.show(this, "已停止自动滚动")
-                findViewById<TextView>(R.id.tv_scroll_status)?.text = "匀速滚动"
-                findViewById<ImageView>(R.id.iv_scroll_status).setImageResource(R.drawable.ic_continue)
+                tvScrollStatus.text = "匀速滚动"
+                ivScrollStatus.setImageResource(R.drawable.ic_continue)
+                llContinueScroll.setBackgroundResource(R.drawable.rounded_button)
+                llVoiceControl.isClickable = true
             } else {
                 if (scrollLines == totalLines - 1) {
                     scrollLines = 0
@@ -172,9 +252,11 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 }
                 scrollView.setOnTouchListener(disabledTouchListener)
                 startAutoScroll(scrollIntervalMs)
-                ToastUtils.show(this, "开始自动滚动：${scrollIntervalMs/1000}秒/行")
-                findViewById<TextView>(R.id.tv_scroll_status)?.text = "停止滚动"
-                findViewById<ImageView>(R.id.iv_scroll_status).setImageResource(R.drawable.ic_suspend)
+                ToastUtils.show(this, "开始滚动 ${scrollIntervalMs/1000} 秒/行")
+                tvScrollStatus.text = "停止滚动"
+                ivScrollStatus.setImageResource(R.drawable.ic_suspend)
+                llContinueScroll.setBackgroundResource(R.drawable.rounded_button_selected)
+                llVoiceControl.isClickable = false
             }
         }
     }
@@ -182,6 +264,32 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private fun initSetting() {
         val prefs = getSharedPreferences("teleprompter_setting", Context.MODE_PRIVATE)
         scrollIntervalMs = prefs.getLong("speed", 15_000L)
+    }
+
+    private fun initRealtimeAsrClient() {
+        realtimeAsrClient = NetworkManager.getInstance()
+            .createRealtimeAsrClient(object : RealtimeAsrClient.RealtimeAsrCallback {
+                @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                override fun onPartialResult(text: String) {
+                    runOnUiThread { handleDynamicScroll(text) }
+                }
+
+                override fun onFinalResult(text: String) {
+                    runOnUiThread { voiceManager.deleteVoiceFile(currentVoicePath) }
+                }
+
+                override fun onError(error: String) {
+                    runOnUiThread { LogUtils.error(error) }
+                }
+
+                override fun onConnectionChanged(connected: Boolean) {
+                    LogUtils.info("ASR连接状态: $connected")
+                }
+
+                override fun onSessionReady() {
+                    LogUtils.info("ASR session ready")
+                }
+            })
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -205,8 +313,10 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         scrollView.setOnTouchListener(manualTouchListener)
                         ToastUtils.show(this@TeleprompterDisplayActivity, "已滚动到末尾")
-                        findViewById<TextView>(R.id.tv_scroll_status)?.text = "重新开始"
-                        findViewById<ImageView>(R.id.iv_scroll_status).setImageResource(R.drawable.ic_continue)
+                        tvScrollStatus.text = "匀速滚动"
+                        ivScrollStatus.setImageResource(R.drawable.ic_continue)
+                        llContinueScroll.setBackgroundResource(R.drawable.rounded_button)
+                        llVoiceControl.isClickable = true
                     }
                     break
                 }
@@ -265,6 +375,36 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
         tvContent.text = displayBlock
 //        sendMessage(sendBlock)
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun handleDynamicScroll(partialText: String) {
+        val split = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+        val sendBlock = split.sendBlock
+        val lines = sendBlock.split("\n")
+
+        val oldLen = lastProcessedLength
+        lastProcessedLength = partialText.length
+        var newPart = if (partialText.length > oldLen) partialText.substring(oldLen) else ""
+        newPart = newPart.replace(Regex("[,，.。]"), "")
+        if (newPart.isEmpty()) return
+        LogUtils.info("识别文字：$newPart")
+
+        val matchedLineIndex = lines.indexOfFirst { line ->
+            line.contains(newPart)
+        }
+
+        if (matchedLineIndex != -1) {
+            scrollLines = (scrollLines + matchedLineIndex).coerceAtMost(totalLines - 1)
+            val nextSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+            if (lastSentBlock == nextSplit.sendBlock) return
+
+            LogUtils.info("sendBlock：${nextSplit.sendBlock}")
+            lastSentBlock = nextSplit.sendBlock
+            tvContent.text = nextSplit.displayBlock
+            scrollView.scrollTo(0, 0)
+            if (nextSplit.sendBlock.isNotEmpty()) { sendMessage(nextSplit.sendBlock) }
+        }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)

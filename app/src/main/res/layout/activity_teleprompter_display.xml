@@ -122,12 +122,14 @@
             android:background="@drawable/rounded_button">
 
             <ImageView
+                android:id="@+id/iv_mic_control"
                 android:layout_width="25dp"
                 android:layout_height="25dp"
                 android:layout_marginEnd="13dp"
-                android:src="@drawable/ic_voice_control"/>
+                android:src="@drawable/ic_mic_on"/>
 
             <TextView
+                android:id="@+id/tv_mic_control"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="动态滚动"
