@@ -1,4 +1,4 @@
-package com.example.jvsglass.classic
+package com.example.jvsglass.bluetooth.classic
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -24,9 +24,9 @@ import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
-import com.example.jvsglass.classic.ClassicConstants.MAX_HISTORY_SIZE
-import com.example.jvsglass.classic.ClassicConstants.REQUEST_DISCOVERABLE
-import com.example.jvsglass.classic.ClassicConstants.SERVER_DISCOVERABLE_TIME
+import com.example.jvsglass.bluetooth.classic.ClassicConstants.MAX_HISTORY_SIZE
+import com.example.jvsglass.bluetooth.classic.ClassicConstants.REQUEST_DISCOVERABLE
+import com.example.jvsglass.bluetooth.classic.ClassicConstants.SERVER_DISCOVERABLE_TIME
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import java.io.File

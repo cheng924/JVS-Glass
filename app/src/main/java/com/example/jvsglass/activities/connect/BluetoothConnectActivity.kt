@@ -23,11 +23,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.jvsglass.R
-import com.example.jvsglass.ble.BLEConstants.REQUEST_ENABLE_BT
-import com.example.jvsglass.ble.BLEConstants.REQUEST_CODE_BLE_PERMISSIONS
-import com.example.jvsglass.ble.BLEConstants.SCAN_TIMEOUT
-import com.example.jvsglass.ble.BLEGattClient
-import com.example.jvsglass.ble.HeartbeatDetectorManager
+import com.example.jvsglass.bluetooth.ble.BLEConstants.REQUEST_ENABLE_BT
+import com.example.jvsglass.bluetooth.ble.BLEConstants.REQUEST_CODE_BLE_PERMISSIONS
+import com.example.jvsglass.bluetooth.ble.BLEConstants.SCAN_TIMEOUT
+import com.example.jvsglass.bluetooth.ble.BLEGattClient
+import com.example.jvsglass.bluetooth.ble.HeartbeatDetectorManager
 import com.example.jvsglass.databinding.ActivityBluetoothConnectBinding
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils

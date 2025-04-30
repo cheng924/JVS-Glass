@@ -1,4 +1,4 @@
-package com.example.jvsglass.classic
+package com.example.jvsglass.bluetooth.classic
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -6,8 +6,8 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
 import androidx.annotation.RequiresPermission
-import com.example.jvsglass.classic.ClassicConstants.UUID_RFCOMM
-import com.example.jvsglass.classic.ClassicConstants.SERVICE_NAME
+import com.example.jvsglass.bluetooth.classic.ClassicConstants.UUID_RFCOMM
+import com.example.jvsglass.bluetooth.classic.ClassicConstants.SERVICE_NAME
 import com.example.jvsglass.utils.LogUtils
 import java.io.File
 import java.io.IOException

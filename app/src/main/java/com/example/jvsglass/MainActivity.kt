@@ -19,9 +19,9 @@ import com.example.jvsglass.activities.TranscribeActivity
 import com.example.jvsglass.activities.DashboardActivity
 import com.example.jvsglass.activities.QuickNoteActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
-import com.example.jvsglass.ble.HeartbeatDetectorManager
-import com.example.jvsglass.classic.ClassicConstants
-import com.example.jvsglass.classic.ClassicRfcommActivity
+import com.example.jvsglass.bluetooth.ble.HeartbeatDetectorManager
+import com.example.jvsglass.bluetooth.classic.ClassicConstants
+import com.example.jvsglass.bluetooth.classic.ClassicRfcommActivity
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import org.greenrobot.eventbus.EventBus

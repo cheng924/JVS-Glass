@@ -1,4 +1,4 @@
-package com.example.jvsglass.ble
+package com.example.jvsglass.bluetooth.ble
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -7,8 +7,8 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.RequiresPermission
-import com.example.jvsglass.ble.BLEConstants.CURRENT_MTU
-import com.example.jvsglass.ble.BLEConstants.RETRY_INTERVAL
+import com.example.jvsglass.bluetooth.ble.BLEConstants.CURRENT_MTU
+import com.example.jvsglass.bluetooth.ble.BLEConstants.RETRY_INTERVAL
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.PacketUtils
 import com.example.jvsglass.utils.toHexString

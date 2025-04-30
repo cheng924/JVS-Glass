@@ -1,4 +1,4 @@
-package com.example.jvsglass.ble
+package com.example.jvsglass.bluetooth.ble
 
 import java.util.UUID
 

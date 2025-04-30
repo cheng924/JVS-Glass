@@ -5,8 +5,8 @@ import android.app.Application
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.RequiresPermission
-import com.example.jvsglass.ble.BLEGattClient
-import com.example.jvsglass.ble.HeartbeatDetectorManager
+import com.example.jvsglass.bluetooth.ble.BLEGattClient
+import com.example.jvsglass.bluetooth.ble.HeartbeatDetectorManager
 import com.example.jvsglass.database.AppDatabaseProvider
 import com.example.jvsglass.utils.LogUtils
 

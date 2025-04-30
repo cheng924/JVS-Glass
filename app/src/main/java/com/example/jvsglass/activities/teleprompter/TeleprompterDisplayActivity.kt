@@ -24,7 +24,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
-import com.example.jvsglass.ble.BLEGattClient
+import com.example.jvsglass.bluetooth.ble.BLEGattClient
 import com.example.jvsglass.dialog.WarningDialog
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.RealtimeAsrClient

@@ -1,11 +1,11 @@
-package com.example.jvsglass.ble
+package com.example.jvsglass.bluetooth.ble
 
 import android.Manifest
 import android.os.Handler
 import android.os.HandlerThread
 import androidx.annotation.RequiresPermission
-import com.example.jvsglass.ble.BLEConstants.MAX_RETRY
-import com.example.jvsglass.ble.BLEConstants.HEART_INTERVAL
+import com.example.jvsglass.bluetooth.ble.BLEConstants.MAX_RETRY
+import com.example.jvsglass.bluetooth.ble.BLEConstants.HEART_INTERVAL
 import org.greenrobot.eventbus.EventBus
 
 object HeartbeatDetectorManager {
@@ -27,6 +27,10 @@ object HeartbeatDetectorManager {
         handler.post(monitoringRunnable)
     }
 
+    fun stopMonitoring() {
+        handler.removeCallbacks(monitoringRunnable)
+    }
+
     private val monitoringRunnable = object : Runnable {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun run() {
@@ -37,7 +41,7 @@ object HeartbeatDetectorManager {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun checkConnectionState() {
-        val currentState = bleClient.isConnected()
+        val currentState = !bleClient.isConnected()
 
 //        // 状态变化处理
 //        if (currentState != lastConnectionState) {
@@ -47,7 +51,7 @@ object HeartbeatDetectorManager {
         EventBus.getDefault().post(ConnectionEvent(currentState))
 
         // 断连处理
-        if (!currentState) {
+        if (currentState) {
             handleDisconnection()
         } else {
             retryCount = 0 // 重置计数器
@@ -68,9 +72,5 @@ object HeartbeatDetectorManager {
                 stopMonitoring()
             }
         }
-    }
-
-    fun stopMonitoring() {
-        handler.removeCallbacks(monitoringRunnable)
     }
 }

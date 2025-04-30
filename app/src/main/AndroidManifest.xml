@@ -96,7 +96,7 @@
         </provider>
 
         <activity
-            android:name=".classic.ClassicRfcommActivity"
+            android:name=".bluetooth.classic.ClassicRfcommActivity"
             android:exported="false" />
         <activity
             android:name=".activities.teleprompter.TeleprompterNewFileActivity"

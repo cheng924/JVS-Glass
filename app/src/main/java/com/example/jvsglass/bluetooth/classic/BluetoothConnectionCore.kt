@@ -1,12 +1,12 @@
-package com.example.jvsglass.classic
+package com.example.jvsglass.bluetooth.classic
 
 import android.bluetooth.BluetoothSocket
 import android.os.Handler
 import android.os.Looper
 import com.example.jvsglass.utils.LogUtils
 import java.io.ByteArrayOutputStream
-import com.example.jvsglass.classic.ClassicConstants.MAX_RECONNECT_ATTEMPTS
-import com.example.jvsglass.classic.ClassicConstants.RECONNECT_DELAY_MS
+import com.example.jvsglass.bluetooth.classic.ClassicConstants.MAX_RECONNECT_ATTEMPTS
+import com.example.jvsglass.bluetooth.classic.ClassicConstants.RECONNECT_DELAY_MS
 import java.io.IOException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
