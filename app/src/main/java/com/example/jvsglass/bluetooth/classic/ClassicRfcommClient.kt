@@ -6,8 +6,10 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.example.jvsglass.bluetooth.classic.ClassicConstants.A2DP_UUID
 import com.example.jvsglass.bluetooth.classic.ClassicConstants.CONNECT_TIMEOUT_MS
@@ -122,6 +124,7 @@ class ClassicRfcommClient(
     private inner class ConnectThread(private val device: BluetoothDevice) : Thread() {
         private val socket: BluetoothSocket? = device.createInsecureRfcommSocketToServiceRecord(UUID_RFCOMM)
 
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         override fun run() {
             adapter.cancelDiscovery()
 
@@ -146,6 +149,7 @@ class ClassicRfcommClient(
             }
         }
 
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         private fun onConnectSuccess(device: BluetoothDevice) {
             synchronized(lock) {
                 clientSocket = socket

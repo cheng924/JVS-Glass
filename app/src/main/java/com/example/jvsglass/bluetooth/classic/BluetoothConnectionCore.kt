@@ -1,8 +1,10 @@
 package com.example.jvsglass.bluetooth.classic
 
 import android.bluetooth.BluetoothSocket
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.RequiresApi
 import com.example.jvsglass.utils.LogUtils
 import java.io.ByteArrayOutputStream
 import com.example.jvsglass.bluetooth.classic.ClassicConstants.MAX_RECONNECT_ATTEMPTS
@@ -69,6 +71,7 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
     }
 
     // 管理连接的Socket，处理接收消息
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     fun manageConnectedSocket(socket: BluetoothSocket) {
         executor.execute {
             val inputStream = socket.inputStream

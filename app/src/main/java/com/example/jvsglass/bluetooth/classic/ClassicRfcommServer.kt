@@ -5,6 +5,8 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.example.jvsglass.bluetooth.classic.ClassicConstants.UUID_RFCOMM
 import com.example.jvsglass.bluetooth.classic.ClassicConstants.SERVICE_NAME
@@ -23,6 +25,7 @@ class ClassicRfcommServer(
     private val lock = Any()
     private var reconnectAttempts = 0
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @SuppressLint("HardwareIds")
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun run() {
