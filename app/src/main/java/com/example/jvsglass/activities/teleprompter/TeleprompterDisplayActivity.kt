@@ -6,6 +6,7 @@ import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -21,6 +22,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
@@ -209,6 +211,17 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
                             scrollView.setOnTouchListener(disabledTouchListener)
 
+                            val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+                            if (ActivityCompat.checkSelfPermission(
+                                    this@TeleprompterDisplayActivity,
+                                    Manifest.permission.BLUETOOTH_CONNECT
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                sendMessage(currentSplit.sendBlock)
+                            } else {
+                                LogUtils.warn("缺少 BLUETOOTH_CONNECT 权限，无法发送 teleprompter 内容")
+                            }
+
                             currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
                                 override fun onAudioData(data: ByteArray) {
                                     realtimeAsrClient.sendAudioChunk(data)
@@ -250,6 +263,9 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                     scrollView.scrollTo(0, 0)
                     sendMessage(split0.sendBlock)
                 }
+                val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+                sendMessage(currentSplit.sendBlock)
+
                 scrollView.setOnTouchListener(disabledTouchListener)
                 startAutoScroll(scrollIntervalMs)
                 ToastUtils.show(this, "开始滚动 ${scrollIntervalMs/1000} 秒/行")
