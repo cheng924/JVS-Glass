@@ -54,6 +54,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
+            android:name=".bluetooth.dual.DualBluetoothActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.translate.TranslateHistoryItemActivity"
             android:exported="false" />
         <activity
@@ -94,10 +97,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <activity
-            android:name=".bluetooth.classic.ClassicRfcommActivity"
-            android:exported="false" />
         <activity
             android:name=".activities.teleprompter.TeleprompterNewFileActivity"
             android:exported="false" />
@@ -130,7 +129,7 @@
             android:name=".activities.SilentModeActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.connect.BluetoothConnectActivity"
+            android:name=".bluetooth.BluetoothConnectActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

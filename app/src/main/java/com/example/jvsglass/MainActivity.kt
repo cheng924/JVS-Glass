@@ -12,16 +12,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.jvsglass.activities.connect.BluetoothConnectActivity
 import com.example.jvsglass.activities.ai.JVSAIActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
-import com.example.jvsglass.activities.TranscribeActivity
-import com.example.jvsglass.activities.DashboardActivity
-import com.example.jvsglass.activities.QuickNoteActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
+import com.example.jvsglass.bluetooth.BluetoothConnectActivity
 import com.example.jvsglass.bluetooth.ble.HeartbeatDetectorManager
 import com.example.jvsglass.bluetooth.classic.ClassicConstants
-import com.example.jvsglass.bluetooth.classic.ClassicRfcommActivity
+import com.example.jvsglass.bluetooth.dual.DualBluetoothActivity
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import org.greenrobot.eventbus.EventBus
@@ -58,7 +55,6 @@ class MainActivity : AppCompatActivity() {
 //            ToastUtils.show(this, getString(R.string.development_tips))
 //            return@setOnClickListener
 //            startActivity(Intent(this, SettingsActivity::class.java))
-            startActivityForResult(Intent(this, ClassicRfcommActivity::class.java), REQUEST_BT)
         }
 
         findViewById<Button>(R.id.btn_bluetooth).setOnClickListener {
@@ -68,7 +64,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_bluetooth_connect).setOnClickListener {
-            startActivity(Intent(this, BluetoothConnectActivity::class.java))
+//            startActivity(Intent(this, BluetoothConnectActivity::class.java))
+            startActivity(Intent(this, DualBluetoothActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {

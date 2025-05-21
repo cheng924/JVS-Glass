@@ -21,14 +21,14 @@ class MyApp : Application() {
 //        initHeartbeat() // 心跳监测初始化
     }
 
-    private fun autoConnect() {
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (!bleClient.isConnected()) {
-                LogUtils.info("[MyApp] 尝试自动连接...")
-                bleClient.autoConnect()
-            }
-        }, 2000L) // 延迟2秒执行
-    }
+//    private fun autoConnect() {
+//        Handler(Looper.getMainLooper()).postDelayed({
+//            if (!bleClient.isConnected()) {
+//                LogUtils.info("[MyApp] 尝试自动连接...")
+//                bleClient.autoConnect()
+//            }
+//        }, 2000L) // 延迟2秒执行
+//    }
 
     private fun initHeartbeat() {
         HeartbeatDetectorManager.initialize(bleClient)

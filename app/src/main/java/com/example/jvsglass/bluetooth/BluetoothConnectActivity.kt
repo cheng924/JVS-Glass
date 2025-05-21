@@ -1,4 +1,4 @@
-package com.example.jvsglass.activities.connect
+package com.example.jvsglass.bluetooth
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -76,7 +76,8 @@ class BluetoothConnectActivity : AppCompatActivity() {
                             val deviceItems = filteredDevicesList.map {
                                 DeviceItem(
 //                                    deviceName = "${it.name} (${it.address})"
-                                    deviceName = it.name
+                                    deviceName = it.name,
+                                    deviceType = it.type
                                 )
                             }
                             deviceListAdapter.submitList(deviceItems)
@@ -189,7 +190,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun initButtons() {
-        binding.btnClient.visibility = if (bleClient.isConnected()) View.GONE else View.VISIBLE
+//        binding.btnClient.visibility = if (bleClient.isConnected()) View.GONE else View.VISIBLE
         binding.btnClient.setOnClickListener {
             if (hasBluetoothPermissions()) {
                 startClientMode()

@@ -11,7 +11,6 @@ import org.greenrobot.eventbus.EventBus
 object HeartbeatDetectorManager {
     private lateinit var bleClient: BLEGattClient
     private var retryCount = 0
-    private var lastConnectionState = false
     private lateinit var handler: Handler
 
     // 状态变更事件
@@ -41,31 +40,25 @@ object HeartbeatDetectorManager {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun checkConnectionState() {
-        val currentState = !bleClient.isConnected()
-
-//        // 状态变化处理
-//        if (currentState != lastConnectionState) {
-//            EventBus.getDefault().post(ConnectionEvent(currentState))
-//            lastConnectionState = currentState
+//        val currentState = !bleClient.isConnected()
+//        EventBus.getDefault().post(ConnectionEvent(currentState))
+//
+//        // 断连处理
+//        if (currentState) {
+//            handleDisconnection()
+//        } else {
+//            retryCount = 0 // 重置计数器
 //        }
-        EventBus.getDefault().post(ConnectionEvent(currentState))
-
-        // 断连处理
-        if (currentState) {
-            handleDisconnection()
-        } else {
-            retryCount = 0 // 重置计数器
-        }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun handleDisconnection() {
-        if (bleClient.isConnecting) return
+//        if (bleClient.isConnecting) return
 
         when {
             retryCount < MAX_RETRY -> {
                 retryCount++
-                bleClient.reconnect()
+//                bleClient.reconnect()
             }
             else -> {
                 EventBus.getDefault().post(ConnectionEvent(false))

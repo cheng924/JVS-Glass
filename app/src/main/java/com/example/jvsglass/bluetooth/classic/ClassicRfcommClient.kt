@@ -11,25 +11,24 @@ import android.os.Handler
 import android.os.Looper
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
-import com.example.jvsglass.bluetooth.classic.ClassicConstants.A2DP_UUID
 import com.example.jvsglass.bluetooth.classic.ClassicConstants.CONNECT_TIMEOUT_MS
 import com.example.jvsglass.bluetooth.classic.ClassicConstants.UUID_RFCOMM
 import com.example.jvsglass.bluetooth.classic.BluetoothConnectionCore.ConnectionState.CONNECTING
 import com.example.jvsglass.bluetooth.classic.BluetoothConnectionCore.ConnectionState.CONNECTED
 import com.example.jvsglass.utils.LogUtils
-import java.io.File
+import com.example.jvsglass.bluetooth.dual.DualBluetoothManager
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 class ClassicRfcommClient(
     private val adapter: BluetoothAdapter,
     private val core: BluetoothConnectionCore,
-    private val callback: BluetoothCallback
+    private val callback: BluetoothConnectionCore.BluetoothCallback
 ) {
     private var clientSocket: BluetoothSocket? = null
     private var reconnectAttempts = AtomicInteger(0)
     private val lock = Any()
-    var pendingAddress: String? = null
+    private var pendingAddress: String? = null
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun startDiscovery() {
@@ -41,8 +40,11 @@ class ClassicRfcommClient(
         adapter.startDiscovery()
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     fun connectToDevice(device: BluetoothDevice) {
+        adapter.cancelDiscovery()
         LogUtils.info("[BluetoothClient] 尝试连接设备: ${device.name} (${device.address}) 类型: ${getDeviceTypeName(device)}")
         if (device.bondState != BluetoothDevice.BOND_BONDED) {
             pendingAddress = device.address
@@ -61,12 +63,6 @@ class ClassicRfcommClient(
         return device.bluetoothClass?.majorDeviceClass ?: BluetoothClass.Device.Major.UNCATEGORIZED
     }
 
-    // 获取设备CoD小类
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun getDeviceMinorClass(device: BluetoothDevice): Int {
-        return device.bluetoothClass?.deviceClass ?: BluetoothClass.Device.Major.UNCATEGORIZED
-    }
-
     // 获取可读类型名称
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun getDeviceTypeName(device: BluetoothDevice): String {
@@ -78,35 +74,6 @@ class ClassicRfcommClient(
             BluetoothClass.Device.Major.PERIPHERAL  -> "Peripheral"         // 游戏手柄/键鼠
             BluetoothClass.Device.Major.UNCATEGORIZED -> "Uncategorized"    // 通用设备方块
             else -> "Unknown"
-        }
-    }
-
-    // 判断设备是否支持A2DP音频Profile
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun supportsA2dp(device: BluetoothDevice): Boolean {
-        val uuids = device.uuids ?: return false
-        return uuids.any { it.uuid == A2DP_UUID }
-    }
-
-    // 判断是否为BLE设备
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun isLeOnly(device: BluetoothDevice): Boolean {
-        return device.type == BluetoothDevice.DEVICE_TYPE_LE
-    }
-
-    // 判断是否为经典蓝牙或双模
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun isClassicOrDual(device: BluetoothDevice): Boolean {
-        return device.type == BluetoothDevice.DEVICE_TYPE_CLASSIC || device.type == BluetoothDevice.DEVICE_TYPE_DUAL
-    }
-
-    fun sendMessage(message: String) = clientSocket?.let { core.sendMessage(message, it) }
-
-    fun sendVoiceMessage(filePath: String) {
-        clientSocket?.let { bluetoothSocket ->
-            val file = File(filePath)
-            val bytes = file.readBytes()
-            core.sendVoiceMessage(bytes, bluetoothSocket)
         }
     }
 
@@ -122,10 +89,11 @@ class ClassicRfcommClient(
 
     @SuppressLint("MissingPermission")
     private inner class ConnectThread(private val device: BluetoothDevice) : Thread() {
-        private val socket: BluetoothSocket? = device.createInsecureRfcommSocketToServiceRecord(UUID_RFCOMM)
+        private val socket: BluetoothSocket? = device.createRfcommSocketToServiceRecord(UUID_RFCOMM)
 
         @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         override fun run() {
+            LogUtils.info("[ConnectThread] 开始连接设备: ${device.name} (${device.address})")
             adapter.cancelDiscovery()
 
             val handler = Handler(Looper.getMainLooper())
@@ -137,13 +105,14 @@ class ClassicRfcommClient(
             handler.postDelayed(timeoutRunnable, CONNECT_TIMEOUT_MS)
 
             try {
-                LogUtils.info("[ConnectThread] 开始 connect()…")
+                LogUtils.info("[ConnectThread] 调用 socket.connect()")
                 socket?.connect()
-                handler.removeCallbacks(timeoutRunnable)  // **成功前后都要删定时**
+                handler.removeCallbacks(timeoutRunnable)
+                LogUtils.info("[ConnectThread] 连接成功")
                 onConnectSuccess(device)
             } catch (e:IOException) {
-                handler.removeCallbacks(timeoutRunnable)  // **别忘了**
-                LogUtils.error("[ConnectThread] connect 抛异常: ${e.message}")
+                handler.removeCallbacks(timeoutRunnable)
+                LogUtils.error("[ConnectThread] 连接失败: ${e.message}")
                 try { socket?.close() } catch (_:IOException){}
                 onConnectFailed("连接失败: ${e.message}")
             }
@@ -157,6 +126,7 @@ class ClassicRfcommClient(
             }
             callback.onConnectionSuccess(device.name ?: "Unknown")
             core.manageConnectedSocket(socket!!)
+            DualBluetoothManager.onDeviceConnected?.invoke(device)
         }
 
         private fun onConnectFailed(msg: String) {
@@ -165,7 +135,9 @@ class ClassicRfcommClient(
         }
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     private fun scheduleReconnect(device: BluetoothDevice) {
         synchronized(lock) {
             core.reconnect(callback, { attempt ->

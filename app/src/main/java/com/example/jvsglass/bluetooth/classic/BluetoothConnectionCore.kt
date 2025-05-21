@@ -22,52 +22,21 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
         CONNECTED
     }
 
+    // 通用回调接口
+    interface BluetoothCallback {
+        fun onConnectionSuccess(deviceName: String)
+        fun onConnectionFailed(message: String)
+        fun onMessageReceived(message: String)
+        fun onVoiceMessageReceived(voiceData: ByteArray)
+        fun onDisconnected()
+    }
+
     private var connectionState = AtomicReference(ConnectionState.DISCONNECTED)
     private val executor: ExecutorService = Executors.newCachedThreadPool()
 
     // 检查socket连接状态
     fun isSocketConnected(socket: BluetoothSocket?): Boolean {
         return socket?.isConnected == true && connectionState.get() == ConnectionState.CONNECTED
-    }
-
-    // 发送文本消息
-    fun sendMessage(message: String, socket: BluetoothSocket) {
-        if (isSocketConnected(socket)) {
-            LogUtils.info("[BluetoothConnectionCore] 准备发送消息: $message")
-            try {
-                val messageBytes = message.toByteArray(Charsets.UTF_8)
-                val header = "TEXT:${messageBytes.size}\n".toByteArray(Charsets.UTF_8)
-                val msgWithDelimiter = header + messageBytes
-                socket.outputStream.write(msgWithDelimiter)
-                LogUtils.info("[BluetoothConnectionCore] 消息发送成功，大小: ${messageBytes.size}")
-            } catch (e: IOException) {
-                LogUtils.error("[BluetoothConnectionCore] 发送失败: ${e.message}")
-                callback.onConnectionFailed("发送失败: ${e.message}")
-                disconnect(socket)
-            }
-        } else {
-            LogUtils.warn("[BluetoothConnectionCore] Socket未连接，无法发送文本消息")
-        }
-    }
-
-    // 发送语音消息
-    fun sendVoiceMessage(voiceData: ByteArray, socket: BluetoothSocket) {
-        if (isSocketConnected(socket)) {
-            LogUtils.info("[BluetoothConnectionCore] 准备发送语音消息，大小: ${voiceData.size} 字节")
-            try {
-                val header = "VOICE:${voiceData.size}\n".toByteArray(Charsets.UTF_8)
-                val message = header + voiceData
-                socket.outputStream.write(message)
-                socket.outputStream.flush()
-                LogUtils.info("[BluetoothConnectionCore] 语音消息发送成功，大小: ${message.size} 字节")
-            } catch (e: IOException) {
-                LogUtils.error("[BluetoothConnectionCore] 发送语音消息失败: ${e.message}")
-                callback.onConnectionFailed("发送语音消息失败: ${e.message}")
-                disconnect(socket)
-            }
-        } else {
-            LogUtils.warn("[BluetoothConnectionCore] Socket未连接，无法发送语音消息")
-        }
     }
 
     // 管理连接的Socket，处理接收消息
@@ -77,7 +46,6 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
             val inputStream = socket.inputStream
             val buffer = ByteArray(ClassicConstants.RECEIVE_BUFFER_SIZE)
             val messageBuffer = ByteArrayOutputStream()
-            var isVoiceMessage = false
             var messageSize = 0
             val dataBuffer = ByteArrayOutputStream()
 
@@ -100,21 +68,9 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
                         if (header.startsWith("VOICE:")) {
                             try {
                                 messageSize = header.substring(6).toInt()
-                                isVoiceMessage = true
                                 LogUtils.info("[BluetoothConnectionCore] 检测到语音消息头，大小: $messageSize")
                             } catch (e: NumberFormatException) {
                                 LogUtils.error("[BluetoothConnectionCore] 语音消息大小解析失败: ${e.message}")
-                                messageBuffer.reset()
-                                dataBuffer.reset()
-                                continue
-                            }
-                        } else if (header.startsWith("TEXT:")) {
-                            try {
-                                messageSize = header.substring(5).toInt()
-                                isVoiceMessage = false
-                                LogUtils.info("[BluetoothConnectionCore] 检测到文本消息头，大小: $messageSize")
-                            } catch (e: NumberFormatException) {
-                                LogUtils.error("[BluetoothConnectionCore] 文本消息大小解析失败: ${e.message}")
                                 messageBuffer.reset()
                                 dataBuffer.reset()
                                 continue
@@ -137,9 +93,8 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
                         }
 
                         if (dataBuffer.size() >= messageSize) {
-                            processMessage(isVoiceMessage, messageSize, dataBuffer)
+                            processMessage(messageSize, dataBuffer)
                             messageSize = 0
-                            isVoiceMessage = false
                         } else {
                             LogUtils.warn("[BluetoothConnectionCore] 数据不足，预期: $messageSize, 实际: ${dataBuffer.size()}")
                             messageBuffer.reset()
@@ -154,9 +109,8 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
                         }
 
                         if (dataBuffer.size() >= messageSize) {
-                            processMessage(isVoiceMessage, messageSize, dataBuffer)
+                            processMessage(messageSize, dataBuffer)
                             messageSize = 0
-                            isVoiceMessage = false
                         } else {
                             LogUtils.warn("[BluetoothConnectionCore] 数据不足，预期: $messageSize, 实际: ${dataBuffer.size()}")
                             messageBuffer.reset()
@@ -174,17 +128,12 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
     }
 
     // 处理接收到的消息
-    private fun processMessage(isVoiceMessage: Boolean, messageSize: Int, dataBuffer: ByteArrayOutputStream) {
+    private fun processMessage(messageSize: Int, dataBuffer: ByteArrayOutputStream) {
         val receivedData = dataBuffer.toByteArray()
         val completeData = receivedData.copyOf(messageSize)
-        if (isVoiceMessage) {
-            LogUtils.info("[BluetoothConnectionCore] 收到完整语音数据，大小: ${completeData.size} 字节")
-            callback.onVoiceMessageReceived(completeData)
-        } else {
-            val textMessage = String(completeData, Charsets.UTF_8)
-            LogUtils.info("[BluetoothConnectionCore] 收到完整文本消息: $textMessage")
-            callback.onMessageReceived(textMessage)
-        }
+        LogUtils.info("[BluetoothConnectionCore] 收到完整语音数据，大小: ${completeData.size} 字节")
+        callback.onVoiceMessageReceived(completeData)
+
         if (receivedData.size > messageSize) {
             val remaining = receivedData.copyOfRange(messageSize, receivedData.size)
             dataBuffer.reset()
@@ -193,7 +142,6 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
             dataBuffer.reset()
         }
     }
-
     // 重连机制
     fun reconnect(callback: BluetoothCallback, connectAction: (Int) -> Unit, currentAttempt: Int) {
         if (currentAttempt < MAX_RECONNECT_ATTEMPTS) {
@@ -233,13 +181,4 @@ class BluetoothConnectionCore(val callback: BluetoothCallback) {
         executor.shutdown()
         LogUtils.info("[BluetoothConnectionCore] 线程池已关闭")
     }
-}
-
-// 通用回调接口
-interface BluetoothCallback {
-    fun onConnectionSuccess(deviceName: String)
-    fun onConnectionFailed(message: String)
-    fun onMessageReceived(message: String)
-    fun onVoiceMessageReceived(voiceData: ByteArray)
-    fun onDisconnected()
 }

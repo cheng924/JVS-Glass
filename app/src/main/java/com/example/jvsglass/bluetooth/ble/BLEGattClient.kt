@@ -8,10 +8,10 @@ import android.os.Handler
 import android.os.Looper
 import androidx.annotation.RequiresPermission
 import com.example.jvsglass.bluetooth.ble.BLEConstants.CURRENT_MTU
-import com.example.jvsglass.bluetooth.ble.BLEConstants.RETRY_INTERVAL
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.PacketUtils
 import com.example.jvsglass.utils.toHexString
+import com.example.jvsglass.bluetooth.dual.DualBluetoothManager
 import java.lang.ref.WeakReference
 
 class BLEGattClient private constructor(context: Context) {
@@ -29,12 +29,8 @@ class BLEGattClient private constructor(context: Context) {
     private var connectedDevice: BluetoothDevice? = null    // 设备引用
     private val contextRef = WeakReference(context)
     private var bluetoothGatt: BluetoothGatt? = null
-    private var isDisconnecting = false // 断联状态标记
-    private var connectionState = BluetoothProfile.STATE_DISCONNECTED // 连接状态跟踪
-    private var retryCount = 0  // 重试计数
     private var lastSentMessage: String? = null
     private var isSending = false
-    var isConnecting = false
 
     // 消息回调接口
     interface MessageListener {
@@ -54,26 +50,15 @@ class BLEGattClient private constructor(context: Context) {
                 BluetoothGatt.GATT_SUCCESS -> {
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         LogUtils.info("[BLE] 已连接到设备 ${gatt.device.address}")
-                        LogUtils.info("[BLE] 协议栈版本：${gatt.device.type}，地址：${gatt.device.address}")
-                        retryCount = 0
+                        DualBluetoothManager.onDeviceConnected?.invoke(gatt.device)
                         gatt.requestMtu(CURRENT_MTU)    // 连接成功时请求MTU
-                        connectionState = BluetoothProfile.STATE_CONNECTED
-                        isConnecting = false
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         LogUtils.info("[BLE] GATT_SUCCESS 物理层断开")
                         LogUtils.info("[BLE] 断开时的连接参数：${gatt.device}")
-                        if (isConnecting) {
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                reconnect()
-                            }, RETRY_INTERVAL)
-                        }
-                        connectionState = BluetoothProfile.STATE_DISCONNECTED
                     }
                 }
                 else -> {
                     LogUtils.error("[BLE] 连接失败，错误码：$status")
-                    reconnect() // 连接失败触发重连
-                    connectionState = BluetoothProfile.STATE_DISCONNECTED
                 }
             }
         }
@@ -172,59 +157,8 @@ class BLEGattClient private constructor(context: Context) {
         }
     }
 
-    init {
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (!isConnected()) {
-                autoConnect()
-            }
-        }, 2 * 1000L)
-    }
-
-    fun isConnected(): Boolean {
-        return connectionState == BluetoothProfile.STATE_CONNECTED
-    }
-
-    @SuppressLint("MissingPermission")
-    fun autoConnect() {
-        getDeviceAddress()?.let { address ->
-            val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
-            if (bluetoothAdapter.isEnabled) {
-                val device = bluetoothAdapter.getRemoteDevice(address)
-                connectToDevice(device)
-            }
-        }
-    }
-
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun reconnect() {
-        if (isConnecting || connectionState == BluetoothProfile.STATE_CONNECTED) return
-
-        if (retryCount < BLEConstants.MAX_RETRY) {
-            retryCount++
-            LogUtils.info("准备第 $retryCount 次重连，最大次数 ${BLEConstants.MAX_RETRY}")
-            disconnect()    // 释放连接资源
-
-            Handler(Looper.getMainLooper()).postDelayed({
-                connectedDevice?.let { device ->
-                    LogUtils.debug("[BLE] 尝试重新连接...")
-                    connectToDevice(device)
-                } ?: LogUtils.error("无法重连，设备引用为空")
-            }, RETRY_INTERVAL) // 2秒后重试
-        } else {
-            LogUtils.error("[BLE] 已达到最大重试次数，停止重连")
-            retryCount = 0
-            connectedDevice = null // 清除设备引用
-        }
-    }
-
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connectToDevice(device: BluetoothDevice) {
-        if (isConnecting || connectionState == BluetoothProfile.STATE_CONNECTED) {
-            LogUtils.info("[BLE] 已处于连接中或已连接，取消新连接请求")
-//            return
-        }
-        isConnecting = true
-//        disconnect()    // 先关闭旧连接
         LogUtils.info("[BLE] 尝试连接设备 ${device.address}")
         LogUtils.info("[BLE] 开始创建GATT连接，传输模式：${BluetoothDevice.TRANSPORT_LE}")
         connectedDevice = device // 保存设备对象
@@ -232,7 +166,7 @@ class BLEGattClient private constructor(context: Context) {
             LogUtils.error("[BLE] 上下文已释放，无法创建GATT连接")
             return
         }
-        bluetoothGatt = device.connectGatt(ctx, true, gattClientCallback, BluetoothDevice.TRANSPORT_LE).also {
+        bluetoothGatt = device.connectGatt(ctx, false, gattClientCallback, BluetoothDevice.TRANSPORT_LE).also {
             if (it == null) {
                 LogUtils.error("[BLE] connectGatt返回空对象，可能达到连接数限制")
             } else {
@@ -250,18 +184,13 @@ class BLEGattClient private constructor(context: Context) {
     *********************/
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun disconnect(clearSavedDevice: Boolean = false) {
-        if (isDisconnecting) return // 避免重复调用
         bluetoothGatt?.let {
-            isDisconnecting = true
             try {
                 Handler(Looper.getMainLooper()).postDelayed({
                     bluetoothGatt?.disconnect()
                     bluetoothGatt?.close()
                     bluetoothGatt = null
-                    isDisconnecting = false
                     isSending = false // 重置发送状态
-                    isConnecting = false
-                    connectionState = BluetoothProfile.STATE_DISCONNECTED
                     if (clearSavedDevice) {
                         clearSavedDeviceAddress()
                     }

@@ -1,4 +1,4 @@
-package com.example.jvsglass.bluetooth.classic
+package com.example.jvsglass.bluetooth
 
 import android.view.LayoutInflater
 import android.view.View
