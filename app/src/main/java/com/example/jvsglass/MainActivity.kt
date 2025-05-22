@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.provider.Settings
+import android.text.TextUtils
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -12,14 +14,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.jvsglass.activities.notification.NotificationActivity
 import com.example.jvsglass.activities.ai.JVSAIActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
-import com.example.jvsglass.bluetooth.BluetoothConnectActivity
 import com.example.jvsglass.bluetooth.ble.HeartbeatDetectorManager
 import com.example.jvsglass.bluetooth.classic.ClassicConstants
 import com.example.jvsglass.bluetooth.dual.DualBluetoothActivity
 import com.example.jvsglass.utils.LogUtils
+import com.example.jvsglass.utils.MyNotificationListenerService
 import com.example.jvsglass.utils.ToastUtils
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
@@ -69,9 +72,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {
-            ToastUtils.show(this, getString(R.string.development_tips))
-            return@setOnClickListener
-//            startActivity(Intent(this, SilentModeActivity::class.java))
+//            ToastUtils.show(this, getString(R.string.development_tips))
+//            return@setOnClickListener
+            startActivity(Intent(this, NotificationActivity::class.java))
         }
     }
 
@@ -87,6 +90,22 @@ class MainActivity : AppCompatActivity() {
         if (permissions.any { ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
             ActivityCompat.requestPermissions(this, permissions, ClassicConstants.REQUEST_LOCATION)
         }
+
+        if (!isNotificationListenerEnabled()) {
+            promptEnableNotificationListener()
+        }
+    }
+
+    private fun isNotificationListenerEnabled(): Boolean {
+        val pkgName = packageName
+        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+        return !TextUtils.isEmpty(flat) && flat.contains("$pkgName/${MyNotificationListenerService::class.java.name}")
+    }
+
+    private fun promptEnableNotificationListener() {
+        ToastUtils.show(this, "请开启通知访问权限，以使用通知功能")
+        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        startActivity(intent)
     }
 
     override fun onStart() {

@@ -26,7 +26,11 @@
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" /> <!-- 位置权限用于设备发现 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- 蓝牙硬件特性 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+    <!-- 蓝牙硬件特性 -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
@@ -46,6 +50,15 @@
         android:name="android.hardware.camera.any"
         android:required="false" />
 
+    <queries>
+        <!-- https://blog.csdn.net/u013762572/article/details/145186669?ops_request_misc=%257B%2522request%255Fid%2522%253A%25223c6fc342b3e38c9a6f3c488590e09fca%2522%252C%2522scm%2522%253A%252220140713.130102334..%2522%257D&request_id=3c6fc342b3e38c9a6f3c488590e09fca&biz_id=0&utm_medium=distribute.pc_search_result.none-task-blog-2~all~sobaiduend~default-1-145186669-null-null.142^v102^pc_search_result_base2&utm_term=android%20%E8%8E%B7%E5%8F%96app%E5%88%97%E8%A1%A8&spm=1018.2226.3001.4187 -->
+        <!-- 查询所有启动器应用 -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".MyApp"
         android:icon="@mipmap/ic_launcher"
@@ -53,6 +66,25 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
+        <service
+            android:name=".utils.MyNotificationListenerService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="通知监听服务"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <activity
+            android:name=".activities.notification.FilterSettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.notification.NotificationDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.notification.NotificationActivity"
+            android:exported="false" />
         <activity
             android:name=".bluetooth.dual.DualBluetoothActivity"
             android:exported="false" />
@@ -97,6 +129,7 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
         <activity
             android:name=".activities.teleprompter.TeleprompterNewFileActivity"
             android:exported="false" />
