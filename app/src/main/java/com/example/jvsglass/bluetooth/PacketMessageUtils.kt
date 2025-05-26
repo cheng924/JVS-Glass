@@ -1,9 +1,9 @@
-package com.example.jvsglass.utils
+package com.example.jvsglass.bluetooth
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-object PacketUtils {
+object PacketMessageUtils {
     /**********
      * 新协议结构：
      * [0] BLE头 0x01
@@ -55,7 +55,8 @@ object PacketUtils {
         if (packet.size < 5 ||
             packet[0] != BLE_HEADER ||
             packet[1] != BLE_COMMAND ||
-            packet[2] != TLV_HEADER) {
+            packet[2] != TLV_HEADER
+        ) {
             throw IllegalArgumentException("[协议错误] 无效包头")
         }
 

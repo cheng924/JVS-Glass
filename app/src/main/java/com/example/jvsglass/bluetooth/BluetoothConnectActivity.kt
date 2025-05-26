@@ -419,10 +419,10 @@ class BluetoothConnectActivity : AppCompatActivity() {
     fun onConnectionEvent(event: HeartbeatDetectorManager.ConnectionEvent) {
         LogUtils.info("[BluetoothConnectActivity] Event received: ${event.isConnected}")
         val btnClient = findViewById<TextView>(R.id.btn_client)
-        if (event.isConnected) {
-            btnClient.visibility = View.GONE
-        } else {
-            btnClient.visibility = View.VISIBLE
-        }
+//        if (event.isConnected) {
+//            btnClient.visibility = View.GONE
+//        } else {
+//            btnClient.visibility = View.VISIBLE
+//        }
     }
 }
