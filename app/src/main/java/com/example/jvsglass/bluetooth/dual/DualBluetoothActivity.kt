@@ -50,6 +50,7 @@ class DualBluetoothActivity : AppCompatActivity() {
 
     private val messageHistory = mutableListOf<MessageItem>()
     private lateinit var messageAdapter: MessageAdapter
+    private var connectedDeviceName: String? = null
 
     private val receiver = object : BroadcastReceiver() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -122,6 +123,7 @@ class DualBluetoothActivity : AppCompatActivity() {
         DualBluetoothManager.onClassicDeviceFound = { device -> runOnUiThread { addDevice(device) } }
         DualBluetoothManager.onDeviceConnected = { device ->
             runOnUiThread {
+                connectedDeviceName = device.name
                 tvStatus.text = "已连接：服务端 ${device.name}"
                 LogUtils.info("[DualBluetoothActivity] 已连接：服务端 ${device.name}")
                 devicesTip.visibility = View.GONE
@@ -144,6 +146,10 @@ class DualBluetoothActivity : AppCompatActivity() {
 
         // 注册 Classic 发现广播
         registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
+
+        findViewById<Button>(R.id.btnBack).setOnClickListener {
+            onBackPressed()
+        }
 
         btnSearch.setOnClickListener {
             requestPermissionsIfNeeded()
@@ -250,5 +256,17 @@ class DualBluetoothActivity : AppCompatActivity() {
             LogUtils.error("[DualBluetoothActivity] 播放语音消息失败: ${e.message}")
             ToastUtils.show(this, "播放失败: ${e.message}")
         }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (connectedDeviceName != null) {
+            setResult(RESULT_OK, Intent().apply {
+                putExtra("CONNECTED_DEVICE", connectedDeviceName)
+            })
+        } else {
+            setResult(RESULT_CANCELED)  // 用户没连上，则告知取消/失败
+        }
+        super.onBackPressed()
     }
 }

@@ -18,6 +18,7 @@ import com.example.jvsglass.activities.notification.NotificationActivity
 import com.example.jvsglass.activities.ai.JVSAIActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
+import com.example.jvsglass.bluetooth.BluetoothConnectActivity
 import com.example.jvsglass.bluetooth.ble.HeartbeatDetectorManager
 import com.example.jvsglass.bluetooth.classic.ClassicConstants
 import com.example.jvsglass.bluetooth.dual.DualBluetoothActivity
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity() {
             FunctionItem(R.drawable.ic_translate, getString(R.string.translate), TranslateActivity::class.java),
             FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompter), TeleprompterActivity::class.java),
             FunctionItem(R.drawable.ic_ai, getString(R.string.ai_beta), JVSAIActivity::class.java),
+            FunctionItem(R.drawable.ic_notification, "消息通知", NotificationActivity::class.java)
 //            FunctionItem(R.drawable.ic_transcribe, getString(R.string.transcribe), TranscribeActivity::class.java),
 //            FunctionItem(R.drawable.ic_dash_board, getString(R.string.dashboard), DashboardActivity::class.java),
 //            FunctionItem(R.drawable.ic_quicknote, getString(R.string.quick_note), QuickNoteActivity::class.java)
@@ -67,14 +69,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_bluetooth_connect).setOnClickListener {
-//            startActivity(Intent(this, BluetoothConnectActivity::class.java))
-            startActivity(Intent(this, DualBluetoothActivity::class.java))
+            startActivity(Intent(this, BluetoothConnectActivity::class.java))
+//            startActivity(Intent(this, DualBluetoothActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {
-//            ToastUtils.show(this, getString(R.string.development_tips))
-//            return@setOnClickListener
-            startActivity(Intent(this, NotificationActivity::class.java))
+            ToastUtils.show(this, getString(R.string.development_tips))
+            return@setOnClickListener
         }
     }
 

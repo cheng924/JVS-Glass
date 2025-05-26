@@ -6,6 +6,13 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <Button
+        android:id="@+id/btnBack"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="返回"/>
+
     <!-- 启动按钮 -->
     <Button
         android:id="@+id/btnSearch"
@@ -13,7 +20,7 @@
         android:layout_height="wrap_content"
         android:text="搜索"
         android:textSize="18dp"
-        android:layout_marginTop="20dp"/>
+        android:layout_marginTop="10dp"/>
 
     <!-- 连接状态 -->
     <TextView

@@ -8,6 +8,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.activities.ai.JVSAIActivity
+import com.example.jvsglass.activities.notification.NotificationActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
 import com.example.jvsglass.utils.ToastUtils
@@ -44,6 +45,9 @@ class FunctionAdapter(private val items: List<FunctionItem>) :
                     context.startActivity(Intent(context, item.targetActivity))
                 }
                 TranslateActivity::class.java -> {
+                    context.startActivity(Intent(context, item.targetActivity))
+                }
+                NotificationActivity::class.java -> {
                     context.startActivity(Intent(context, item.targetActivity))
                 }
                 else -> {
