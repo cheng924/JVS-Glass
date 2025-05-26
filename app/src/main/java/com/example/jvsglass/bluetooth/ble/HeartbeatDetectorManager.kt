@@ -6,6 +6,7 @@ import android.os.HandlerThread
 import androidx.annotation.RequiresPermission
 import com.example.jvsglass.bluetooth.ble.BLEConstants.MAX_RETRY
 import com.example.jvsglass.bluetooth.ble.BLEConstants.HEART_INTERVAL
+import com.example.jvsglass.utils.LogUtils
 import org.greenrobot.eventbus.EventBus
 
 object HeartbeatDetectorManager {
@@ -40,25 +41,26 @@ object HeartbeatDetectorManager {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun checkConnectionState() {
-//        val currentState = !bleClient.isConnected()
-//        EventBus.getDefault().post(ConnectionEvent(currentState))
-//
-//        // 断连处理
-//        if (currentState) {
-//            handleDisconnection()
-//        } else {
-//            retryCount = 0 // 重置计数器
-//        }
+        val currentState = bleClient.isConnected()
+//        LogUtils.info("[Heartbeat] Posting event: isConnected=$currentState")
+        EventBus.getDefault().postSticky(ConnectionEvent(currentState))
+
+        // 断连处理
+        if (!currentState) {
+            handleDisconnection()
+        } else {
+            retryCount = 0 // 重置计数器
+        }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun handleDisconnection() {
-//        if (bleClient.isConnecting) return
+        if (bleClient.isConnecting) return
 
         when {
             retryCount < MAX_RETRY -> {
                 retryCount++
-//                bleClient.reconnect()
+                bleClient.reconnect()
             }
             else -> {
                 EventBus.getDefault().post(ConnectionEvent(false))

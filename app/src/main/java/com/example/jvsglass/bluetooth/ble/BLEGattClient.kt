@@ -7,11 +7,12 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.RequiresPermission
+import com.example.jvsglass.bluetooth.PacketCommandUtils
 import com.example.jvsglass.bluetooth.ble.BLEConstants.CURRENT_MTU
+import com.example.jvsglass.bluetooth.ble.BLEConstants.RETRY_INTERVAL
 import com.example.jvsglass.utils.LogUtils
-import com.example.jvsglass.utils.PacketUtils
+import com.example.jvsglass.bluetooth.PacketMessageUtils
 import com.example.jvsglass.utils.toHexString
-import com.example.jvsglass.bluetooth.dual.DualBluetoothManager
 import java.lang.ref.WeakReference
 
 class BLEGattClient private constructor(context: Context) {
@@ -29,8 +30,13 @@ class BLEGattClient private constructor(context: Context) {
     private var connectedDevice: BluetoothDevice? = null    // 设备引用
     private val contextRef = WeakReference(context)
     private var bluetoothGatt: BluetoothGatt? = null
+    private var isDisconnecting = false // 断联状态标记
+    private var connectionState = BluetoothProfile.STATE_DISCONNECTED // 连接状态跟踪
+    private var retryCount = 0  // 重试计数
     private var lastSentMessage: String? = null
     private var isSending = false
+    var isConnecting = false
+    private var servicesDiscovered = false
 
     // 消息回调接口
     interface MessageListener {
@@ -50,15 +56,26 @@ class BLEGattClient private constructor(context: Context) {
                 BluetoothGatt.GATT_SUCCESS -> {
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         LogUtils.info("[BLE] 已连接到设备 ${gatt.device.address}")
-                        DualBluetoothManager.onDeviceConnected?.invoke(gatt.device)
+                        LogUtils.info("[BLE] 协议栈版本：${gatt.device.type}，地址：${gatt.device.address}")
+                        retryCount = 0
                         gatt.requestMtu(CURRENT_MTU)    // 连接成功时请求MTU
+                        connectionState = BluetoothProfile.STATE_CONNECTED
+                        isConnecting = false
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         LogUtils.info("[BLE] GATT_SUCCESS 物理层断开")
                         LogUtils.info("[BLE] 断开时的连接参数：${gatt.device}")
+                        if (isConnecting) {
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                reconnect()
+                            }, RETRY_INTERVAL)
+                        }
+                        connectionState = BluetoothProfile.STATE_DISCONNECTED
                     }
                 }
                 else -> {
                     LogUtils.error("[BLE] 连接失败，错误码：$status")
+                    reconnect() // 连接失败触发重连
+                    connectionState = BluetoothProfile.STATE_DISCONNECTED
                 }
             }
         }
@@ -71,26 +88,33 @@ class BLEGattClient private constructor(context: Context) {
             }
 
             // 获取服务
+            servicesDiscovered = true
             val service = gatt.getService(BLEConstants.SERVICE_UUID)
             if (service == null) {
                 LogUtils.error("[BLE] 未找到服务 UUID=${BLEConstants.SERVICE_UUID}")
                 return
             }
 
-            // 获取特征值
-            val characteristic = service.getCharacteristic(BLEConstants.CHARACTERISTIC_UUID)
-            if (characteristic == null) {
-                LogUtils.error("[BLE] 未找到特征值 UUID=${BLEConstants.CHARACTERISTIC_UUID}")
+            // 写入特征值
+            val writeCharacteristic = service.getCharacteristic(BLEConstants.WRITE_CHAR_UUID)
+            if (writeCharacteristic == null) {
+                LogUtils.error("[BLE] 未找到写入特征值 UUID=${BLEConstants.WRITE_CHAR_UUID}")
                 return
             }
 
-            // 启用通知
-            val enableNotify = gatt.setCharacteristicNotification(characteristic, true)
+            // 通知特征值
+            val notifyCharacteristic = service.getCharacteristic(BLEConstants.NOTIFY_CHAR_UUID)
+            if (notifyCharacteristic == null) {
+                LogUtils.error("[BLE] 未找到通知特征值 UUID=${BLEConstants.NOTIFY_CHAR_UUID}")
+                return
+            }
+
+            // 启动通知
+            val enableNotify = gatt.setCharacteristicNotification(notifyCharacteristic, true)
             LogUtils.debug("[BLE] 启用通知结果：$enableNotify")
 
-            val descriptor = characteristic.getDescriptor(BLEConstants.DESCRIPTOR_UUID)
-
             // 写入描述符值
+            val descriptor = notifyCharacteristic.getDescriptor(BLEConstants.CCCD_UUID)
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             val writeSuccess = gatt.writeDescriptor(descriptor)
             if (!writeSuccess) {
@@ -107,13 +131,33 @@ class BLEGattClient private constructor(context: Context) {
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    val message = PacketUtils.processPacket(value)
-                    messageListener?.onMessageReceived(message)
-                } catch (e: Exception) {
-                    LogUtils.error("[BLE] 消息解析异常，数据：${value.toHexString()}", e)
+            if (characteristic.uuid == BLEConstants.NOTIFY_CHAR_UUID) {
+                Handler(Looper.getMainLooper()).post {
+                    try {
+//                        val message = PacketMessageUtils.processPacket(value)
+//                        messageListener?.onMessageReceived(message)
+
+                        val parsed = PacketCommandUtils.parsePacket(value)
+                        parsed?.let {
+                            val returnCmd = it.cmd          // 主命令类型
+                            var resultCmd: Byte? = null     // TLV_RESULT_CMD
+                            var resultCode: Byte? = null    // TLV_RESULT_CODE
+
+                            for (tlv in it.tlvs) {
+                                when (tlv.type) {
+                                    0x01.toByte() -> { resultCmd = tlv.value[0] }
+                                    0x02.toByte() -> { resultCode = tlv.value[0] }
+                                }
+                            }
+                            LogUtils.info("[BLE] 接收到消息：$resultCmd|$resultCode")
+                            messageListener?.onMessageReceived("$resultCmd|$resultCode")
+                        }
+                    } catch (e: Exception) {
+                        LogUtils.error("[BLE] 消息解析异常，数据：${value.toHexString()}", e)
+                    }
                 }
+            } else {
+                LogUtils.warn("收到未知特征的通知：${characteristic.uuid}")
             }
         }
 
@@ -157,8 +201,59 @@ class BLEGattClient private constructor(context: Context) {
         }
     }
 
+    init {
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!isConnected()) {
+                autoConnect()
+            }
+        }, 2 * 1000L)
+    }
+
+    fun isConnected(): Boolean {
+        return connectionState == BluetoothProfile.STATE_CONNECTED
+    }
+
+    @SuppressLint("MissingPermission")
+    fun autoConnect() {
+        getDeviceAddress()?.let { address ->
+            val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+            if (bluetoothAdapter.isEnabled) {
+                val device = bluetoothAdapter.getRemoteDevice(address)
+                connectToDevice(device)
+            }
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun reconnect() {
+        if (isConnecting || connectionState == BluetoothProfile.STATE_CONNECTED) return
+
+        if (retryCount < BLEConstants.MAX_RETRY) {
+            retryCount++
+            LogUtils.info("准备第 $retryCount 次重连，最大次数 ${BLEConstants.MAX_RETRY}")
+            disconnect()    // 释放连接资源
+
+            Handler(Looper.getMainLooper()).postDelayed({
+                connectedDevice?.let { device ->
+                    LogUtils.debug("[BLE] 尝试重新连接...")
+                    connectToDevice(device)
+                } ?: LogUtils.error("无法重连，设备引用为空")
+            }, RETRY_INTERVAL) // 2秒后重试
+        } else {
+            LogUtils.error("[BLE] 已达到最大重试次数，停止重连")
+            retryCount = 0
+            connectedDevice = null // 清除设备引用
+        }
+    }
+
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connectToDevice(device: BluetoothDevice) {
+        if (isConnecting || connectionState == BluetoothProfile.STATE_CONNECTED) {
+            LogUtils.info("[BLE] 已处于连接中或已连接，取消新连接请求")
+//            return
+        }
+        isConnecting = true
+//        disconnect()    // 先关闭旧连接
         LogUtils.info("[BLE] 尝试连接设备 ${device.address}")
         LogUtils.info("[BLE] 开始创建GATT连接，传输模式：${BluetoothDevice.TRANSPORT_LE}")
         connectedDevice = device // 保存设备对象
@@ -184,13 +279,18 @@ class BLEGattClient private constructor(context: Context) {
     *********************/
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun disconnect(clearSavedDevice: Boolean = false) {
+        if (isDisconnecting) return // 避免重复调用
         bluetoothGatt?.let {
+            isDisconnecting = true
             try {
                 Handler(Looper.getMainLooper()).postDelayed({
                     bluetoothGatt?.disconnect()
                     bluetoothGatt?.close()
                     bluetoothGatt = null
+                    isDisconnecting = false
                     isSending = false // 重置发送状态
+                    isConnecting = false
+                    connectionState = BluetoothProfile.STATE_DISCONNECTED
                     if (clearSavedDevice) {
                         clearSavedDeviceAddress()
                     }
@@ -205,10 +305,20 @@ class BLEGattClient private constructor(context: Context) {
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun sendCommand(command: ByteArray) {
+        if (!isConnected() || !servicesDiscovered) {
+            LogUtils.warn("[BLE] 未连接或服务未发现，稍后重试")
+            return
+        }
+        LogUtils.info("[BLE] 发送指令：${command.toHexString()}")
+        sendPacket(command)
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun sendMessage(message: String) {
         lastSentMessage = message
 
-        val packet = PacketUtils.createPacket(message)
+        val packet = PacketMessageUtils.createPacket(message)
         LogUtils.info("[BLE] 发送消息 $message")
         sendPacket(packet)
     }
@@ -257,7 +367,7 @@ class BLEGattClient private constructor(context: Context) {
             return
         }
 
-        val characteristic = service.getCharacteristic(BLEConstants.CHARACTERISTIC_UUID) ?: run {
+        val characteristic = service.getCharacteristic(BLEConstants.WRITE_CHAR_UUID) ?: run {
             LogUtils.error("[BLE] 特征值不可用")
             isSending = false
             return
@@ -284,16 +394,26 @@ class BLEGattClient private constructor(context: Context) {
             isSending = true
             characteristic.value = packet
 
-            Handler(Looper.getMainLooper()).post {
-                if (!gatt.writeCharacteristic(characteristic)) {
-                    LogUtils.error("[BLE] 写入特征值失败")
-                    LogUtils.debug("[BLE] 特征值UUID: ${characteristic.uuid}")
-                    LogUtils.debug("[BLE] 当前MTU: $CURRENT_MTU")
-                    LogUtils.debug("[BLE] 数据包长度: ${packet.size}")
-                    isSending = false
-                } else {
-                    LogUtils.debug("[BLE] 数据包已提交写入")
-                }
+            if (!gatt.writeCharacteristic(characteristic)) {
+                LogUtils.error("[BLE] 写入特征值失败")
+                LogUtils.info("[BLE] 特征值UUID: ${characteristic.uuid}")
+                LogUtils.debug("[BLE] 当前MTU: $CURRENT_MTU")
+                LogUtils.debug("[BLE] 数据包长度: ${packet.size}")
+                isSending = false
+
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (!isSending && bluetoothManager.getConnectionState(device, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED) {
+                        if (gatt.writeCharacteristic(characteristic)) {
+                            LogUtils.debug("[BLE] 重试写入成功")
+                        } else {
+                            LogUtils.error("[BLE] 重试写入仍失败")
+                        }
+                    } else {
+                        LogUtils.warn("[BLE] 重试时连接不可用或正在发送")
+                    }
+                }, 1_000L)
+            } else {
+                LogUtils.debug("[BLE] 数据包已提交写入")
             }
         } catch (e: SecurityException) {
             LogUtils.error("[BLE] 权限异常：${e.message}")

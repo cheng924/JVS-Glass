@@ -26,6 +26,10 @@ import androidx.core.app.ActivityCompat
 import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
+import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_HOME_VALUE
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
+import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_INTERFACE_COMMAND
+import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TELEPROMPTER_VALUE
 import com.example.jvsglass.bluetooth.ble.BLEGattClient
 import com.example.jvsglass.dialog.WarningDialog
 import com.example.jvsglass.network.NetworkManager
@@ -119,6 +123,8 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         initBluetoothConnection()
         initView()
         initRealtimeAsrClient()
+
+        bleClient.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_TELEPROMPTER_VALUE))
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -148,6 +154,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         tvScrollStatus = findViewById(R.id.tv_scroll_status)
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
+            bleClient.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_HOME_VALUE))
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
@@ -390,7 +397,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         vibrator.vibrate(effect)
 
         tvContent.text = displayBlock
-//        sendMessage(sendBlock)
+        sendMessage(sendBlock)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
