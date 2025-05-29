@@ -162,9 +162,6 @@
             android:name=".activities.SilentModeActivity"
             android:exported="false" />
         <activity
-            android:name=".bluetooth.BluetoothConnectActivity"
-            android:exported="false" />
-        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"

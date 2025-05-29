@@ -5,6 +5,7 @@ import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
+import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
@@ -18,6 +19,7 @@ import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.LinkedBlockingQueue
 
 class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListener {
     private var audioRecord: AudioRecord? = null
@@ -33,6 +35,11 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
     private var currentAudioPath: String? = null
     private var currentPlayingPath: String? = null
     private var isPaused = false
+
+    private var audioTrack: AudioTrack? = null
+    private val audioQueue = LinkedBlockingQueue<ByteArray>(100) // 缓冲队列，限制容量为 100
+    private var playbackThread: Thread? = null
+    private var isPlayingStream = false
 
     private var isScoOnForRecording = false // 记录是否用过蓝牙SCO录音
     private var onPlaybackCompleteListener: OnPlaybackCompleteListener? = null
@@ -263,10 +270,41 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
                 start()
                 setOnCompletionListener(this@VoiceManager)
             }
-            LogUtils.info("[VoiceManager] 开始播放语音: $filePath")
         } catch (e: IOException) {
             LogUtils.error("[VoiceManager] 播放失败: ${e.message}")
         }
+    }
+
+    // 流式播放音频数据，适用于实时接收的PCM数据
+    fun playStreamingAudio(data: ByteArray) {
+        // 如果 AudioTrack 未初始化，则创建它
+        if (audioTrack == null) {
+            val bufferSize = AudioTrack.getMinBufferSize(
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT
+            )
+            audioTrack = AudioTrack(
+                AudioManager.STREAM_MUSIC,
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufferSize,
+                AudioTrack.MODE_STREAM // 流模式
+            )
+            audioTrack?.play() // 开始播放
+
+            // 创建线程来处理音频数据的播放
+            isPlayingStream = true
+            playbackThread = Thread {
+                while (isPlayingStream) {
+                    val audioData = audioQueue.poll() ?: continue // 如果队列为空，继续循环
+                    audioTrack?.write(audioData, 0, audioData.size)
+                }
+            }.apply { start() }
+        }
+        // 将接收到的音频数据放入队列
+        audioQueue.offer(data)
     }
 
     private fun stopPlayback() {

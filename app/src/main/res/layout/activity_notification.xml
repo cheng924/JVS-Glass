@@ -53,6 +53,12 @@
         android:textSize="18sp"
         android:layout_centerInParent="true"/>
 
+    <Button
+        android:id="@+id/btn_test"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="消息通知测试"/>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_notifications"
         android:layout_width="match_parent"

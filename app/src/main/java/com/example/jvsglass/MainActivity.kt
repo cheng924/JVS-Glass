@@ -18,9 +18,8 @@ import com.example.jvsglass.activities.notification.NotificationActivity
 import com.example.jvsglass.activities.ai.JVSAIActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
-import com.example.jvsglass.bluetooth.BluetoothConnectActivity
+import com.example.jvsglass.bluetooth.BluetoothConstants
 import com.example.jvsglass.bluetooth.ble.HeartbeatDetectorManager
-import com.example.jvsglass.bluetooth.classic.ClassicConstants
 import com.example.jvsglass.bluetooth.dual.DualBluetoothActivity
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.MyNotificationListenerService
@@ -57,8 +56,8 @@ class MainActivity : AppCompatActivity() {
 
         // 设置按钮点击
         findViewById<ImageView>(R.id.iv_settings).setOnClickListener {
-//            ToastUtils.show(this, getString(R.string.development_tips))
-//            return@setOnClickListener
+            ToastUtils.show(this, getString(R.string.development_tips))
+            return@setOnClickListener
 //            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
@@ -69,8 +68,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_bluetooth_connect).setOnClickListener {
-            startActivity(Intent(this, BluetoothConnectActivity::class.java))
-//            startActivity(Intent(this, DualBluetoothActivity::class.java))
+            startActivity(Intent(this, DualBluetoothActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {
@@ -89,7 +87,7 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.WRITE_EXTERNAL_STORAGE
         )
         if (permissions.any { ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
-            ActivityCompat.requestPermissions(this, permissions, ClassicConstants.REQUEST_LOCATION)
+            ActivityCompat.requestPermissions(this, permissions, BluetoothConstants.REQUEST_LOCATION)
         }
 
         if (!isNotificationListenerEnabled()) {

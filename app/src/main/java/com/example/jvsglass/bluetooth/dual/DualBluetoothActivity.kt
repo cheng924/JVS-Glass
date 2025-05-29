@@ -9,13 +9,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.media.MediaPlayer
 import android.os.Bundle
 import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ListView
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
@@ -24,11 +22,15 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
-import com.example.jvsglass.bluetooth.classic.ClassicConstants.MAX_HISTORY_SIZE
+import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_HISTORY_SIZE
+import com.example.jvsglass.bluetooth.DeviceAdapter
+import com.example.jvsglass.bluetooth.DeviceItem
 import com.example.jvsglass.bluetooth.MessageAdapter
 import com.example.jvsglass.bluetooth.MessageItem
+import com.example.jvsglass.bluetooth.PacketMessageUtils
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
+import com.example.jvsglass.utils.VoiceManager
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -39,18 +41,20 @@ class DualBluetoothActivity : AppCompatActivity() {
     private lateinit var btnSearch: Button
     private lateinit var tvStatus: TextView
     private lateinit var devicesTip: TextView
-    private lateinit var lvDevices: ListView
+    private lateinit var lvDevices: RecyclerView
     private lateinit var etMessage: EditText
     private lateinit var btnSendText: Button
     private lateinit var recyclerView: RecyclerView
 
     private val devices = mutableListOf<BluetoothDevice>()
-    private lateinit var adapterList: ArrayAdapter<String>
+    private val deviceItems = mutableListOf<DeviceItem>()
+    private lateinit var deviceListAdapter: DeviceAdapter
     private val btAdapter: BluetoothAdapter? by lazy { BluetoothAdapter.getDefaultAdapter() }
 
     private val messageHistory = mutableListOf<MessageItem>()
     private lateinit var messageAdapter: MessageAdapter
     private var connectedDeviceName: String? = null
+    private lateinit var voiceManager: VoiceManager
 
     private val receiver = object : BroadcastReceiver() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -100,6 +104,8 @@ class DualBluetoothActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dual_bluetooth)
 
+        voiceManager = VoiceManager(this)
+
         btnSearch = findViewById(R.id.btnSearch)
         tvStatus = findViewById(R.id.tvStatus)
         devicesTip = findViewById(R.id.devicesTip)
@@ -107,18 +113,31 @@ class DualBluetoothActivity : AppCompatActivity() {
         etMessage = findViewById(R.id.etMessage)
         btnSendText = findViewById(R.id.btnSendText)
 
-        adapterList = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
-        lvDevices.adapter = adapterList
+        deviceListAdapter = DeviceAdapter()
+        deviceListAdapter.onItemClick = { position ->
+            val deviceItem = deviceItems[position]
+            val device = devices.find { it.name == deviceItem.deviceName }
+            device?.let {
+                if (hasPermissions(Manifest.permission.BLUETOOTH_CONNECT)) {
+                    DualBluetoothManager.connectBle(it)
+                    DualBluetoothManager.connectClassic(it)
+                    ToastUtils.show(this, "正在连接 BLE 和 Classic ...")
+                } else {
+                    requestPermissionsIfNeeded()
+                }
+            }
+        }
+        lvDevices.adapter = deviceListAdapter
+        lvDevices.layoutManager = LinearLayoutManager(this)
 
         // 初始化 DualBluetoothManager
         btAdapter?.let {
-            DualBluetoothManager.initialize(this, it)
+            DualBluetoothManager.initialize(this, it, voiceManager)
         } ?: run {
             ToastUtils.show(this, "设备不支持蓝牙")
             finish()
             return
         }
-        DualBluetoothManager.onServerStarted = {runOnUiThread { tvStatus.text = "服务端初始化成功" }}
         DualBluetoothManager.onBleDeviceFound = { device -> runOnUiThread { addDevice(device) } }
         DualBluetoothManager.onClassicDeviceFound = { device -> runOnUiThread { addDevice(device) } }
         DualBluetoothManager.onDeviceConnected = { device ->
@@ -130,7 +149,10 @@ class DualBluetoothActivity : AppCompatActivity() {
                 lvDevices.visibility = View.GONE
             }
         }
-        DualBluetoothManager.onMessageReceived = { msg -> addMessageToHistory("[收到] $msg") }
+        DualBluetoothManager.onMessageReceived = { msg ->
+            val message = PacketMessageUtils.processPacket(msg)
+            addMessageToHistory("[收到] $message")
+        }
         DualBluetoothManager.onVoiceReceived = { data ->
             val timestamp = System.currentTimeMillis()
             val audioFile = File(cacheDir, "audio_record_${timestamp}.3gp")
@@ -147,28 +169,18 @@ class DualBluetoothActivity : AppCompatActivity() {
         // 注册 Classic 发现广播
         registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
 
-        findViewById<Button>(R.id.btnBack).setOnClickListener {
+        findViewById<ImageView>(R.id.btnBack).setOnClickListener {
             onBackPressed()
         }
 
         btnSearch.setOnClickListener {
             requestPermissionsIfNeeded()
-            adapterList.clear()
+            deviceItems.clear()
+            deviceListAdapter.submitList(deviceItems.toList())
             // 启动 BLE+Classic 扫描，并注册 bondReceiver
             DualBluetoothManager.startAsClient()
             registerReceiver(bondReceiver, IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED))
             btnSearch.isEnabled = false
-        }
-
-        lvDevices.setOnItemClickListener { _, _, pos, _ ->
-            val dev = devices[pos]
-            if (hasPermissions(Manifest.permission.BLUETOOTH_CONNECT)) {
-                DualBluetoothManager.connectBle(dev)
-                DualBluetoothManager.connectClassic(dev)
-                ToastUtils.show(this, "正在连接 BLE 和 Classic ...")
-            } else {
-                requestPermissionsIfNeeded()
-            }
         }
 
         btnSendText.setOnClickListener {
@@ -188,16 +200,18 @@ class DualBluetoothActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         recyclerView = findViewById(R.id.messageRecyclerView)
-        messageAdapter = MessageAdapter(messageHistory) { filePath -> playVoiceMessage(filePath) }
+        messageAdapter = MessageAdapter(messageHistory) { filePath -> voiceManager.playVoiceMessage(filePath) }
         recyclerView.adapter = messageAdapter
         recyclerView.layoutManager = LinearLayoutManager(this)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun addDevice(device: BluetoothDevice) {
-        if (!device.name.isNullOrBlank() && !devices.contains(device)) {
+        if (!device.name.isNullOrBlank() && !deviceItems.any { it.deviceName == device.name }) {
             devices.add(device)
-            adapterList.add("${device.name} (${device.address})")
+            val deviceItem = DeviceItem(device.name, device.type)
+            deviceItems.add(deviceItem)
+            deviceListAdapter.submitList(deviceItems.toList())
         }
     }
 
@@ -236,25 +250,6 @@ class DualBluetoothActivity : AppCompatActivity() {
         runOnUiThread {
             messageAdapter.notifyDataSetChanged()
             recyclerView.scrollToPosition(messageHistory.size - 1)
-        }
-    }
-
-    private fun playVoiceMessage(filePath: String) {
-        try {
-            val mediaPlayer = MediaPlayer().apply {
-                setDataSource(filePath)
-                prepare()
-                start()
-                LogUtils.info("[DualBluetoothActivity] 开始播放语音消息")
-                ToastUtils.show(this@DualBluetoothActivity, "正在播放语音消息")
-            }
-            mediaPlayer.setOnCompletionListener {
-                LogUtils.info("[DualBluetoothActivity] 语音消息播放完成")
-                it.release()
-            }
-        } catch (e: IOException) {
-            LogUtils.error("[DualBluetoothActivity] 播放语音消息失败: ${e.message}")
-            ToastUtils.show(this, "播放失败: ${e.message}")
         }
     }
 

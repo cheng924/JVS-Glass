@@ -1,5 +1,6 @@
 package com.example.jvsglass.activities.notification
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -8,14 +9,18 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.widget.Button
 import android.widget.ImageView
+import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
+import com.example.jvsglass.bluetooth.PacketCommandUtils
+import com.example.jvsglass.bluetooth.ble.BLEGattClient
 
 class NotificationActivity : AppCompatActivity() {
     private lateinit var adapter: NotificationAdapter
+    private val bleClient by lazy { BLEGattClient.getInstance(this) }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -25,6 +30,7 @@ class NotificationActivity : AppCompatActivity() {
     }
 
     @SuppressLint("NotifyDataSetChanged", "MissingInflatedId")
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_notification)
@@ -65,6 +71,10 @@ class NotificationActivity : AppCompatActivity() {
             receiver,
             IntentFilter("com.example.notifications.NOTIFICATION_LISTENER")
         )
+
+        findViewById<Button>(R.id.btn_test).setOnClickListener {
+            sendCommand()
+        }
     }
 
     override fun onResume() {
@@ -76,5 +86,16 @@ class NotificationActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver)
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun sendCommand() {
+        val packet = PacketCommandUtils.createMessageReminderPacket(
+            name  = "微信",
+            title = "你的好友",
+            text  = "哈哈哈",
+            date  = "2025.5.27 17:54:56"
+        )
+        bleClient.sendCommand(packet)
     }
 }

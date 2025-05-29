@@ -4,9 +4,8 @@ import android.Manifest
 import android.os.Handler
 import android.os.HandlerThread
 import androidx.annotation.RequiresPermission
-import com.example.jvsglass.bluetooth.ble.BLEConstants.MAX_RETRY
-import com.example.jvsglass.bluetooth.ble.BLEConstants.HEART_INTERVAL
-import com.example.jvsglass.utils.LogUtils
+import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_RETRY
+import com.example.jvsglass.bluetooth.BluetoothConstants.HEART_INTERVAL
 import org.greenrobot.eventbus.EventBus
 
 object HeartbeatDetectorManager {

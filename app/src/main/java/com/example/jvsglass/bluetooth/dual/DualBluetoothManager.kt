@@ -6,41 +6,41 @@ import android.bluetooth.BluetoothDevice
 import android.content.Context
 import androidx.annotation.RequiresPermission
 import com.example.jvsglass.bluetooth.ble.BLEGattClient
-import com.example.jvsglass.bluetooth.ble.BleModule
-import com.example.jvsglass.bluetooth.classic.BluetoothConnectionCore
+import com.example.jvsglass.bluetooth.ble.BleGattModule
+import com.example.jvsglass.bluetooth.classic.ClassicRfcommClient
 import com.example.jvsglass.bluetooth.classic.ClassicRfcommModule
+import com.example.jvsglass.utils.VoiceManager
 
 object DualBluetoothManager {
     private lateinit var appContext: Context
     private lateinit var btAdapter: BluetoothAdapter
 
     // 外部注册回调
-    var onServerStarted: (() -> Unit)? = null
     var onBleDeviceFound: ((BluetoothDevice) -> Unit)? = null
     var onClassicDeviceFound: ((BluetoothDevice) -> Unit)? = null
     var onDeviceConnected: ((BluetoothDevice) -> Unit)? = null
-    var onMessageReceived: ((String) -> Unit)? = null
+    var onMessageReceived: ((ByteArray) -> Unit)? = null
     var onVoiceReceived: ((ByteArray) -> Unit)? = null
 
-    private lateinit var classicCallback: BluetoothConnectionCore.BluetoothCallback
+    private lateinit var classicCallback: ClassicRfcommClient.BluetoothCallback
     private lateinit var bleClientListener: BLEGattClient.MessageListener
 
     fun initialize(
         context: Context,
-        bluetoothAdapter: BluetoothAdapter
+        bluetoothAdapter: BluetoothAdapter,
+        voiceManager: VoiceManager? = null
     ) {
         appContext = context.applicationContext
         btAdapter = bluetoothAdapter
 
         bleClientListener = object : BLEGattClient.MessageListener {
-            override fun onMessageReceived(message: String) {
-                onMessageReceived?.invoke(message)
+            override fun onMessageReceived(value: ByteArray) {
+                onMessageReceived?.invoke(value)
             }
-            override fun onMessageSent(message: String) {  }
         }
-        BleModule.initialize(appContext)
+        BleGattModule.initialize(appContext)
 
-        classicCallback = object : BluetoothConnectionCore.BluetoothCallback {
+        classicCallback = object : ClassicRfcommClient.BluetoothCallback {
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onConnectionSuccess(deviceName: String) {
                 btAdapter.bondedDevices.find { it.name == deviceName }?.let {
@@ -48,12 +48,14 @@ object DualBluetoothManager {
                 }
             }
             override fun onConnectionFailed(message: String) {  }
-            override fun onMessageReceived(message: String) {
-                onMessageReceived?.invoke(message)
-            }
             override fun onVoiceMessageReceived(voiceData: ByteArray) {
                 onVoiceReceived?.invoke(voiceData)
             }
+
+            override fun onAudioStreamReceived(streamData: ByteArray) {
+                voiceManager?.playStreamingAudio(streamData)
+            }
+
             override fun onDisconnected() {  }
         }
         ClassicRfcommModule.initialize(btAdapter, classicCallback)
@@ -61,8 +63,8 @@ object DualBluetoothManager {
 
     @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
     fun stop() {
-        BleModule.stopScan()
-        BleModule.disconnectClient()
+        BleGattModule.stopScan()
+        BleGattModule.disconnectClient()
         ClassicRfcommModule.disconnectClient()
     }
 
@@ -74,7 +76,7 @@ object DualBluetoothManager {
         ]
     )
     fun startAsClient() {
-        BleModule.startScan { device ->
+        BleGattModule.startScan { device ->
             onBleDeviceFound?.invoke(device)
         }
         ClassicRfcommModule.startDiscovery()
@@ -82,7 +84,7 @@ object DualBluetoothManager {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connectBle(device: BluetoothDevice) {
-        BleModule.connectAsClient(device, bleClientListener)
+        BleGattModule.connectAsClient(device, bleClientListener)
     }
 
     @RequiresPermission(
@@ -92,9 +94,8 @@ object DualBluetoothManager {
         ClassicRfcommModule.connectAsClient(device)
     }
 
-    /** 发送文本 */
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun sendText(message: String) {
-        BleModule.sendClientMessage(message)
+        BleGattModule.sendClientMessage(message)
     }
 }

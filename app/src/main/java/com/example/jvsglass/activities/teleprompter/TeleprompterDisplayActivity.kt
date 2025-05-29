@@ -26,6 +26,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
+import com.example.jvsglass.bluetooth.PacketCommandUtils
 import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_HOME_VALUE
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_INTERFACE_COMMAND
@@ -60,6 +61,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private var autoScrollJob: Job? = null
     private var scrollIntervalMs = 15_000L
     private var micControl = true
+    private var remoteControl = true
     private var lastProcessedLength = 0
     private var lastSentBlock: String = ""
 
@@ -72,6 +74,9 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private lateinit var llContinueScroll: LinearLayout
     private lateinit var ivScrollStatus: ImageView
     private lateinit var tvScrollStatus: TextView
+    private lateinit var llRemoteScroll: LinearLayout
+    private lateinit var ivRemoteStatus: ImageView
+    private lateinit var tvRemoteStatus: TextView
 
     @SuppressLint("ClickableViewAccessibility")
     private val manualTouchListener = View.OnTouchListener { _, event ->
@@ -110,8 +115,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(
-        allOf = [Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.BLUETOOTH_CONNECT]
+        allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
     )
     override fun onCreate(savedInstanceState : Bundle?) {
         super.onCreate(savedInstanceState)
@@ -124,6 +128,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         initView()
         initRealtimeAsrClient()
 
+        setupClientCallbacks()
         bleClient.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_TELEPROMPTER_VALUE))
     }
 
@@ -152,6 +157,9 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         llContinueScroll = findViewById(R.id.ll_continue_scroll)
         ivScrollStatus = findViewById(R.id.iv_scroll_status)
         tvScrollStatus = findViewById(R.id.tv_scroll_status)
+        llRemoteScroll = findViewById(R.id.ll_remote_scroll)
+        ivRemoteStatus = findViewById(R.id.iv_remote_status)
+        tvRemoteStatus = findViewById(R.id.tv_remote_status)
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
             bleClient.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_HOME_VALUE))
@@ -212,6 +220,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                             ivMicControl.setImageResource(R.drawable.ic_mic_off)
                             llVoiceControl.setBackgroundResource(R.drawable.rounded_button_selected)
                             llContinueScroll.isClickable = false
+                            llRemoteScroll.isClickable = false
 
                             realtimeAsrClient.connect()
                             realtimeAsrClient.keepConnectionOpen()
@@ -243,6 +252,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 ivMicControl.setImageResource(R.drawable.ic_mic_on)
                 llVoiceControl.setBackgroundResource(R.drawable.rounded_button)
                 llContinueScroll.isClickable = true
+                llRemoteScroll.isClickable = true
 
                 voiceManager.stopRecording()
                 voiceManager.deleteVoiceFile(currentVoicePath)
@@ -261,6 +271,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 ivScrollStatus.setImageResource(R.drawable.ic_continue)
                 llContinueScroll.setBackgroundResource(R.drawable.rounded_button)
                 llVoiceControl.isClickable = true
+                llRemoteScroll.isClickable = true
             } else {
                 if (scrollLines == totalLines - 1) {
                     scrollLines = 0
@@ -280,7 +291,29 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 ivScrollStatus.setImageResource(R.drawable.ic_suspend)
                 llContinueScroll.setBackgroundResource(R.drawable.rounded_button_selected)
                 llVoiceControl.isClickable = false
+                llRemoteScroll.isClickable = false
             }
+        }
+
+        llRemoteScroll.setOnClickListener {
+            if (remoteControl) {
+                tvRemoteStatus.text = "停止遥控"
+                ivRemoteStatus.setImageResource(R.drawable.ic_remote_off)
+                llRemoteScroll.setBackgroundResource(R.drawable.rounded_button_selected)
+                llVoiceControl.isClickable = false
+                llContinueScroll.isClickable = false
+
+                scrollView.setOnTouchListener(disabledTouchListener)
+            } else {
+                tvRemoteStatus.text = "遥控滚动"
+                ivRemoteStatus.setImageResource(R.drawable.ic_remote_on)
+                llRemoteScroll.setBackgroundResource(R.drawable.rounded_button)
+                llVoiceControl.isClickable = true
+                llContinueScroll.isClickable = true
+
+                scrollView.setOnTouchListener(manualTouchListener)
+            }
+            remoteControl = !remoteControl
         }
     }
 
@@ -434,5 +467,34 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private fun sendMessage(fileContent: String) {
         if (fileContent.isEmpty()) return
         bleClient.sendMessage(fileContent)
+    }
+
+    private fun setupClientCallbacks() {
+        bleClient.messageListener = object : BLEGattClient.MessageListener {
+            @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+            override fun onMessageReceived(value: ByteArray) {
+                if (!remoteControl) {
+                    val command = PacketCommandUtils.parseKeyValuePacket(value)
+                    LogUtils.info("[TeleprompterDisplayActivity] command类型：$command")
+                    when (command) {
+                        PacketCommandUtils.RemoteControlKeyValue.KEY_PREV -> {
+                            scrollLines = (scrollLines - 1).coerceAtLeast(0)
+                            updateDisplay()
+                        }
+                        PacketCommandUtils.RemoteControlKeyValue.KEY_NEXT -> {
+                            scrollLines = (scrollLines + 1).coerceAtMost(totalLines - 1)
+                            updateDisplay()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun updateDisplay() {
+        val splitResult = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+        tvContent.text = splitResult.displayBlock
+        sendMessage(splitResult.sendBlock)
     }
 }
