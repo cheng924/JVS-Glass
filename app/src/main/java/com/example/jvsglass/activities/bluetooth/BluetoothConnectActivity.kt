@@ -1,4 +1,4 @@
-package com.example.jvsglass.bluetooth
+package com.example.jvsglass.activities.bluetooth
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -28,7 +28,9 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
+import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_HISTORY_SIZE
+import com.example.jvsglass.bluetooth.PacketMessageUtils
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
@@ -38,7 +40,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class DualBluetoothActivity : AppCompatActivity() {
+class BluetoothConnectActivity : AppCompatActivity() {
     private lateinit var btnSearch: Button
     private lateinit var tvStatus: TextView
     private lateinit var devicesTip: TextView
@@ -70,7 +72,7 @@ class DualBluetoothActivity : AppCompatActivity() {
                     device?.let {
                         runOnUiThread {
                             addDevice(it)
-                            DualBluetoothManager.onClassicDeviceFound?.invoke(it)
+                            BluetoothConnectManager.onClassicDeviceFound?.invoke(it)
                         }
                     }
                 }
@@ -89,7 +91,7 @@ class DualBluetoothActivity : AppCompatActivity() {
                 LogUtils.info("[DualBluetoothActivity] 设备: ${dev.address}, 配对状态: $state")
                 if (state == BOND_BONDED) {
                     BluetoothAdapter.getDefaultAdapter().cancelDiscovery()
-                    DualBluetoothManager.connectClassic(dev)
+                    BluetoothConnectManager.connectClassic(dev)
                 }
             }
         }
@@ -105,7 +107,7 @@ class DualBluetoothActivity : AppCompatActivity() {
     )
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_dual_bluetooth)
+        setContentView(R.layout.activity_bluetooth_connect)
 
         voiceManager = VoiceManager(this)
 
@@ -122,8 +124,8 @@ class DualBluetoothActivity : AppCompatActivity() {
             val device = devices.find { it.name == deviceItem.deviceName }
             device?.let {
                 if (hasPermissions(Manifest.permission.BLUETOOTH_CONNECT)) {
-                    DualBluetoothManager.connectBle(it)
-                    DualBluetoothManager.connectClassic(it)
+                    BluetoothConnectManager.connectBle(it)
+                    BluetoothConnectManager.connectClassic(it)
                     ToastUtils.show(this, "正在连接 ...")
                 } else {
                     requestPermissionsIfNeeded()
@@ -134,15 +136,15 @@ class DualBluetoothActivity : AppCompatActivity() {
         lvDevices.layoutManager = LinearLayoutManager(this)
 
         btAdapter?.let {
-            DualBluetoothManager.initialize(this, voiceManager)
+            BluetoothConnectManager.initialize(this, voiceManager)
         } ?: run {
             ToastUtils.show(this, "设备不支持蓝牙")
             finish()
             return
         }
-        DualBluetoothManager.onBleDeviceFound = { device -> runOnUiThread { addDevice(device) } }
-        DualBluetoothManager.onClassicDeviceFound = { device -> runOnUiThread { addDevice(device) } }
-        DualBluetoothManager.onDeviceConnected = { device ->
+        BluetoothConnectManager.onBleDeviceFound = { device -> runOnUiThread { addDevice(device) } }
+        BluetoothConnectManager.onClassicDeviceFound = { device -> runOnUiThread { addDevice(device) } }
+        BluetoothConnectManager.onDeviceConnected = { device ->
             runOnUiThread {
                 connectedDeviceName = device.name
                 tvStatus.text = "已连接：${device.name}"
@@ -150,11 +152,11 @@ class DualBluetoothActivity : AppCompatActivity() {
                 lvDevices.visibility = View.GONE
             }
         }
-        DualBluetoothManager.onMessageReceived = { msg ->
+        BluetoothConnectManager.onMessageReceived = { msg ->
             val message = PacketMessageUtils.processPacket(msg)
             addMessageToHistory("[收到] $message")
         }
-        DualBluetoothManager.onVoiceReceived = { data ->
+        BluetoothConnectManager.onVoiceReceived = { data ->
             val timestamp = System.currentTimeMillis()
             val audioFile = File(cacheDir, "audio_record_${timestamp}.3gp")
             try {
@@ -178,7 +180,7 @@ class DualBluetoothActivity : AppCompatActivity() {
             requestPermissionsIfNeeded()
             deviceItems.clear()
             deviceListAdapter.submitList(deviceItems.toList())
-            DualBluetoothManager.startAsClient()
+            BluetoothConnectManager.startAsClient()
             registerReceiver(bondReceiver, IntentFilter(ACTION_BOND_STATE_CHANGED))
             btnSearch.isEnabled = false
         }
@@ -187,7 +189,7 @@ class DualBluetoothActivity : AppCompatActivity() {
             val text = etMessage.text.toString().trim()
             if (text.isNotEmpty()) {
                 if (hasPermissions(Manifest.permission.BLUETOOTH_CONNECT)) {
-                    DualBluetoothManager.sendText(text)
+                    BluetoothConnectManager.sendText(text)
                     addMessageToHistory("[发送] $text")
                 } else {
                     requestPermissionsIfNeeded()

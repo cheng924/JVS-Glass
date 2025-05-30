@@ -16,8 +16,10 @@ object BluetoothConstants {
 
     const val MAX_RETRY = 3             // 重试次数
     const val RETRY_INTERVAL = 2_000L   // 重试间隔
-    const val HEART_INTERVAL = 10_000L  // 心跳监测间隔
+    const val HEARTBEAT_INTERVAL = 10_000L  // 心跳监测间隔
+    const val HEARTBEAT_TIMEOUT = 5_000L    // 心跳超时
     const val CONNECT_TIMEOUT = 30_000L
+    const val DELAY_1S = 1_000L
 
     // 接收缓冲区大小
     const val RECEIVE_BUFFER_SIZE = 1024

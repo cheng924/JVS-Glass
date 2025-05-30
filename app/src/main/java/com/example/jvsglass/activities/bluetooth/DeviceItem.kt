@@ -1,4 +1,4 @@
-package com.example.jvsglass.bluetooth
+package com.example.jvsglass.activities.bluetooth
 
 data class DeviceItem(
     val deviceName: String,

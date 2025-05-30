@@ -1,4 +1,4 @@
-package com.example.jvsglass.bluetooth
+package com.example.jvsglass.activities.bluetooth
 
 data class MessageItem(
     val text: String,              // 消息文本

@@ -31,7 +31,7 @@ import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_HOME_VALUE
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_INTERFACE_COMMAND
 import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TELEPROMPTER_VALUE
-import com.example.jvsglass.bluetooth.BLEGattClient
+import com.example.jvsglass.bluetooth.BLEClient
 import com.example.jvsglass.dialog.WarningDialog
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.RealtimeAsrClient
@@ -51,7 +51,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private lateinit var realtimeAsrClient: RealtimeAsrClient
 
     private var currentVoicePath = ""
-    private val bleClient by lazy { BLEGattClient.getInstance(this) }
+    private val bleClient by lazy { BLEClient.getInstance(this) }
     private val vibrator by lazy { getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
     private var totalLines = 0
     private var scrollLines = 0
@@ -115,7 +115,11 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(
-        allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
+        allOf = [
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN
+        ]
     )
     override fun onCreate(savedInstanceState : Bundle?) {
         super.onCreate(savedInstanceState)
@@ -132,7 +136,9 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         bleClient.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_TELEPROMPTER_VALUE))
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     private fun initBluetoothConnection() {
         // 检查是否有保存的设备地址，并尝试自动连接
         val prefs = getSharedPreferences("ble_prefs", MODE_PRIVATE)
@@ -470,7 +476,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     }
 
     private fun setupClientCallbacks() {
-        bleClient.messageListener = object : BLEGattClient.MessageListener {
+        bleClient.messageListener = object : BLEClient.MessageListener {
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onMessageReceived(value: ByteArray) {
                 if (!remoteControl) {

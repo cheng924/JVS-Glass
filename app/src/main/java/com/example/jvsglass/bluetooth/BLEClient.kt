@@ -8,32 +8,40 @@ import android.os.Handler
 import android.os.Looper
 import androidx.annotation.RequiresPermission
 import com.example.jvsglass.bluetooth.BluetoothConstants.CURRENT_MTU
+import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_RETRY
 import com.example.jvsglass.bluetooth.BluetoothConstants.RETRY_INTERVAL
+import com.example.jvsglass.bluetooth.BluetoothConstants.HEARTBEAT_INTERVAL
+import com.example.jvsglass.bluetooth.BluetoothConstants.HEARTBEAT_TIMEOUT
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.toHexString
 import java.lang.ref.WeakReference
 
-class BLEGattClient private constructor(context: Context) {
+class BLEClient private constructor(context: Context) {
     companion object {
         @Volatile
-        private var INSTANCE: BLEGattClient? = null
+        private var INSTANCE: BLEClient? = null
 
-        fun getInstance(context: Context): BLEGattClient {
+        fun getInstance(context: Context): BLEClient {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: BLEGattClient(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: BLEClient(context.applicationContext).also { INSTANCE = it }
             }
         }
     }
 
+    var connectionListener: ((connected: Boolean) -> Unit)? = null
+
     private var connectedDevice: BluetoothDevice? = null
     private val contextRef = WeakReference(context)
     private var bluetoothGatt: BluetoothGatt? = null
-    private var isDisconnecting = false
     private var connectionState = BluetoothProfile.STATE_DISCONNECTED
     private var retryCount = 0
+    private var writeRetryCount = 0
     private var isSending = false
     var isConnecting = false
     private var servicesDiscovered = false
+    private var heartbeatHandler: Handler = Handler(Looper.getMainLooper())
+    private var lastHeartbeatResponse: Long = 0L
+    private var heartbeatRunnable: Runnable? = null
 
     interface MessageListener {
         fun onMessageReceived(value: ByteArray)
@@ -42,7 +50,9 @@ class BLEGattClient private constructor(context: Context) {
 
     // GATT客户端回调
     private val gattClientCallback = object : BluetoothGattCallback() {
-        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        @RequiresPermission(
+            allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+        )
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             LogUtils.info("[BLE] onConnectionStateChange: status=$status, newState=$newState")
             when (status) {
@@ -54,6 +64,8 @@ class BLEGattClient private constructor(context: Context) {
                         gatt.requestMtu(CURRENT_MTU)
                         connectionState = BluetoothProfile.STATE_CONNECTED
                         isConnecting = false
+                        lastHeartbeatResponse = System.currentTimeMillis()
+                        connectionListener?.invoke(true)
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         LogUtils.info("[BLE] 物理层断开，断开时的连接参数：${gatt.device}")
                         if (isConnecting) {
@@ -62,6 +74,10 @@ class BLEGattClient private constructor(context: Context) {
                             }, RETRY_INTERVAL)
                         }
                         connectionState = BluetoothProfile.STATE_DISCONNECTED
+                        isConnecting = false
+                        connectionListener?.invoke(false)
+                        stopHeartbeat()
+                        connectedDevice?.let { BluetoothConnectManager.reconnectDevice(it) }
                     }
                 }
                 else -> {
@@ -103,6 +119,10 @@ class BLEGattClient private constructor(context: Context) {
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             val writeSuccess = gatt.writeDescriptor(descriptor)
             LogUtils.info("[BLE] 写入通知状态：$writeSuccess")
+
+            if (!enableNotify || !writeSuccess) {
+                LogUtils.error("[BLE] 通知启用或描述符写入失败")
+            }
         }
 
         @Deprecated("Deprecated in Java")
@@ -113,17 +133,10 @@ class BLEGattClient private constructor(context: Context) {
             value: ByteArray
         ) {
             if (characteristic.uuid == BluetoothConstants.NOTIFY_CHAR_UUID) {
+                lastHeartbeatResponse = System.currentTimeMillis()
                 Handler(Looper.getMainLooper()).post {
-                    try {
-                        LogUtils.info("[BLE] ${System.currentTimeMillis()} 收到通知，数据：${value.toHexString()}")
-                        messageListener?.onMessageReceived(value)
-
-//                        val message = PacketMessageUtils.processPacket(value)
-//                        LogUtils.info("[BLE] 解析消息：$message")
-//                        messageListener?.onMessageReceived(message)
-                    } catch (e: Exception) {
-                        LogUtils.error("[BLE] 消息解析异常，数据：${value.toHexString()}", e)
-                    }
+                    LogUtils.info("[BLE] ${System.currentTimeMillis()} 收到消息：${value.toHexString()}")
+                    messageListener?.onMessageReceived(value)
                 }
             } else {
                 LogUtils.warn("[BLE] 收到未知特征的通知：${characteristic.uuid}")
@@ -134,16 +147,11 @@ class BLEGattClient private constructor(context: Context) {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             LogUtils.info("[BLE] onMtuChanged: status=$status, newMTU=$mtu")
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                CURRENT_MTU = mtu
-                LogUtils.info("[BLE] MTU更新为：$mtu")
-
-                // MTU协商成功后发起服务发现
-                val success = gatt.discoverServices()
-                LogUtils.debug("[BLE] 服务发现请求结果：$success")
-            } else {
-                LogUtils.error("[BLE] MTU更新失败，状态码：$status")
-            }
+            CURRENT_MTU = if (status == BluetoothGatt.GATT_SUCCESS) mtu else 23
+            LogUtils.info("[BLE] MTU更新为：$mtu")
+            // MTU协商成功后发起服务发现
+            val success = gatt.discoverServices()
+            LogUtils.debug("[BLE] 服务发现请求结果：$success")
         }
 
         // 写入确认回调
@@ -164,44 +172,26 @@ class BLEGattClient private constructor(context: Context) {
         }
     }
 
-    init {
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (!isConnected()) {
-                autoConnect()
-            }
-        }, RETRY_INTERVAL)
-    }
-
     fun isConnected(): Boolean {
         return connectionState == BluetoothProfile.STATE_CONNECTED
     }
 
-    @SuppressLint("MissingPermission")
-    fun autoConnect() {
-        getDeviceAddress()?.let { address ->
-            val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
-            if (bluetoothAdapter.isEnabled) {
-                val device = bluetoothAdapter.getRemoteDevice(address)
-                connectToDevice(device)
-            }
-        }
-    }
-
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     fun reconnect() {
         if (isConnecting || connectionState == BluetoothProfile.STATE_CONNECTED) return
-
-        if (retryCount < BluetoothConstants.MAX_RETRY) {
+        if (retryCount < MAX_RETRY) {
             retryCount++
-            LogUtils.info("[BLE] 准备重连：${retryCount}/${BluetoothConstants.MAX_RETRY}")
-            disconnect()
+            val delay = RETRY_INTERVAL * (1 shl retryCount) // 指数退避
+            LogUtils.info("[BLE] 准备重连：${retryCount}/${MAX_RETRY}，延迟：$delay ms")
 
+            disconnect()
             Handler(Looper.getMainLooper()).postDelayed({
                 connectedDevice?.let { device ->
-                    LogUtils.debug("[BLE] 尝试重新连接...")
                     connectToDevice(device)
                 } ?: LogUtils.error("[BLE] 无法重连，设备引用为空")
-            }, RETRY_INTERVAL)
+            }, delay)
         } else {
             LogUtils.error("[BLE] 已达到最大重试次数，停止重连")
             retryCount = 0
@@ -209,7 +199,9 @@ class BLEGattClient private constructor(context: Context) {
         }
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     fun connectToDevice(device: BluetoothDevice) {
         if (isConnecting || connectionState == BluetoothProfile.STATE_CONNECTED) {
             LogUtils.info("[BLE] 已处于连接中或已连接，取消新连接请求")
@@ -217,7 +209,6 @@ class BLEGattClient private constructor(context: Context) {
         }
         isConnecting = true
         LogUtils.info("[BLE] 尝试连接设备 ${device.address}")
-        LogUtils.info("[BLE] 开始创建GATT连接，传输模式：${BluetoothDevice.TRANSPORT_LE}")
         connectedDevice = device // 保存设备对象
         val ctx = contextRef.get() ?: run {
             LogUtils.error("[BLE] 上下文已释放，无法创建GATT连接")
@@ -230,38 +221,27 @@ class BLEGattClient private constructor(context: Context) {
                 LogUtils.debug("[BLE] GATT对象创建成功：${it.device.address}")
             }
         }
+        lastHeartbeatResponse = System.currentTimeMillis()
+//        startHeartbeat()
         saveDeviceAddress(device.address) // 连接时保存设备地址
     }
 
     /*********************
-    // 正常断开（保留存储）
-    disconnect()
-    // 断开并清除存储
-    disconnect(shouldClearSavedDevice = true)
+    正常断开（保留存储）  disconnect()
+    断开并清除存储  disconnect(shouldClearSavedDevice = true)
     *********************/
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun disconnect(clearSavedDevice: Boolean = false) {
-        if (isDisconnecting) return
         bluetoothGatt?.let {
-            isDisconnecting = true
-            try {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    bluetoothGatt?.disconnect()
-                    bluetoothGatt?.close()
-                    bluetoothGatt = null
-                    isDisconnecting = false
-                    isSending = false
-                    isConnecting = false
-                    connectionState = BluetoothProfile.STATE_DISCONNECTED
-                    if (clearSavedDevice) {
-                        clearSavedDeviceAddress()
-                    }
-                    LogUtils.debug("[BLE] 资源完全释放完成")
-                }, RETRY_INTERVAL)  // 增加延迟确保异步操作完成
-                LogUtils.info("[BLE] 连接已主动断开")
-            } catch (e: Exception) {
-                LogUtils.error("[BLE] 断开异常: ${e.javaClass.simpleName}")
-            }
+            it.disconnect()
+            it.close()
+            bluetoothGatt = null
+            isSending = false
+            isConnecting = false
+            connectionState = BluetoothProfile.STATE_DISCONNECTED
+            stopHeartbeat()
+            if (clearSavedDevice) clearSavedDeviceAddress()
+            LogUtils.info("[BLE] 连接已断开")
         }
     }
 
@@ -297,7 +277,7 @@ class BLEGattClient private constructor(context: Context) {
             return
         }
 
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager
         val device = connectedDevice ?: run {
             LogUtils.error("[BLE] 设备引用丢失")
             isSending = false
@@ -353,36 +333,44 @@ class BLEGattClient private constructor(context: Context) {
             characteristic.value = packet
 
             if (!gatt.writeCharacteristic(characteristic)) {
-                LogUtils.error("[BLE] 写入特征值失败")
-                LogUtils.info("[BLE] 特征值UUID: ${characteristic.uuid}")
-                LogUtils.debug("[BLE] 当前MTU: $CURRENT_MTU")
-                LogUtils.debug("[BLE] 数据包长度: ${packet.size}")
-                isSending = false
-
-                Handler(Looper.getMainLooper()).postDelayed({
-                    if (!isSending && bluetoothManager.getConnectionState(device, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED) {
-                        if (gatt.writeCharacteristic(characteristic)) {
-                            LogUtils.debug("[BLE] 重试写入成功")
-                        } else {
-                            LogUtils.error("[BLE] 重试写入仍失败")
-                        }
-                    } else {
-                        LogUtils.warn("[BLE] 重试时连接不可用或正在发送")
-                    }
-                }, RETRY_INTERVAL)
+                if (writeRetryCount < MAX_RETRY) {
+                    writeRetryCount++
+                    Handler(Looper.getMainLooper()).postDelayed({ sendPacket(packet) }, RETRY_INTERVAL)
+                } else {
+                    LogUtils.error("[BLE] 写入失败，已达最大重试次数")
+                    isSending = false
+                    writeRetryCount = 0
+                }
             } else {
-                LogUtils.debug("[BLE] 数据包已提交写入")
+                writeRetryCount = 0
             }
-        } catch (e: SecurityException) {
-            LogUtils.error("[BLE] 权限异常：${e.message}")
-            isSending = false
-        } catch (e: IllegalStateException) {
-            LogUtils.error("[BLE] GATT状态异常：${e.message}")
-            isSending = false
         } catch (e: Exception) {
             LogUtils.error("[BLE] 数据包发送异常", e)
             isSending = false
         }
+    }
+
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
+    private fun startHeartbeat() {
+        stopHeartbeat()
+        heartbeatRunnable = Runnable {
+            if (System.currentTimeMillis() - lastHeartbeatResponse > HEARTBEAT_TIMEOUT) {
+                BluetoothConnectManager.reconnectDevice(connectedDevice!!)
+            } else {
+                val heartbeatPacket = byteArrayOf(0x01)
+                sendPacket(heartbeatPacket)
+                LogUtils.debug("[BLE] 发送心跳包")
+                heartbeatHandler.postDelayed(heartbeatRunnable!!, HEARTBEAT_INTERVAL)
+            }
+        }
+        heartbeatHandler.postDelayed(heartbeatRunnable!!, HEARTBEAT_INTERVAL)
+    }
+
+    private fun stopHeartbeat() {
+        heartbeatRunnable?.let { heartbeatHandler.removeCallbacks(it) }
+        heartbeatRunnable = null
     }
 
     // 存储/读取设备地址
@@ -392,7 +380,7 @@ class BLEGattClient private constructor(context: Context) {
             ?.putString("last_connected_device", address)?.apply()
     }
 
-    private fun getDeviceAddress(): String? {
+    fun getDeviceAddress(): String? {
         return contextRef.get()?.getSharedPreferences("ble_prefs", Context.MODE_PRIVATE)
             ?.getString("last_connected_device", null)
     }

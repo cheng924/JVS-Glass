@@ -11,6 +11,8 @@ import android.os.Looper
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.example.jvsglass.bluetooth.BluetoothConstants.CONNECT_TIMEOUT
+import com.example.jvsglass.bluetooth.BluetoothConstants.HEARTBEAT_INTERVAL
+import com.example.jvsglass.bluetooth.BluetoothConstants.HEARTBEAT_TIMEOUT
 import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_RETRY
 import com.example.jvsglass.bluetooth.BluetoothConstants.RECEIVE_BUFFER_SIZE
 import com.example.jvsglass.bluetooth.BluetoothConstants.RETRY_INTERVAL
@@ -23,7 +25,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
-class ClassicRfcommClient(
+class ClassicClient(
     private val adapter: BluetoothAdapter,
     private val callback: BluetoothCallback
 ) {
@@ -37,12 +39,16 @@ class ClassicRfcommClient(
         fun onDisconnected()
     }
 
+    var connectionListener: ((connected: Boolean) -> Unit)? = null
+
     private var clientSocket: BluetoothSocket? = null
-    private var coreState = AtomicReference(ConnectionState.DISCONNECTED)
+    var coreState = AtomicReference(ConnectionState.DISCONNECTED)
     private val executor: ExecutorService = Executors.newCachedThreadPool()
     private var reconnectAttempts = AtomicInteger(0)
     private val lock = Any()
     private var pendingAddress: String? = null
+    private var lastHeartbeatResponse: Long = 0L
+    private var heartbeatRunnable: Runnable? = null
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun startDiscovery() {
@@ -71,6 +77,9 @@ class ClassicRfcommClient(
         ConnectThread(device).start()
     }
 
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     fun disconnect() {
         synchronized(lock) {
             clientSocket?.let { closeConnection(it) }
@@ -84,6 +93,9 @@ class ClassicRfcommClient(
         LogUtils.info("[ClassicRfcommClient] 状态: $state")
     }
 
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     private fun closeConnection(socket: BluetoothSocket) {
         LogUtils.info("[ClassicRfcommClient] 断开连接...")
         try {
@@ -91,6 +103,8 @@ class ClassicRfcommClient(
             setState(ConnectionState.DISCONNECTED)
             LogUtils.info("[ClassicRfcommClient] 已断开连接")
             callback.onDisconnected()
+            connectionListener?.invoke(false)
+            BluetoothConnectManager.reconnectDevice(socket.remoteDevice)
         } catch (e: IOException) {
             LogUtils.error("[ClassicRfcommClient] 关闭Socket失败: ${e.message}")
         }
@@ -133,35 +147,42 @@ class ClassicRfcommClient(
                 setState(ConnectionState.CONNECTED)
             }
             callback.onConnectionSuccess(device.name ?: "Unknown")
+            connectionListener?.invoke(true)
+            lastHeartbeatResponse = System.currentTimeMillis()
+//            startHeartbeat()
+
             manageSocket(socket!!)
-            DualBluetoothManager.onDeviceConnected?.invoke(device)
+            BluetoothConnectManager.onDeviceConnected?.invoke(device)
         }
 
         private fun onConnectFailed(msg: String) {
             callback.onConnectionFailed(msg)
-            scheduleReconnect(device)
+            connectionListener?.invoke(false)
+            reconnect(device)
         }
     }
 
     @RequiresPermission(
         allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
     )
-    private fun scheduleReconnect(device: BluetoothDevice) {
-        coreState.get().let {
-            if (reconnectAttempts.get() < MAX_RETRY) {
-                LogUtils.info("[ClassicRfcommClient] 重连 (${reconnectAttempts.get()+1}/$MAX_RETRY)")
-                Handler(Looper.getMainLooper()).postDelayed({
-                    reconnectAttempts.incrementAndGet()
-                    connectToDevice(device)
-                }, RETRY_INTERVAL)
-            } else {
-                LogUtils.error("[ClassicRfcommClient] 重连失败")
-                callback.onConnectionFailed("重连失败")
-            }
+    private fun reconnect(device: BluetoothDevice) {
+        if (reconnectAttempts.get() < MAX_RETRY) {
+            val delay = RETRY_INTERVAL * (1 shl reconnectAttempts.get())
+            LogUtils.info("[ClassicRfcommClient] 重连 (${reconnectAttempts.get()+1}/$MAX_RETRY)，延迟：$delay ms")
+            Handler(Looper.getMainLooper()).postDelayed({
+                reconnectAttempts.incrementAndGet()
+                connectToDevice(device)
+            }, delay)
+        } else {
+            LogUtils.error("[ClassicRfcommClient] 重连失败")
+            callback.onConnectionFailed("重连失败")
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     private fun manageSocket(socket: BluetoothSocket) {
         executor.execute {
             val inputStream = socket.inputStream
@@ -175,6 +196,7 @@ class ClassicRfcommClient(
                     val bytesRead = inputStream.read(buffer)
                     if (bytesRead <= 0) break
                     LogUtils.debug("[ClassicRfcommClient] 接收字节数: $bytesRead")
+                    lastHeartbeatResponse = System.currentTimeMillis()
 
                     dataBuffer.write(buffer, 0, bytesRead)
                     while (dataBuffer.size() > 0) {
@@ -246,5 +268,36 @@ class ClassicRfcommClient(
             if (data[i] == '\n'.code.toByte()) return i
         }
         return -1
+    }
+
+    private fun startHeartbeat() {
+        stopHeartbeat()
+        heartbeatRunnable = object : Runnable {
+            @RequiresPermission(
+                allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+            )
+            override fun run() {
+                if (coreState.get() != ConnectionState.CONNECTED) return
+                if (System.currentTimeMillis() - lastHeartbeatResponse > HEARTBEAT_TIMEOUT) {
+                    LogUtils.warn("[ClassicRfcommClient] 心跳超时，统一重连")
+                    closeConnection(clientSocket!!)
+                    return
+                }
+
+                try {
+                    clientSocket?.outputStream?.write(byteArrayOf(0x01))
+                    LogUtils.debug("[ClassicRfcommClient] 发送心跳包")
+                } catch (e: IOException) {
+                    LogUtils.error("[ClassicRfcommClient] 心跳发送失败: ${e.message}")
+                }
+                Handler(Looper.getMainLooper()).postDelayed(this, HEARTBEAT_INTERVAL)
+            }
+        }
+        Handler(Looper.getMainLooper()).postDelayed(heartbeatRunnable!!, HEARTBEAT_INTERVAL)
+    }
+
+    private fun stopHeartbeat() {
+        heartbeatRunnable?.let { Handler(Looper.getMainLooper()).removeCallbacks(it) }
+        heartbeatRunnable = null
     }
 }

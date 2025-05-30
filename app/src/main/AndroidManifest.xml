@@ -86,7 +86,7 @@
             android:name=".activities.notification.NotificationActivity"
             android:exported="false" />
         <activity
-            android:name=".bluetooth.DualBluetoothActivity"
+            android:name=".activities.bluetooth.BluetoothConnectActivity"
             android:exported="false" />
         <activity
             android:name=".activities.translate.TranslateHistoryItemActivity"
@@ -153,7 +153,7 @@
             android:name=".activities.QuickNoteActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.BluetoothActivity"
+            android:name=".activities.BluetoothStatusActivity"
             android:exported="false" />
         <activity
             android:name=".activities.SettingsActivity"
@@ -162,7 +162,7 @@
             android:name=".activities.SilentModeActivity"
             android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".activities.main.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/Theme.JVSGlass">

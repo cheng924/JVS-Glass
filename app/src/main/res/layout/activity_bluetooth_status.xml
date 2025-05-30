@@ -5,6 +5,6 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".activities.BluetoothActivity">
+    tools:context=".activities.BluetoothStatusActivity">
 
 </androidx.constraintlayout.widget.ConstraintLayout>

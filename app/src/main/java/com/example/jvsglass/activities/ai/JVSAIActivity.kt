@@ -39,7 +39,7 @@ import com.example.jvsglass.network.TOSManager
 import io.reactivex.disposables.Disposable
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
-import com.example.jvsglass.MainActivity
+import com.example.jvsglass.activities.main.MainActivity
 import com.example.jvsglass.database.AiConversationEntity
 import com.example.jvsglass.database.AiMessageEntity
 import com.example.jvsglass.database.AppDatabase

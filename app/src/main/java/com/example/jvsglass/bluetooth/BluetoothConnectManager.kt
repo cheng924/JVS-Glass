@@ -8,22 +8,27 @@ import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.RequiresPermission
+import com.example.jvsglass.bluetooth.BluetoothConstants.DELAY_1S
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.VoiceManager
+import org.greenrobot.eventbus.EventBus
 
-object DualBluetoothManager {
+object BluetoothConnectManager {
     var onBleDeviceFound: ((BluetoothDevice) -> Unit)? = null
     var onClassicDeviceFound: ((BluetoothDevice) -> Unit)? = null
     var onDeviceConnected: ((BluetoothDevice) -> Unit)? = null
     var onMessageReceived: ((ByteArray) -> Unit)? = null
     var onVoiceReceived: ((ByteArray) -> Unit)? = null
 
+    data class ConnectionEvent(val isConnected: Boolean)
     private lateinit var appContext: Context
-    private lateinit var bleClientListener: BLEGattClient.MessageListener
-    private lateinit var classicCallback: ClassicRfcommClient.BluetoothCallback
-    private var bleGattClient: BLEGattClient? = null
-    private var classicRfcommClient: ClassicRfcommClient? = null
+    private lateinit var bleClientListener: BLEClient.MessageListener
+    private lateinit var classicCallback: ClassicClient.BluetoothCallback
+    private var bleClient: BLEClient? = null
+    private var classicClient: ClassicClient? = null
 
     private val bluetoothManager by lazy {
         appContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -38,14 +43,15 @@ object DualBluetoothManager {
     ) {
         appContext = context.applicationContext
 
-        bleClientListener = object : BLEGattClient.MessageListener {
+        bleClientListener = object : BLEClient.MessageListener {
             override fun onMessageReceived(value: ByteArray) {
                 onMessageReceived?.invoke(value)
             }
         }
-        bleGattClient = BLEGattClient.getInstance(appContext)
+        bleClient = BLEClient.getInstance(appContext)
+        bleClient!!.connectionListener = { EventBus.getDefault().post(ConnectionEvent(it))}
 
-        classicCallback = object : ClassicRfcommClient.BluetoothCallback {
+        classicCallback = object : ClassicClient.BluetoothCallback {
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onConnectionSuccess(deviceName: String) {
                 bluetoothAdapter.bondedDevices.find { it.name == deviceName }?.let {
@@ -63,21 +69,22 @@ object DualBluetoothManager {
 
             override fun onDisconnected() {  }
         }
-        classicRfcommClient = ClassicRfcommClient(bluetoothAdapter, classicCallback)
+        classicClient = ClassicClient(bluetoothAdapter, classicCallback)
+        classicClient!!.connectionListener = { EventBus.getDefault().post(ConnectionEvent(it))}
     }
 
     @RequiresPermission(
         allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT]
     )
-    fun stop() {
+    fun disconnect() {
         scanCallback?.let {
             bleScanner.stopScan(it)
             LogUtils.info("[DualBluetoothManager] 停止扫描")
         }
         scanCallback = null
 
-        bleGattClient?.disconnect()
-        classicRfcommClient?.disconnect()
+        bleClient?.disconnect()
+        classicClient?.disconnect()
     }
 
     @RequiresPermission(
@@ -91,7 +98,7 @@ object DualBluetoothManager {
         startScan { device ->
             onBleDeviceFound?.invoke(device)
         }
-        classicRfcommClient?.startDiscovery()
+        classicClient?.startDiscovery()
     }
 
     @RequiresPermission(
@@ -122,9 +129,11 @@ object DualBluetoothManager {
         LogUtils.info("[DualBluetoothManager] 启动扫描")
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
     fun connectBle(device: BluetoothDevice) {
-        bleGattClient?.apply {
+        bleClient?.apply {
             messageListener = bleClientListener
             connectToDevice(device)
         }
@@ -134,11 +143,23 @@ object DualBluetoothManager {
         allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
     )
     fun connectClassic(device: BluetoothDevice) {
-        classicRfcommClient?.connectToDevice(device)
+        classicClient?.connectToDevice(device)
+    }
+
+    @RequiresPermission(
+        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+    )
+    fun reconnectDevice(device: BluetoothDevice) {
+        if (bleClient?.isConnected() != true) connectBle(device)
+        if (classicClient?.coreState?.get() != ClassicClient.ConnectionState.CONNECTED) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                connectClassic(device)
+            }, DELAY_1S)  // 延迟1秒避免冲突
+        }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun sendText(message: String) {
-        bleGattClient?.sendMessage(message)
+        bleClient?.sendMessage(message)
     }
 }

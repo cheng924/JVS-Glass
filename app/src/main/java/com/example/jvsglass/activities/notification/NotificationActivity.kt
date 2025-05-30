@@ -16,11 +16,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.PacketCommandUtils
-import com.example.jvsglass.bluetooth.BLEGattClient
+import com.example.jvsglass.bluetooth.BLEClient
 
 class NotificationActivity : AppCompatActivity() {
     private lateinit var adapter: NotificationAdapter
-    private val bleClient by lazy { BLEGattClient.getInstance(this) }
+    private val bleClient by lazy { BLEClient.getInstance(this) }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {

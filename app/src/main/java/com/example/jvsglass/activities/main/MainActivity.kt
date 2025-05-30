@@ -1,4 +1,4 @@
-package com.example.jvsglass
+package com.example.jvsglass.activities.main
 
 import android.Manifest
 import android.content.Intent
@@ -14,13 +14,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.jvsglass.R
+import com.example.jvsglass.activities.bluetooth.BluetoothConnectActivity
 import com.example.jvsglass.activities.notification.NotificationActivity
 import com.example.jvsglass.activities.ai.JVSAIActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
 import com.example.jvsglass.bluetooth.BluetoothConstants
-import com.example.jvsglass.bluetooth.HeartbeatDetectorManager
-import com.example.jvsglass.bluetooth.DualBluetoothActivity
+import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.MyNotificationListenerService
 import com.example.jvsglass.utils.ToastUtils
@@ -68,7 +69,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_bluetooth_connect).setOnClickListener {
-            startActivity(Intent(this, DualBluetoothActivity::class.java))
+            startActivity(Intent(this, BluetoothConnectActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {
@@ -117,8 +118,8 @@ class MainActivity : AppCompatActivity() {
         EventBus.getDefault().unregister(this)
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
-    fun onConnectionEvent(event: HeartbeatDetectorManager.ConnectionEvent) {
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onConnectionEvent(event: BluetoothConnectManager.ConnectionEvent) {
         LogUtils.debug("[MainActivity] Event received: ${event.isConnected}")
         val statusText = if (event.isConnected) "已连接" else "未连接"
         findViewById<TextView>(R.id.tv_bluetooth_status).text = statusText
