@@ -31,7 +31,7 @@ import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_HOME_VALUE
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_INTERFACE_COMMAND
 import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TELEPROMPTER_VALUE
-import com.example.jvsglass.bluetooth.ble.BLEGattClient
+import com.example.jvsglass.bluetooth.BLEGattClient
 import com.example.jvsglass.dialog.WarningDialog
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.RealtimeAsrClient

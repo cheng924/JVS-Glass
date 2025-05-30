@@ -86,7 +86,7 @@
             android:name=".activities.notification.NotificationActivity"
             android:exported="false" />
         <activity
-            android:name=".bluetooth.dual.DualBluetoothActivity"
+            android:name=".bluetooth.DualBluetoothActivity"
             android:exported="false" />
         <activity
             android:name=".activities.translate.TranslateHistoryItemActivity"

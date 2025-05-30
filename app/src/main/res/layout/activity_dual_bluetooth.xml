@@ -75,14 +75,17 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginTop="8dp"
-        android:visibility="gone">
+        android:layout_marginHorizontal="20dp"
+        android:visibility="visible">
 
         <EditText
             android:id="@+id/etMessage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="输入文字消息"/>
+            android:textColor="@color/button_text"
+            android:hint="输入文字消息"
+            android:textColorHint="@color/button_text"/>
 
         <Button
             android:id="@+id/btnSendText"
@@ -98,6 +101,7 @@
         android:layout_height="match_parent"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="50dp"
-        android:visibility="gone"/>
+        android:layout_marginHorizontal="20dp"
+        android:visibility="visible"/>
 
 </LinearLayout>

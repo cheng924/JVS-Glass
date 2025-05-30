@@ -1,4 +1,4 @@
-package com.example.jvsglass.bluetooth.classic
+package com.example.jvsglass.bluetooth
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -16,7 +16,6 @@ import com.example.jvsglass.bluetooth.BluetoothConstants.RECEIVE_BUFFER_SIZE
 import com.example.jvsglass.bluetooth.BluetoothConstants.RETRY_INTERVAL
 import com.example.jvsglass.bluetooth.BluetoothConstants.UUID_RFCOMM
 import com.example.jvsglass.utils.LogUtils
-import com.example.jvsglass.bluetooth.dual.DualBluetoothManager
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.ExecutorService
@@ -28,8 +27,8 @@ class ClassicRfcommClient(
     private val adapter: BluetoothAdapter,
     private val callback: BluetoothCallback
 ) {
-
     enum class ConnectionState { DISCONNECTED, CONNECTING, CONNECTED }
+
     interface BluetoothCallback {
         fun onConnectionSuccess(deviceName: String)
         fun onConnectionFailed(message: String)
@@ -103,12 +102,12 @@ class ClassicRfcommClient(
 
         @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         override fun run() {
-            LogUtils.info("[ConnectThread] 开始连接设备: ${device.name} (${device.address})")
+            LogUtils.info("[ClassicRfcommClient] 开始连接设备: ${device.name} (${device.address})")
             adapter.cancelDiscovery()
 
             val handler = Handler(Looper.getMainLooper())
             val timeoutRunnable = Runnable {
-                LogUtils.error("[ConnectThread] 手动超时，关闭 socket")
+                LogUtils.error("[ClassicRfcommClient] 手动超时，关闭 socket")
                 try { socket?.close() } catch (_:IOException){}
                 onConnectFailed("连接超时")
             }
@@ -117,11 +116,11 @@ class ClassicRfcommClient(
             try {
                 socket?.connect()
                 handler.removeCallbacks(timeoutRunnable)
-                LogUtils.info("[ConnectThread] 连接成功")
+                LogUtils.info("[ClassicRfcommClient] 连接成功")
                 onConnectSuccess(device)
             } catch (e:IOException) {
                 handler.removeCallbacks(timeoutRunnable)
-                LogUtils.error("[ConnectThread] 连接失败: ${e.message}")
+                LogUtils.error("[ClassicRfcommClient] 连接失败: ${e.message}")
                 try { socket?.close() } catch (_:IOException){}
                 onConnectFailed("连接失败: ${e.message}")
             }
@@ -175,7 +174,7 @@ class ClassicRfcommClient(
                 while (coreState.get() == ConnectionState.CONNECTED) {
                     val bytesRead = inputStream.read(buffer)
                     if (bytesRead <= 0) break
-                    LogUtils.debug("接收字节数: $bytesRead")
+                    LogUtils.debug("[ClassicRfcommClient] 接收字节数: $bytesRead")
 
                     dataBuffer.write(buffer, 0, bytesRead)
                     while (dataBuffer.size() > 0) {
@@ -205,12 +204,12 @@ class ClassicRfcommClient(
                                         break
                                     }
                                 } else {
-                                    LogUtils.warn("未知头: $header，跳过一个字节")
+                                    LogUtils.warn("[ClassicRfcommClient] 未知头: $header，跳过一个字节")
                                     dataBuffer.reset()
                                     dataBuffer.write(data.copyOfRange(1, data.size))
                                 }
                             } else {
-                                LogUtils.debug("等待完整消息头")
+                                LogUtils.debug("[ClassicRfcommClient] 等待完整消息头")
                                 break
                             }
                         } else {
@@ -227,7 +226,7 @@ class ClassicRfcommClient(
                                 messageSize = 0
                                 isVoiceMessage = false
                             } else {
-                                LogUtils.debug("等待完整数据: ${dataBuffer.size()}/$messageSize")
+                                LogUtils.debug("[ClassicRfcommClient] 等待完整数据: ${dataBuffer.size()}/$messageSize")
                                 break
                             }
                         }

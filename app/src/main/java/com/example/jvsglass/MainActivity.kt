@@ -19,8 +19,8 @@ import com.example.jvsglass.activities.ai.JVSAIActivity
 import com.example.jvsglass.activities.teleprompter.TeleprompterActivity
 import com.example.jvsglass.activities.translate.TranslateActivity
 import com.example.jvsglass.bluetooth.BluetoothConstants
-import com.example.jvsglass.bluetooth.ble.HeartbeatDetectorManager
-import com.example.jvsglass.bluetooth.dual.DualBluetoothActivity
+import com.example.jvsglass.bluetooth.HeartbeatDetectorManager
+import com.example.jvsglass.bluetooth.DualBluetoothActivity
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.MyNotificationListenerService
 import com.example.jvsglass.utils.ToastUtils

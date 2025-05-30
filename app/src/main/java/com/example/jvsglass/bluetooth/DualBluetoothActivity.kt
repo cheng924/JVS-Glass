@@ -1,9 +1,15 @@
-package com.example.jvsglass.bluetooth.dual
+package com.example.jvsglass.bluetooth
 
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED
+import android.bluetooth.BluetoothDevice.ACTION_FOUND
+import android.bluetooth.BluetoothDevice.BOND_BONDED
+import android.bluetooth.BluetoothDevice.BOND_NONE
+import android.bluetooth.BluetoothDevice.EXTRA_BOND_STATE
+import android.bluetooth.BluetoothDevice.EXTRA_DEVICE
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -23,11 +29,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_HISTORY_SIZE
-import com.example.jvsglass.bluetooth.DeviceAdapter
-import com.example.jvsglass.bluetooth.DeviceItem
-import com.example.jvsglass.bluetooth.MessageAdapter
-import com.example.jvsglass.bluetooth.MessageItem
-import com.example.jvsglass.bluetooth.PacketMessageUtils
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
@@ -59,14 +60,14 @@ class DualBluetoothActivity : AppCompatActivity() {
     private val receiver = object : BroadcastReceiver() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onReceive(ctx: Context?, intent: Intent?) {
-            if (intent?.action == BluetoothDevice.ACTION_FOUND) {
+            if (intent?.action == ACTION_FOUND) {
                 if (hasPermissions(
                         Manifest.permission.BLUETOOTH_SCAN,
                         Manifest.permission.ACCESS_FINE_LOCATION
                     )
                 ) {
-                    val d = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                    d?.let {
+                    val device = intent.getParcelableExtra<BluetoothDevice>(EXTRA_DEVICE)
+                    device?.let {
                         runOnUiThread {
                             addDevice(it)
                             DualBluetoothManager.onClassicDeviceFound?.invoke(it)
@@ -78,13 +79,15 @@ class DualBluetoothActivity : AppCompatActivity() {
     }
 
     private val bondReceiver = object: BroadcastReceiver() {
-        @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN])
+        @RequiresPermission(
+            allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
+        )
         override fun onReceive(ctx: Context?, intent: Intent?) {
-            if (intent?.action == BluetoothDevice.ACTION_BOND_STATE_CHANGED) {
-                val dev = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE) ?: return
-                val state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE)
-                LogUtils.info("[BondReceiver] 设备: ${dev.address}, 配对状态: $state")
-                if (state == BluetoothDevice.BOND_BONDED) {
+            if (intent?.action == ACTION_BOND_STATE_CHANGED) {
+                val dev = intent.getParcelableExtra<BluetoothDevice>(EXTRA_DEVICE) ?: return
+                val state = intent.getIntExtra(EXTRA_BOND_STATE, BOND_NONE)
+                LogUtils.info("[DualBluetoothActivity] 设备: ${dev.address}, 配对状态: $state")
+                if (state == BOND_BONDED) {
                     BluetoothAdapter.getDefaultAdapter().cancelDiscovery()
                     DualBluetoothManager.connectClassic(dev)
                 }
@@ -121,7 +124,7 @@ class DualBluetoothActivity : AppCompatActivity() {
                 if (hasPermissions(Manifest.permission.BLUETOOTH_CONNECT)) {
                     DualBluetoothManager.connectBle(it)
                     DualBluetoothManager.connectClassic(it)
-                    ToastUtils.show(this, "正在连接 BLE 和 Classic ...")
+                    ToastUtils.show(this, "正在连接 ...")
                 } else {
                     requestPermissionsIfNeeded()
                 }
@@ -130,9 +133,8 @@ class DualBluetoothActivity : AppCompatActivity() {
         lvDevices.adapter = deviceListAdapter
         lvDevices.layoutManager = LinearLayoutManager(this)
 
-        // 初始化 DualBluetoothManager
         btAdapter?.let {
-            DualBluetoothManager.initialize(this, it, voiceManager)
+            DualBluetoothManager.initialize(this, voiceManager)
         } ?: run {
             ToastUtils.show(this, "设备不支持蓝牙")
             finish()
@@ -143,8 +145,7 @@ class DualBluetoothActivity : AppCompatActivity() {
         DualBluetoothManager.onDeviceConnected = { device ->
             runOnUiThread {
                 connectedDeviceName = device.name
-                tvStatus.text = "已连接：服务端 ${device.name}"
-                LogUtils.info("[DualBluetoothActivity] 已连接：服务端 ${device.name}")
+                tvStatus.text = "已连接：${device.name}"
                 devicesTip.visibility = View.GONE
                 lvDevices.visibility = View.GONE
             }
@@ -167,7 +168,7 @@ class DualBluetoothActivity : AppCompatActivity() {
         }
 
         // 注册 Classic 发现广播
-        registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
+        registerReceiver(receiver, IntentFilter(ACTION_FOUND))
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
             onBackPressed()
@@ -177,9 +178,8 @@ class DualBluetoothActivity : AppCompatActivity() {
             requestPermissionsIfNeeded()
             deviceItems.clear()
             deviceListAdapter.submitList(deviceItems.toList())
-            // 启动 BLE+Classic 扫描，并注册 bondReceiver
             DualBluetoothManager.startAsClient()
-            registerReceiver(bondReceiver, IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED))
+            registerReceiver(bondReceiver, IntentFilter(ACTION_BOND_STATE_CHANGED))
             btnSearch.isEnabled = false
         }
 
@@ -200,7 +200,9 @@ class DualBluetoothActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         recyclerView = findViewById(R.id.messageRecyclerView)
-        messageAdapter = MessageAdapter(messageHistory) { filePath -> voiceManager.playVoiceMessage(filePath) }
+        messageAdapter = MessageAdapter(messageHistory) { filePath ->
+            voiceManager.playVoiceMessage(filePath)
+        }
         recyclerView.adapter = messageAdapter
         recyclerView.layoutManager = LinearLayoutManager(this)
     }
@@ -243,7 +245,7 @@ class DualBluetoothActivity : AppCompatActivity() {
 
     @SuppressLint("NotifyDataSetChanged")
     private fun addMessageToHistory(message: String, voiceFilePath: String? = null) {
-        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        val timestamp = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         val messageWithTime = "[$timestamp] $message"
         if (messageHistory.size >= MAX_HISTORY_SIZE) messageHistory.removeAt(0)
         messageHistory.add(MessageItem(messageWithTime, voiceFilePath))
@@ -260,7 +262,7 @@ class DualBluetoothActivity : AppCompatActivity() {
                 putExtra("CONNECTED_DEVICE", connectedDeviceName)
             })
         } else {
-            setResult(RESULT_CANCELED)  // 用户没连上，则告知取消/失败
+            setResult(RESULT_CANCELED)
         }
         super.onBackPressed()
     }

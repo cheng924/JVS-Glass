@@ -1,4 +1,4 @@
-package com.example.jvsglass.bluetooth.ble
+package com.example.jvsglass.bluetooth
 
 import android.Manifest
 import android.os.Handler
@@ -13,11 +13,10 @@ object HeartbeatDetectorManager {
     private var retryCount = 0
     private lateinit var handler: Handler
 
-    // 状态变更事件
     data class ConnectionEvent(val isConnected: Boolean)
 
     fun initialize(client: BLEGattClient) {
-        this.bleClient = client
+        bleClient = client
         val handlerThread = HandlerThread("HeartbeatThread").apply { start() }
         handler = Handler(handlerThread.looper)
     }
@@ -43,19 +42,16 @@ object HeartbeatDetectorManager {
         val currentState = bleClient.isConnected()
 //        LogUtils.info("[Heartbeat] Posting event: isConnected=$currentState")
         EventBus.getDefault().postSticky(ConnectionEvent(currentState))
-
-        // 断连处理
         if (!currentState) {
             handleDisconnection()
         } else {
-            retryCount = 0 // 重置计数器
+            retryCount = 0
         }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun handleDisconnection() {
         if (bleClient.isConnecting) return
-
         when {
             retryCount < MAX_RETRY -> {
                 retryCount++

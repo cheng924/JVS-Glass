@@ -16,7 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.PacketCommandUtils
-import com.example.jvsglass.bluetooth.ble.BLEGattClient
+import com.example.jvsglass.bluetooth.BLEGattClient
 
 class NotificationActivity : AppCompatActivity() {
     private lateinit var adapter: NotificationAdapter

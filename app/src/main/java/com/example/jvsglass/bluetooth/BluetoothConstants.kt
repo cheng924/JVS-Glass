@@ -15,7 +15,7 @@ object BluetoothConstants {
     const val REQUEST_LOCATION = 1003
 
     const val MAX_RETRY = 3             // 重试次数
-    const val RETRY_INTERVAL = 2_000L   // 重连间隔
+    const val RETRY_INTERVAL = 2_000L   // 重试间隔
     const val HEART_INTERVAL = 10_000L  // 心跳监测间隔
     const val CONNECT_TIMEOUT = 30_000L
 
