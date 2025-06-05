@@ -22,6 +22,7 @@ object BluetoothConnectManager {
     var onDeviceConnected: ((BluetoothDevice) -> Unit)? = null
     var onMessageReceived: ((ByteArray) -> Unit)? = null
     var onVoiceReceived: ((ByteArray) -> Unit)? = null
+    var onAudioStreamReceived: ((ByteArray) -> Unit)? = null
 
     data class ConnectionEvent(val isConnected: Boolean)
     private lateinit var appContext: Context
@@ -64,7 +65,8 @@ object BluetoothConnectManager {
             }
 
             override fun onAudioStreamReceived(streamData: ByteArray) {
-                voiceManager?.playStreamingAudio(streamData)
+//                voiceManager?.playStreamingAudio(streamData)
+                onAudioStreamReceived?.invoke(streamData)
             }
 
             override fun onDisconnected() {  }

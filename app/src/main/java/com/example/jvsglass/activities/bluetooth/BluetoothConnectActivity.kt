@@ -16,6 +16,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -31,6 +33,8 @@ import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_HISTORY_SIZE
 import com.example.jvsglass.bluetooth.PacketMessageUtils
+import com.example.jvsglass.network.NetworkManager
+import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
@@ -58,6 +62,19 @@ class BluetoothConnectActivity : AppCompatActivity() {
     private lateinit var messageAdapter: MessageAdapter
     private var connectedDeviceName: String? = null
     private lateinit var voiceManager: VoiceManager
+    private lateinit var realtimeAsrClient: RealtimeAsrClient
+
+    private var asrConnected: Boolean = false
+    private val asrTimeoutHandler = Handler(Looper.getMainLooper())
+    private val asrTimeoutRunnable = Runnable {
+        if (asrConnected) {
+            realtimeAsrClient.disconnect()
+            asrConnected = false
+            runOnUiThread {
+                LogUtils.info("[DualBluetoothActivity] ASR已断开：超过5秒未收到音频")
+            }
+        }
+    }
 
     private val receiver = object : BroadcastReceiver() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -110,6 +127,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
         setContentView(R.layout.activity_bluetooth_connect)
 
         voiceManager = VoiceManager(this)
+        initRealtimeAsrClient()
 
         btnSearch = findViewById(R.id.btnSearch)
         tvStatus = findViewById(R.id.tvStatus)
@@ -168,6 +186,18 @@ class BluetoothConnectActivity : AppCompatActivity() {
                 runOnUiThread { ToastUtils.show(this, "保存接收音频失败: ${e.message}") }
             }
         }
+        BluetoothConnectManager.onAudioStreamReceived = { data ->
+            if (!asrConnected) {
+                realtimeAsrClient.connect()
+                asrConnected = true
+                LogUtils.info("[DualBluetoothActivity] ASR连接已建立，开始发送音频数据")
+            }
+            // 发送当前音频块
+            realtimeAsrClient.sendAudioChunk(data)
+
+            asrTimeoutHandler.removeCallbacks(asrTimeoutRunnable)
+            asrTimeoutHandler.postDelayed(asrTimeoutRunnable, 5_000L)
+        }
 
         // 注册 Classic 发现广播
         registerReceiver(receiver, IntentFilter(ACTION_FOUND))
@@ -207,6 +237,37 @@ class BluetoothConnectActivity : AppCompatActivity() {
         }
         recyclerView.adapter = messageAdapter
         recyclerView.layoutManager = LinearLayoutManager(this)
+    }
+
+    private fun initRealtimeAsrClient() {
+        realtimeAsrClient = NetworkManager.getInstance()
+            .createRealtimeAsrClient(object : RealtimeAsrClient.RealtimeAsrCallback {
+                override fun onPartialResult(text: String) {
+                    runOnUiThread { addMessageToHistory("[ASR识别] $text") }
+                }
+
+                override fun onFinalResult(text: String) {
+                    runOnUiThread {
+                        LogUtils.info("[DualBluetoothActivity] ASR结果：$text")
+                    }
+                }
+
+                override fun onError(error: String) {
+                    runOnUiThread { LogUtils.error(error) }
+                }
+
+                override fun onConnectionChanged(connected: Boolean) {
+                    LogUtils.info("ASR连接状态: $connected")
+                    if (!connected) {
+                        asrConnected = false
+                        LogUtils.info("ASR 已断开")
+                    }
+                }
+
+                override fun onSessionReady() {
+                    LogUtils.info("ASR session ready")
+                }
+            })
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
