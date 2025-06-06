@@ -17,15 +17,25 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.PacketCommandUtils
 import com.example.jvsglass.bluetooth.BLEClient
+import com.example.jvsglass.utils.LogUtils
 
 class NotificationActivity : AppCompatActivity() {
     private lateinit var adapter: NotificationAdapter
     private val bleClient by lazy { BLEClient.getInstance(this) }
 
     private val receiver = object : BroadcastReceiver() {
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onReceive(context: Context?, intent: Intent?) {
             adapter.updateData(NotificationRepository.notifications
                 .sortedByDescending { it.messages.maxOfOrNull { msg -> msg.first } })
+
+            NotificationRepository.notifications.forEach {
+                val name = it.appName
+                val title = it.sender
+                val text = it.messages.maxOfOrNull { msg -> msg.second }?.substringBefore("]") + "]点击查看详情信息"
+                LogUtils.info("[NotificationActivity]: $name - $title : $text")
+                sendMessageCMD(name, title, text)
+            }
         }
     }
 
@@ -73,7 +83,7 @@ class NotificationActivity : AppCompatActivity() {
         )
 
         findViewById<Button>(R.id.btn_test).setOnClickListener {
-            sendCommand()
+            sendMessageCMD("微信", "好友", "[66条]点击查看详情信息")
         }
     }
 
@@ -89,12 +99,12 @@ class NotificationActivity : AppCompatActivity() {
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    private fun sendCommand() {
+    private fun sendMessageCMD(name: String, title: String, text: String) {
         val packet = PacketCommandUtils.createMessageReminderPacket(
-            name  = "微信",
-            title = "你的好友",
-            text  = "哈哈哈",
-            date  = "2025.5.27 17:54:56"
+            name  = name,
+            title = title,
+            text  = text,
+            date  = ""
         )
         bleClient.sendCommand(packet)
     }

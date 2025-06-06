@@ -1,18 +1,26 @@
 package com.example.jvsglass.activities.notification
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.text.format.DateFormat
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
+import com.example.jvsglass.bluetooth.BLEClient
+import com.example.jvsglass.bluetooth.PacketCommandUtils
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.MyNotificationListenerService
 import java.util.Date
 
 class NotificationDetailActivity : AppCompatActivity() {
+    private val bleClient by lazy { BLEClient.getInstance(this) }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,10 +37,30 @@ class NotificationDetailActivity : AppCompatActivity() {
             if (parts.size == 2) {
                 val timestamp = parts[0].toLong()
                 val message = getMessageStr(parts[1], sender)
-                val timeStr = android.text.format.DateFormat.format("yyyy-MM-dd HH:mm:ss", Date(timestamp)).toString()
+                val timeStr = DateFormat.format("yyyy-MM-dd HH:mm:ss", Date(timestamp)).toString()
                 "[$timeStr] $message\n"
             } else {
                 "无效消息"
+            }
+        }
+
+        messagesList.sortedBy { str -> str.split(":", limit = 2)[0].toLong() }
+            .forEach { str ->
+            val parts = str.split(":", limit = 2)
+            if (parts.size == 2) {
+                val timestamp = parts[0].toLong()
+                val messageBody = getMessageStr(parts[1], sender)
+                val timeStr = DateFormat.format("yyyy-MM-dd HH:mm:ss", Date(timestamp)).toString()
+
+                LogUtils.info("[NotificationDetailActivity] $appName, $sender, $messageBody, $timeStr")
+                sendMessageCMD(
+                    name  = appName,
+                    title = sender,
+                    text  = messageBody,
+                    date  = timeStr
+                )
+            } else {
+                LogUtils.error("[NotificationDetailActivity] 无效的消息格式: $str")
             }
         }
 
@@ -83,5 +111,16 @@ class NotificationDetailActivity : AppCompatActivity() {
             e.printStackTrace()
             LogUtils.error("跳转失败：${e.message}")
         }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun sendMessageCMD(name: String, title: String, text: String, date: String) {
+        val packet = PacketCommandUtils.createMessageReminderPacket(
+            name  = name,
+            title = title,
+            text  = text,
+            date  = date
+        )
+        bleClient.sendCommand(packet)
     }
 }

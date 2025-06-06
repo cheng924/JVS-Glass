@@ -46,9 +46,7 @@ object PacketCommandUtils {
 
     /**
      * 组包：
-     *  header(1B) + cmd(1B) + outer_tlv_type(1B=0x80)
-     *    + tlv_len(2B LE) + tlv_value(XB)
-     *
+     *  header(1B) + cmd(1B) + outer_tlv_type(1B=0x80) + tlv_len(2B LE) + tlv_value(XB)
      * @param cmd  操作命令
      * @param tlvValue 外层 TLV 的原始 value 字段（比如打开界面的那几字节）
      */
@@ -74,7 +72,7 @@ object PacketCommandUtils {
      * 3) 跳过 outer_tlv_type + length
      * 4) 拆 inner TLV 列表：type(1B)+len(2B LE)+value
      */
-    fun parsePacket(packet: ByteArray): ParsedPacket? {
+    private fun parsePacket(packet: ByteArray): ParsedPacket? {
         if (packet.size < 5 || packet[0] != HEADER) return null
 
         // ByteBuffer 简化读取
@@ -110,7 +108,6 @@ object PacketCommandUtils {
     /**
      * 解析按键事件：提取 key_value 值
      * cmd = 0x82，inner TLV 类型为 0x01
-     *
      */
     fun parseKeyValuePacket(packet: ByteArray): Int {
         val parsed = parsePacket(packet) ?: return RemoteControlKeyValue.KEY_ERROR
@@ -150,7 +147,7 @@ object PacketCommandUtils {
     /**
      * 消息提醒 - 发送包
      *
-     * 内层 TLV 顺序不限，但必须包含：
+     * 内层 TLV 顺序不限，可缺：
      *   • TLV_MSG_NAME
      *   • TLV_MSG_TITLE
      *   • TLV_MSG_TEXT
@@ -159,7 +156,7 @@ object PacketCommandUtils {
      * @param name   发送人或来源名称
      * @param title  消息标题
      * @param text   消息正文
-     * @param date   时间戳字符串（如 "2025-05-27 14:30"）
+     * @param date   时间戳字符串（"yyyy-MM-dd HH:mm:ss"）
      */
     fun createMessageReminderPacket(
         name: String,
@@ -167,21 +164,17 @@ object PacketCommandUtils {
         text: String,
         date: String
     ): ByteArray {
-        // 转成 UTF-8 字节
         val nameBytes  = name.toByteArray(Charsets.UTF_8)
         val titleBytes = title.toByteArray(Charsets.UTF_8)
         val textBytes  = text.toByteArray(Charsets.UTF_8)
         val dateBytes  = date.toByteArray(Charsets.UTF_8)
 
-        // 分别构造四个 TLV
         val tlvName  = buildTlv(TLV_MSG_NAME,  nameBytes)
         val tlvTitle = buildTlv(TLV_MSG_TITLE, titleBytes)
         val tlvText  = buildTlv(TLV_MSG_TEXT,  textBytes)
         val tlvDate  = buildTlv(TLV_MSG_DATE,  dateBytes)
 
-        // 内层 TLV 区：顺序可变，按name/title/text/date拼接
         val innerTlv = tlvName + tlvTitle + tlvText + tlvDate
-
         return createPacket(CMD_SEND_MESSAGE_REMINDER, innerTlv)
     }
 }
