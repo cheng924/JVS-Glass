@@ -1,6 +1,7 @@
 package com.example.jvsglass.activities.main
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -34,6 +35,10 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val REQUEST_BT = 1001
     }
+
+    private var isConnected = false
+    private var deviceName = ""
+    private var deviceAddress = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,7 +74,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.ll_bluetooth_connect).setOnClickListener {
-            startActivity(Intent(this, BluetoothConnectActivity::class.java))
+            val intent = Intent(this, BluetoothConnectActivity::class.java).apply {
+                putExtra("isConnected", isConnected)
+                putExtra("deviceName", deviceName)
+            }
+            startActivity(intent)
         }
 
         findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {
@@ -120,23 +129,27 @@ class MainActivity : AppCompatActivity() {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onConnectionEvent(event: BluetoothConnectManager.ConnectionEvent) {
-        LogUtils.debug("[MainActivity] Event received: ${event.isConnected}")
-        val statusText = if (event.isConnected) "已连接" else "未连接"
+        isConnected = event.isConnected
+        deviceName = event.deviceName.toString()
+        deviceAddress = event.deviceAddress.toString()
+        LogUtils.debug("[MainActivity] $isConnected $deviceName $deviceAddress")
+        val statusText = if (isConnected) "已连接" else "未连接"
         findViewById<TextView>(R.id.tv_bluetooth_status).text = statusText
 
-        val statusText2 = if (event.isConnected) "蓝牙已连接" else "蓝牙未连接"
+        val statusText2 = if (isConnected) "蓝牙已连接\n${deviceName}" else "蓝牙未连接"
         findViewById<TextView>(R.id.btn_bluetooth).text = statusText2
     }
 
+    @SuppressLint("SetTextI18n")
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_BT) {
             if (resultCode == RESULT_OK) {
                 val name = data?.getStringExtra("CONNECTED_DEVICE")
-                ToastUtils.show(this, "蓝牙已连接: $name")
+                findViewById<TextView>(R.id.btn_bluetooth).text = "蓝牙已连接:\n$name"
             } else {
-                ToastUtils.show(this, "未连接蓝牙")
+                ToastUtils.show(this, "蓝牙未连接")
             }
         }
     }

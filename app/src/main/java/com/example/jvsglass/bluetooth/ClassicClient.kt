@@ -39,7 +39,7 @@ class ClassicClient(
         fun onDisconnected()
     }
 
-    var connectionListener: ((connected: Boolean) -> Unit)? = null
+    var connectionListener: ((connected: Boolean, deviceName: String?, deviceAddress: String?) -> Unit)? = null
 
     private var clientSocket: BluetoothSocket? = null
     var coreState = AtomicReference(ConnectionState.DISCONNECTED)
@@ -103,7 +103,7 @@ class ClassicClient(
             setState(ConnectionState.DISCONNECTED)
             LogUtils.info("[ClassicRfcommClient] 已断开连接")
             callback.onDisconnected()
-            connectionListener?.invoke(false)
+            connectionListener?.invoke(false, "", "")
             BluetoothConnectManager.reconnectDevice(socket.remoteDevice)
         } catch (e: IOException) {
             LogUtils.error("[ClassicRfcommClient] 关闭Socket失败: ${e.message}")
@@ -147,7 +147,7 @@ class ClassicClient(
                 setState(ConnectionState.CONNECTED)
             }
             callback.onConnectionSuccess(device.name ?: "Unknown")
-            connectionListener?.invoke(true)
+            connectionListener?.invoke(true, device.name, device.address)
             lastHeartbeatResponse = System.currentTimeMillis()
 //            startHeartbeat()
 
@@ -157,7 +157,7 @@ class ClassicClient(
 
         private fun onConnectFailed(msg: String) {
             callback.onConnectionFailed(msg)
-            connectionListener?.invoke(false)
+            connectionListener?.invoke(false, "", "")
             reconnect(device)
         }
     }

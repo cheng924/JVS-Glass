@@ -53,6 +53,8 @@ class BluetoothConnectActivity : AppCompatActivity() {
     private lateinit var btnSendText: Button
     private lateinit var recyclerView: RecyclerView
 
+    private var isConnected = false
+    private var deviceName = ""
     private val devices = mutableListOf<BluetoothDevice>()
     private val deviceItems = mutableListOf<DeviceItem>()
     private lateinit var deviceListAdapter: DeviceAdapter
@@ -228,6 +230,18 @@ class BluetoothConnectActivity : AppCompatActivity() {
         }
 
         setupRecyclerView()
+
+        isConnected = intent.getBooleanExtra("isConnected", false)
+        deviceName = intent.getStringExtra("deviceName").toString()
+        if (isConnected) {
+            devicesTip.visibility = View.GONE
+            lvDevices.visibility = View.GONE
+            tvStatus.text = "已连接：$deviceName"
+        } else {
+            devicesTip.visibility = View.VISIBLE
+            lvDevices.visibility = View.VISIBLE
+            tvStatus.text = "待连接"
+        }
     }
 
     private fun setupRecyclerView() {

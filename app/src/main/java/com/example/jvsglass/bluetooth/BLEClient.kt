@@ -28,7 +28,7 @@ class BLEClient private constructor(context: Context) {
         }
     }
 
-    var connectionListener: ((connected: Boolean) -> Unit)? = null
+    var connectionListener: ((connected: Boolean, deviceName: String?, deviceAddress: String?) -> Unit)? = null
 
     private var connectedDevice: BluetoothDevice? = null
     private val contextRef = WeakReference(context)
@@ -65,7 +65,7 @@ class BLEClient private constructor(context: Context) {
                         connectionState = BluetoothProfile.STATE_CONNECTED
                         isConnecting = false
                         lastHeartbeatResponse = System.currentTimeMillis()
-                        connectionListener?.invoke(true)
+                        connectionListener?.invoke(true, gatt.device.name ,gatt.device.address)
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         LogUtils.info("[BLE] 物理层断开，断开时的连接参数：${gatt.device}")
                         if (isConnecting) {
@@ -75,7 +75,7 @@ class BLEClient private constructor(context: Context) {
                         }
                         connectionState = BluetoothProfile.STATE_DISCONNECTED
                         isConnecting = false
-                        connectionListener?.invoke(false)
+                        connectionListener?.invoke(false, "", "")
                         stopHeartbeat()
                         connectedDevice?.let { BluetoothConnectManager.reconnectDevice(it) }
                     }

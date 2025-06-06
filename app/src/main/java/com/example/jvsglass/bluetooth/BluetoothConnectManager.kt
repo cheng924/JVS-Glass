@@ -24,7 +24,11 @@ object BluetoothConnectManager {
     var onVoiceReceived: ((ByteArray) -> Unit)? = null
     var onAudioStreamReceived: ((ByteArray) -> Unit)? = null
 
-    data class ConnectionEvent(val isConnected: Boolean)
+    data class ConnectionEvent(
+        val isConnected: Boolean,
+        val deviceName: String? = null,
+        val deviceAddress: String? = null
+    )
     private lateinit var appContext: Context
     private lateinit var bleClientListener: BLEClient.MessageListener
     private lateinit var classicCallback: ClassicClient.BluetoothCallback
@@ -50,7 +54,15 @@ object BluetoothConnectManager {
             }
         }
         bleClient = BLEClient.getInstance(appContext)
-        bleClient!!.connectionListener = { EventBus.getDefault().post(ConnectionEvent(it))}
+        bleClient!!.connectionListener = { isConnected, deviceName, deviceAddress ->
+            EventBus.getDefault().post(
+                ConnectionEvent(
+                    isConnected = isConnected,
+                    deviceName = deviceName,
+                    deviceAddress = deviceAddress
+                )
+            )
+        }
 
         classicCallback = object : ClassicClient.BluetoothCallback {
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -72,7 +84,15 @@ object BluetoothConnectManager {
             override fun onDisconnected() {  }
         }
         classicClient = ClassicClient(bluetoothAdapter, classicCallback)
-        classicClient!!.connectionListener = { EventBus.getDefault().post(ConnectionEvent(it))}
+        classicClient!!.connectionListener = { isConnected, deviceName, deviceAddress ->
+            EventBus.getDefault().post(
+                ConnectionEvent(
+                    isConnected = isConnected,
+                    deviceName = deviceName,
+                    deviceAddress = deviceAddress
+                )
+            )
+        }
     }
 
     @RequiresPermission(
