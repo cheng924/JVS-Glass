@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.runtime)
+    implementation(libs.play.services.vision.common)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -116,4 +117,7 @@ dependencies {
 
     implementation(libs.tos.android.sdk)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
+
+    implementation(libs.navigation.fragment.ktx)
+    implementation(libs.navigation.ui.ktx)
 }

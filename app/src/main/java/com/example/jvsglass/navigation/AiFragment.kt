@@ -1,16 +1,18 @@
-package com.example.jvsglass.activities.ai
+package com.example.jvsglass.navigation;
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -18,40 +20,43 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.ViewSwitcher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
-import com.example.jvsglass.network.ChatRequest
-import com.example.jvsglass.network.ChatResponse
-import com.example.jvsglass.utils.LogUtils
-import com.example.jvsglass.utils.SystemFileOpener
-import com.example.jvsglass.utils.ToastUtils
-import com.example.jvsglass.utils.VoiceManager
-import com.example.jvsglass.network.NetworkManager
-import java.io.File
-import com.example.jvsglass.network.RealtimeAsrClient
-import com.example.jvsglass.network.TOSManager
-import io.reactivex.disposables.Disposable
-import androidx.core.net.toUri
-import androidx.lifecycle.lifecycleScope
+import com.example.jvsglass.activities.ai.AiMessage
+import com.example.jvsglass.activities.ai.AiMessageAdapter
+import com.example.jvsglass.activities.ai.CardAdapter
+import com.example.jvsglass.activities.ai.CardItem
 import com.example.jvsglass.database.AiConversationEntity
 import com.example.jvsglass.database.AiMessageEntity
 import com.example.jvsglass.database.AppDatabase
 import com.example.jvsglass.database.AppDatabaseProvider
-import com.example.jvsglass.navigation.HomeFragment
+import com.example.jvsglass.network.ChatRequest
+import com.example.jvsglass.network.ChatResponse
+import com.example.jvsglass.network.NetworkManager
+import com.example.jvsglass.network.RealtimeAsrClient
+import com.example.jvsglass.network.TOSManager
+import com.example.jvsglass.utils.LogUtils
+import com.example.jvsglass.utils.ToastUtils
+import com.example.jvsglass.utils.SystemFileOpener
+import com.example.jvsglass.utils.VoiceManager
+import io.reactivex.disposables.Disposable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.Locale
 import java.util.UUID
 
-class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
-
+class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
     private lateinit var voiceManager: VoiceManager
     private lateinit var fileOpener: SystemFileOpener
     private lateinit var realtimeAsrClient: RealtimeAsrClient
@@ -97,18 +102,30 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private lateinit var ivFile: ImageView
     private lateinit var ivCall: ImageView
 
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        return inflater.inflate(R.layout.fragment_ai, container, false)
+    }
+
     @SuppressLint("NotifyDataSetChanged")
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_jvsai)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-        voiceManager = VoiceManager(this)
-        fileOpener = SystemFileOpener(this)
+        voiceManager = VoiceManager(requireContext())
+        fileOpener = SystemFileOpener(requireContext())
         fileOpener.registerLaunchers(this, this)
 
-        setupUI()
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestCameraPermission.launch(Manifest.permission.CAMERA)
+        }
+
+        setupUI(view)
         setupCardView()
         updateButtonVisibility()
 
@@ -121,43 +138,50 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         setupClickListeners()
         initRealtimeAsrClient()
 
-        handleHistoryIntent(intent)
+        // 处理来自导航的 Arguments
+        arguments?.getString("conversationId")?.let { convId ->
+            val fromHistory = arguments?.getBoolean("fromHistory", false) ?: false
+            if (fromHistory && messageList.isNotEmpty()) {
+                saveConversationToDb()
+            }
+            currentConversationId = convId
+            isLoadedFromHistory = true
+            messageList.clear()
+            messageAdapter.notifyDataSetChanged()
+            loadConversation(convId)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun setupUI() {
-        tvConversationTitle = findViewById(R.id.tvConversationTitle)
-        rvMessages = findViewById(R.id.rvMessages)
-        rvCardView = findViewById(R.id.rvCardView)
-        rvCardView.layoutManager = LinearLayoutManager(this)
-        llTextInput = findViewById(R.id.llTextInput)
-        ivInput = findViewById(R.id.ivInput)
-        inputSwitcher = findViewById(R.id.inputSwitcher)
-        etMessage = findViewById(R.id.etMessage)
-        tvVoiceChoose = findViewById(R.id.tvVoiceChoose)
-        ivAdd = findViewById(R.id.ivAdd)
-        ivSend = findViewById(R.id.ivSend)
+    private fun setupUI(view: View) {
+        tvConversationTitle = view.findViewById(R.id.tvConversationTitle)
+        rvMessages = view.findViewById(R.id.rvMessages)
+        rvCardView = view.findViewById(R.id.rvCardView)
+        rvCardView.layoutManager = LinearLayoutManager(requireContext())
+        llTextInput = view.findViewById(R.id.llTextInput)
+        ivInput = view.findViewById(R.id.ivInput)
+        inputSwitcher = view.findViewById(R.id.inputSwitcher)
+        etMessage = view.findViewById(R.id.etMessage)
+        tvVoiceChoose = view.findViewById(R.id.tvVoiceChoose)
+        ivAdd = view.findViewById(R.id.ivAdd)
+        ivSend = view.findViewById(R.id.ivSend)
 
-        llVoiceInput = findViewById(R.id.llVoiceInput)
-        tvVoiceInputTip = findViewById(R.id.tvVoiceInputTip)
-        tvVoiceInput = findViewById(R.id.tvVoiceInput)
+        llVoiceInput = view.findViewById(R.id.llVoiceInput)
+        tvVoiceInputTip = view.findViewById(R.id.tvVoiceInputTip)
+        tvVoiceInput = view.findViewById(R.id.tvVoiceInput)
 
-        mediaButtons = findViewById(R.id.mediaButtons)
-        llImageAdd = findViewById(R.id.llImageAdd)
-        llGallery = findViewById(R.id.llGallery)
-        llCamera = findViewById(R.id.llCamera)
-        icGallery = findViewById(R.id.icGallery)
-        ivCamera = findViewById(R.id.ivCamera)
-        ivFile = findViewById(R.id.ivFile)
-        ivCall = findViewById(R.id.ivCall)
+        mediaButtons = view.findViewById(R.id.mediaButtons)
+        llImageAdd = view.findViewById(R.id.llImageAdd)
+        llGallery = view.findViewById(R.id.llGallery)
+        llCamera = view.findViewById(R.id.llCamera)
+        icGallery = view.findViewById(R.id.icGallery)
+        ivCamera = view.findViewById(R.id.ivCamera)
+        ivFile = view.findViewById(R.id.ivFile)
+        ivCall = view.findViewById(R.id.ivCall)
 
-        findViewById<ImageView>(R.id.btnBack).setOnClickListener {
-            onBackPressed()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-        }
-
-        findViewById<ImageView>(R.id.ivAiHistory).setOnClickListener {
-            startActivity(Intent(this, AiHistoryActivity::class.java))
+        view.findViewById<ImageView>(R.id.ivAiHistory).setOnClickListener {
+            // 导航到历史记录 Fragment 或 Activity
+            // 例如：NavHostFragment.findNavController(this).navigate(R.id.action_to_history)
         }
 
         etMessage.addTextChangedListener(object : TextWatcher {
@@ -177,7 +201,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             object : CardAdapter.OnCardAdapterListener {
                 override fun onAddCardClicked(position: Int) {
                     if (cardItems.size < CardAdapter.MAX_CARD_ITEM) {
-                        if (cardItems[0].tag == "IMAGE") {
+                        if (cardItems.isNotEmpty() && cardItems[0].tag == "IMAGE") {
                             llImageAdd.visibility = View.VISIBLE
                             llGallery.setOnClickListener {
                                 fileOpener.openGallery()
@@ -197,12 +221,12 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     deleteOldCard(position)
                 }
             }).apply {
-                submitList(cardItems.toList())
+            submitList(cardItems.toList())
         }
 
         rvCardView.apply {
             layoutManager = LinearLayoutManager(
-                this@JVSAIActivity,
+                requireContext(),
                 LinearLayoutManager.HORIZONTAL,
                 false
             )
@@ -214,7 +238,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private fun setupRecyclerView() {
         messageAdapter = AiMessageAdapter(messageList)
         rvMessages.apply {
-            layoutManager = LinearLayoutManager(this@JVSAIActivity)
+            layoutManager = LinearLayoutManager(requireContext())
             adapter = messageAdapter
         }
     }
@@ -234,7 +258,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
                         override fun onAudioData(data: ByteArray) {
                             if (!isCanceled) {
-                                realtimeAsrClient.sendAudioChunk(data) // 实时发送音频块
+                                realtimeAsrClient.sendAudioChunk(data)
                                 LogUtils.debug("实时发送音频块，大小=${data.size}字节")
                             }
                         }
@@ -243,23 +267,23 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     llTextInput.visibility = View.GONE
                     tvVoiceInputTip.text = "松手发送，上移取消"
                     tvVoiceInput.apply {
-                        setTextColor(ContextCompat.getColor(context, R.color.white))
+                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                         setBackgroundResource(R.drawable.bg_voice_recording)
                     }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val deltaY = startY - event.rawY
-                    if (deltaY > 100.dpToPx()) { // 滑动超过100dp视为取消
+                    if (deltaY > 100.dpToPx()) {
                         if (!isCanceled) {
                             isCanceled = true
                             llVoiceInput.visibility = View.VISIBLE
                             llTextInput.visibility = View.GONE
                             tvVoiceInputTip.text = "松手取消"
                             tvVoiceInput.apply {
-                                setTextColor(ContextCompat.getColor(context, R.color.white))
+                                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                                 setBackgroundResource(R.drawable.bg_voice_cancel)
-                                startAnimation(AnimationUtils.loadAnimation(context, R.anim.shake))
+                                startAnimation(AnimationUtils.loadAnimation(requireContext(), R.anim.shake))
                             }
                         }
                     } else {
@@ -268,7 +292,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                         llTextInput.visibility = View.GONE
                         tvVoiceInputTip.text = "松手发送，上移取消"
                         tvVoiceInput.apply {
-                            setTextColor(ContextCompat.getColor(context, R.color.white))
+                            setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                             setBackgroundResource(R.drawable.bg_voice_recording)
                         }
                     }
@@ -279,7 +303,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                         text = "按住说话"
                         llVoiceInput.visibility = View.GONE
                         llTextInput.visibility = View.VISIBLE
-                        setTextColor(ContextCompat.getColor(context, R.color.black))
+                        setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
                         setBackgroundResource(R.drawable.voice_input_bg)
                         clearAnimation()
                     }
@@ -295,11 +319,10 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                             }
                             tempMessageId = null
                         }
-                        // 重置ASR会话，清空之前的音频数据
                         realtimeAsrClient.resetSession()
                     } else {
                         voiceManager.stopRecording()
-                        realtimeAsrClient.commitAudio() // 提交音频缓冲区
+                        realtimeAsrClient.commitAudio()
                         LogUtils.info("录音结束，提交音频缓冲区")
                     }
                     true
@@ -326,14 +349,13 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             if (cardItems.size != 0) {
                 if (cardItems[0].tag == "IMAGE") {
                     if (cardItems.size == CardAdapter.MAX_CARD_ITEM) {
-                        ToastUtils.show(this, "最多支持上传${CardAdapter.MAX_CARD_ITEM}张图片")
+                        ToastUtils.show(requireContext(), "最多支持上传${CardAdapter.MAX_CARD_ITEM}张图片")
                         return@setOnClickListener
                     }
-
                     fileOpener.openCamera()
                     hideMediaButtons()
                 } else {
-                    ToastUtils.show(this, "请选择上传文件")
+                    ToastUtils.show(requireContext(), "请选择上传文件")
                 }
             } else {
                 fileOpener.openCamera()
@@ -345,14 +367,13 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             if (cardItems.size != 0) {
                 if (cardItems[0].tag != "IMAGE") {
                     if (cardItems.size == CardAdapter.MAX_CARD_ITEM) {
-                        ToastUtils.show(this, "最多支持上传${CardAdapter.MAX_CARD_ITEM}个文件")
+                        ToastUtils.show(requireContext(), "最多支持上传${CardAdapter.MAX_CARD_ITEM}个文件")
                         return@setOnClickListener
                     }
-
                     fileOpener.openFilePicker()
                     hideMediaButtons()
                 } else {
-                    ToastUtils.show(this, "请选择拍照")
+                    ToastUtils.show(requireContext(), "请选择拍照")
                 }
             } else {
                 fileOpener.openFilePicker()
@@ -361,19 +382,18 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         }
 
         ivCall.setOnClickListener {
-            ToastUtils.show(this, "开发中，敬请期待")
+            ToastUtils.show(requireContext(), "开发中，敬请期待")
             hideMediaButtons()
         }
     }
 
     private fun sendMessage(messageText: String? = null) {
         var finalMessageText = messageText
-        // 删除临时语音识别消息
         tempMessageId?.let { tempId ->
             val index = messageList.indexOfFirst { it.id == tempId }
             if (index != -1) {
                 val tempMessage = messageList.removeAt(index)
-                finalMessageText = tempMessage.message // 直接使用临时消息内容
+                finalMessageText = tempMessage.message
                 messageAdapter.notifyItemRemoved(index)
             }
             tempMessageId = null
@@ -383,7 +403,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         val pendingCards = cardItems.toList()
 
         if (message.isEmpty() && pendingCards.isEmpty()) {
-            ToastUtils.show(this, "请输入内容或添加文件")
+            ToastUtils.show(requireContext(), "请输入内容或添加文件")
             return
         }
 
@@ -395,19 +415,15 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     .filter { it.tag == "IMAGE" }
                     .map { File(it.fileUri) }
                     .filter { it.exists() }
-
                 if (imageFiles.isEmpty()) {
-                    ToastUtils.show(this, "无法获取图片文件")
+                    ToastUtils.show(requireContext(), "无法获取图片文件")
                 } else {
                     sendImageToCozeModelStream(message, imageFiles)
                 }
             }
-
-            // 处理文件附件请求
             pendingCards.isNotEmpty() -> {
                 sendFilesToModel(message, pendingCards)
             }
-
             else -> sendTextToCozeModelStream(message)
         }
 
@@ -426,18 +442,8 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     private fun addMessageWithAttachments(text: String, attachments: List<CardItem>) {
         attachments.forEach { card ->
             when (card.tag) {
-                "IMAGE" -> addMessage(
-                    "[图片]",
-                    true,
-                    AiMessage.TYPE_IMAGE,
-                    path = card.fileUri
-                )
-                else -> addMessage(
-                    "[文件]",
-                    true,
-                    AiMessage.TYPE_FILE,
-                    path = card.fileUri
-                )
+                "IMAGE" -> addMessage("[图片]", true, AiMessage.TYPE_IMAGE, path = card.fileUri)
+                else -> addMessage("[文件]", true, AiMessage.TYPE_FILE, path = card.fileUri)
             }
         }
         if (text.isNotEmpty()) {
@@ -462,13 +468,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         type: Int = AiMessage.TYPE_TEXT,
         path: String = ""
     ): AiMessage {
-        val newMessage = AiMessage(
-            message,
-            System.currentTimeMillis(),
-            isSent,
-            type,
-            path
-        )
+        val newMessage = AiMessage(message, System.currentTimeMillis(), isSent, type, path)
         messageList.add(newMessage)
         messageAdapter.notifyItemInserted(messageList.size - 1)
         rvMessages.scrollToPosition(messageList.size - 1)
@@ -477,10 +477,9 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     private fun toggleInputMode(switcher: ViewSwitcher, icon: ImageView) {
         isVoiceInput = !isVoiceInput
-        switcher.showNext() // 切换视图动画
+        switcher.showNext()
         icon.setImageResource(
-            if (isVoiceInput) R.drawable.ic_input_keyboard
-            else R.drawable.ic_input_voice
+            if (isVoiceInput) R.drawable.ic_input_keyboard else R.drawable.ic_input_voice
         )
         if (isVoiceInput) {
             hideKeyboard()
@@ -493,14 +492,14 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     }
 
     private fun hideKeyboard() {
-        val inputMethodManager = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        inputMethodManager.hideSoftInputFromWindow(etMessage.windowToken, 0)
+        val imm = requireContext().getSystemService(InputMethodManager::class.java)
+        imm.hideSoftInputFromWindow(etMessage.windowToken, 0)
     }
 
     private fun showKeyboard() {
         etMessage.requestFocus()
-        val inputMethodManager = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        inputMethodManager.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT)
+        val imm = requireContext().getSystemService(InputMethodManager::class.java)
+        imm.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun updateButtonVisibility() {
@@ -510,14 +509,14 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     }
 
     private fun initRealtimeAsrClient() {
-        realtimeAsrClient = NetworkManager.getInstance()
-            .createRealtimeAsrClient(object : RealtimeAsrClient.RealtimeAsrCallback {
+        realtimeAsrClient = NetworkManager.getInstance().createRealtimeAsrClient(
+            object : RealtimeAsrClient.RealtimeAsrCallback {
                 override fun onPartialResult(text: String) {
-                    runOnUiThread { updateTranscript(text, isFinal = false) }
+                    requireActivity().runOnUiThread { updateTranscript(text, isFinal = false) }
                 }
 
                 override fun onFinalResult(text: String) {
-                    runOnUiThread {
+                    requireActivity().runOnUiThread {
                         updateTranscript(text, isFinal = true)
                         messageList.find { it.id == tempMessageId }?.let { msg ->
                             sendMessage(msg.message)
@@ -527,13 +526,13 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 }
 
                 override fun onError(error: String) {
-                    runOnUiThread { LogUtils.error(error) }
+                    requireActivity().runOnUiThread { LogUtils.error(error) }
                 }
 
                 override fun onConnectionChanged(connected: Boolean) {
                     LogUtils.info("ASR连接状态: $connected")
                     if (!connected) {
-                        runOnUiThread {
+                        requireActivity().runOnUiThread {
                             tempMessageId = null
                             isStreaming = false
                         }
@@ -547,20 +546,15 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
     }
 
     private fun updateTranscript(text: String, isFinal: Boolean) {
-        if (text.isBlank()) return // 过滤空结果
+        if (text.isBlank()) return
 
         if (tempMessageId == null) {
-            val newMessage = addMessage(text, true).apply {
-                isTemp = !isFinal
-            }
+            val newMessage = addMessage(text, true).apply { isTemp = !isFinal }
             tempMessageId = newMessage.id
         } else {
             messageList.find { it.id == tempMessageId }?.let { message ->
                 val index = messageList.indexOf(message)
-                val updated = message.copy(
-                    message = text,
-                    isTemp = !isFinal
-                )
+                val updated = message.copy(message = text, isTemp = !isFinal)
                 messageList[index] = updated
                 messageAdapter.notifyItemChanged(index)
 
@@ -580,13 +574,11 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             object : NetworkManager.ModelCallback<ChatResponse> {
                 override fun onSuccess(result: ChatResponse) {
                     val title = result.choices.firstOrNull()?.message?.content?.trim()
-                    runOnUiThread {
-                        if (!title.isNullOrEmpty()) {
-                            if (title.length <= 7)
-                                tvConversationTitle.text = title
-                            else {
-                                LogUtils.error("生成超长标题：$title")
-                            }
+                    requireActivity().runOnUiThread {
+                        if (!title.isNullOrEmpty() && title.length <= 7) {
+                            tvConversationTitle.text = title
+                        } else {
+                            LogUtils.error("生成超长标题：$title")
                         }
                     }
                 }
@@ -595,36 +587,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 }
             }
         )
-    }
-
-    private fun sendTextToCozeModel(userMessage: String) {
-        val thinkingMessage = addMessage("思考中...", false)
-        val userMsg = ChatRequest.Message(
-            role = "user",
-            content = userMessage
-        )
-        chatMessages.add(userMsg)
-
-        NetworkManager.getInstance().chatTextCompletion(
-            messages = chatMessages,
-            temperature = 0.7,
-            object : NetworkManager.ModelCallback<ChatResponse> {
-                override fun onSuccess(result: ChatResponse) {
-                    result.choices.firstOrNull()?.let { choice ->
-                        val aiContent = choice.message.content
-                        chatMessages.add(ChatRequest.Message(
-                            role = choice.message.role,
-                            content = aiContent
-                        ))
-                        updateMessage(thinkingMessage.id, aiContent)
-                    } ?: addMessage("未收到有效回复", false)
-                }
-
-                override fun onFailure(error: Throwable) {
-                    updateMessage(thinkingMessage.id, "请求失败，请重试")
-                    LogUtils.error("请求失败: ${error.message?.substringBefore("\n") ?: "未知错误"}")
-                }
-            })
     }
 
     private fun sendTextToCozeModelStream(userMessage: String) {
@@ -653,82 +615,6 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 }
             }
         )
-    }
-
-    private fun sendImageToModel(message: String, imageFiles: List<File>) {
-        val processingMessage = addMessage("识图中...", false)
-        NetworkManager.getInstance().uploadImageCompletion(
-            images = imageFiles,
-            question = message.takeIf { it.isNotEmpty() },
-            object : NetworkManager.ModelCallback<ChatResponse> {
-                override fun onSuccess(result: ChatResponse) {
-                    result.choices.firstOrNull()?.let { choice ->
-                        val aiContent = choice.message.content
-                        chatMessages.add(ChatRequest.Message(
-                            role = choice.message.role,
-                            content = aiContent
-                        ))
-                        updateMessage(processingMessage.id, aiContent)
-                    } ?: addMessage("未收到有效回复", false)
-                }
-
-                override fun onFailure(error: Throwable) {
-                    updateMessage(processingMessage.id, "图片解析失败，请重试")
-                    LogUtils.error("图片处理失败", error)
-                }
-            }
-        )
-    }
-
-    private fun sendImageToCozeModel(message: String, imageFiles: List<File>) {
-        val processingMessage = addMessage("识图中...", false)
-        val imageUrls = mutableListOf<String>()
-        val lock = Any()
-        var completedCount = 0
-
-        imageFiles.forEach { file ->
-            TOSManager.getInstance().uploadImageFile(
-                objectKey = file.name,
-                filePath = file.absolutePath
-            ) { url ->
-                synchronized(lock) {
-                    // 线程安全地更新状态
-                    url?.let { imageUrls.add(it) }
-                    completedCount++
-
-                    // 当所有文件处理完成时触发（无论成功失败）
-                    if (completedCount == imageFiles.size) {
-                        // 如果没有成功上传任何文件则报错
-                        if (imageUrls.isEmpty()) {
-                            updateMessage(processingMessage.id, "图片上传失败，请重试")
-                            return@synchronized
-                        }
-
-                        NetworkManager.getInstance().uploadImageCozeCompletion(
-                            images = imageUrls,
-                            question = message.takeIf { it.isNotEmpty() },
-                            object : NetworkManager.ModelCallback<ChatResponse> {
-                                override fun onSuccess(result: ChatResponse) {
-                                    result.choices.firstOrNull()?.let { choice ->
-                                        val aiContent = choice.message.content
-                                        chatMessages.add(ChatRequest.Message(
-                                            role = choice.message.role,
-                                            content = aiContent
-                                        ))
-                                        updateMessage(processingMessage.id, aiContent)
-                                    } ?: addMessage("未收到有效回复", false)
-                                }
-
-                                override fun onFailure(error: Throwable) {
-                                    updateMessage(processingMessage.id, "图片解析失败，请重试")
-                                    LogUtils.error("图片处理失败", error)
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        }
     }
 
     private fun sendImageToCozeModelStream(message: String, imageFiles: List<File>) {
@@ -785,9 +671,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         val fileContents = files.joinToString("\n\n") { card ->
             val path = card.fileUri
             val title = card.title.ifBlank { File(path).name }
-            val content = runCatching { File(path).readText() }
-                .getOrNull()
-                ?: "[无法读取文件内容]"
+            val content = runCatching { File(path).readText() }.getOrNull() ?: "[无法读取文件内容]"
             "文件【$title】内容：\n$content"
         }
 
@@ -846,14 +730,14 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     override fun onCameraPhotoCaptured(uri: Uri?) {
         if (!isUiReady) {
-            ToastUtils.show(this, "请等待界面初始化完成")
+            ToastUtils.show(requireContext(), "请等待界面初始化完成")
             return
         }
 
         uri?.let {
             val fileName = uri.path?.substringAfter("/my_files/")
             val filePath = fileName?.let { name ->
-                getExternalFilesDir(null)?.resolve(name)?.absolutePath
+                requireContext().getExternalFilesDir(null)?.resolve(name)?.absolutePath
             }
 
             val newCard = CardItem(
@@ -873,7 +757,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
     override fun onFileSelected(path: String?) {
         if (!isUiReady) {
-            ToastUtils.show(this, "请等待界面初始化完成")
+            ToastUtils.show(requireContext(), "请等待界面初始化完成")
             return
         }
 
@@ -885,7 +769,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                 path
             }
         } ?: run {
-            ToastUtils.show(this, "图片复制失败")
+            ToastUtils.show(requireContext(), "图片复制失败")
             return
         }
 
@@ -926,7 +810,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
         if (cardItems.size < CardAdapter.MAX_CARD_ITEM) {
             displayList.add(
                 CardItem(
-                    id = "ADD", // 固定ID或特殊标识
+                    id = "ADD",
                     title = "",
                     tag = "",
                     fileUri = "",
@@ -935,29 +819,10 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             )
         }
         cardAdapter.submitList(displayList) {
-            // 列表更新完成后执行滚动
-            if (scroll) {
-                // 确保 itemCount 大于0，再调用 smoothScrollToPosition
-                if (cardAdapter.itemCount > 0) {
-                    rvCardView.smoothScrollToPosition(cardAdapter.itemCount - 1)
-                }
+            if (scroll && cardAdapter.itemCount > 0) {
+                rvCardView.smoothScrollToPosition(cardAdapter.itemCount - 1)
             }
             updateButtonVisibility()
-        }
-    }
-
-    @SuppressLint("NotifyDataSetChanged")
-    private fun handleHistoryIntent(intent: Intent) {
-        intent.getStringExtra("conversationId")?.let { convId ->
-            val fromHistory = intent.getBooleanExtra("fromHistory", false)
-            if (fromHistory && messageList.isNotEmpty()) {
-                saveConversationToDb()
-            }
-            currentConversationId = convId
-            isLoadedFromHistory = true
-            messageList.clear()
-            messageAdapter.notifyDataSetChanged()
-            loadConversation(convId)
         }
     }
 
@@ -969,11 +834,11 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
 
             val aiMessages = msgs.map { entity ->
                 AiMessage(
-                    message   = entity.message,
+                    message = entity.message,
                     timestamp = entity.timestamp,
-                    isSent    = entity.isSent,
-                    type      = entity.type,
-                    path      = entity.path
+                    isSent = entity.isSent,
+                    type = entity.type,
+                    path = entity.path
                 )
             }
             withContext(Dispatchers.Main) {
@@ -1011,50 +876,32 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
             )
         }
 
-        // 协程存储
         lifecycleScope.launch(Dispatchers.IO) {
-            // 先删旧的
             db.AiMessageDao().deleteByConversationId(convId)
             db.AiConversationDao().deleteById(convId)
-            // 再增新的
             db.AiConversationDao().insert(convEntity)
             db.AiMessageDao().insertAll(msgEntities)
         }
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        // 更新内部 Intent，并重新处理历史
-        setIntent(intent)
-        handleHistoryIntent(intent)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        saveConversationToDb()
-        if (isLoadedFromHistory) {
-            val intent = Intent(this, HomeFragment::class.java).apply {
-                // 清掉其它中间所有 Activity，保证只剩下 Main
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(intent)
-            finish()  // 销毁当前
-        } else {
-            // 普通流程，空白页面或新会话，走默认返回
-            super.onBackPressed()
-        }
-    }
-
-    override fun onError(errorMessage: String) {
-        ToastUtils.show(this, errorMessage)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onDestroyView() {
+        super.onDestroyView()
         streamDisposable?.dispose()
         voiceManager.release()
         NetworkManager.getInstance().dispose()
         realtimeAsrClient.shouldReconnect = false
         realtimeAsrClient.disconnect()
+    }
+
+    override fun onError(errorMessage: String) {
+        ToastUtils.show(requireContext(), errorMessage)
+    }
+
+    private val requestCameraPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            ToastUtils.show(requireContext(), "需要相机权限才能拍照")
+        }
     }
 }

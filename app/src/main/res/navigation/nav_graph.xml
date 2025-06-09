@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    app:startDestination="@id/homeFragment">
+
+    <!-- 主页 -->
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.example.jvsglass.navigation.HomeFragment"
+        android:label="主页"
+        tools:layout="@layout/fragment_home" />
+
+    <!-- CMG AI -->
+    <fragment
+        android:id="@+id/aiFragment"
+        android:name="com.example.jvsglass.navigation.AiFragment"
+        android:label="CMG AI"
+        tools:layout="@layout/fragment_ai" />
+
+    <!-- 我的 -->
+    <fragment
+        android:id="@+id/meFragment"
+        android:name="com.example.jvsglass.navigation.MeFragment"
+        android:label="我的"
+        tools:layout="@layout/fragment_me" />
+
+</navigation>

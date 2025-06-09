@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -14,6 +15,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import java.io.File
 import java.io.FileOutputStream
@@ -39,6 +41,10 @@ class SystemFileOpener(private val context: Context) {
     private lateinit var pickImageLauncher: ActivityResultLauncher<String>
     private lateinit var cameraLauncher: ActivityResultLauncher<Intent>
     private lateinit var folderLauncher: ActivityResultLauncher<Intent>
+
+    private lateinit var galleryFragmentLauncher: ActivityResultLauncher<String>
+    private lateinit var cameraFragmentLauncher : ActivityResultLauncher<Void?>
+    private lateinit var filePickerFragmentLauncher: ActivityResultLauncher<Array<String>>
 
     // 初始化所有启动器
     fun registerLaunchers(activity: FragmentActivity, callback: FileResultCallback) {
@@ -100,49 +106,116 @@ class SystemFileOpener(private val context: Context) {
         }
     }
 
+    fun registerLaunchers(fragment: Fragment, callback: FileResultCallback) {
+        galleryFragmentLauncher = fragment.registerForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            if (uri != null) {
+                callback.onFileSelected(uri.toString())
+            } else {
+                callback.onError("未选择图片")
+            }
+        }
+
+        cameraFragmentLauncher = fragment.registerForActivityResult(
+            ActivityResultContracts.TakePicturePreview()
+        ) { bitmap ->
+            if (bitmap != null) {
+                // 将 Bitmap 保存为文件并得到 Uri
+                val file = createImageFile() ?: run {
+                    callback.onError("无法创建临时文件")
+                    return@registerForActivityResult
+                }
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                }
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    file
+                )
+                callback.onCameraPhotoCaptured(uri)
+            } else {
+                callback.onError("拍照失败或取消")
+            }
+        }
+
+        filePickerFragmentLauncher = fragment.registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri: Uri? ->
+            if (uri != null) {
+                thread {
+                    val newPath = if (context.contentResolver.getType(uri)?.startsWith("image/") == true) {
+                        copyGalleryImageToAppDir(uri)
+                    } else {
+                        copySelectedFile(uri)
+                    }
+                    Handler(Looper.getMainLooper()).post {
+                        newPath?.let { callback.onFileSelected(it) }
+                            ?: callback.onError("文件复制失败")
+                    }
+                }
+            } else {
+                callback.onError("未选择文件")
+            }
+        }
+    }
+
     // 打开相册
     fun openGallery() {
-        pickImageLauncher.launch("image/*")
+        if (this::galleryFragmentLauncher.isInitialized) {
+            galleryFragmentLauncher.launch("image/*")
+        } else {
+            pickImageLauncher.launch("image/*")
+        }
     }
 
     // 打开相机
     fun openCamera() {
-        when {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
-                val photoFile = createImageFile()
-                photoFile?.let { file ->
-                    cameraImageUri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.provider",
-                        file
-                    )
-                    val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-                        putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri)
-                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        if (this::cameraFragmentLauncher.isInitialized) {
+            cameraFragmentLauncher.launch(null)
+        } else {
+            when {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
+                    val photoFile = createImageFile()
+                    photoFile?.let { file ->
+                        cameraImageUri = FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.provider",
+                            file
+                        )
+                        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                            putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri)
+                            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                        }
+                        safeLaunchIntent(intent, cameraLauncher, "未找到相机应用")
+                    } ?: run {
+                        ToastUtils.show(context, "无法创建照片文件")
                     }
-                    safeLaunchIntent(intent, cameraLauncher, "未找到相机应用")
-                } ?: run {
-                    ToastUtils.show(context, "无法创建照片文件")
                 }
-            }
-            else -> {
-                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                else -> {
+                    requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
             }
         }
     }
 
     // 打开文件选择器
     fun openFilePicker() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "*/*"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
-                "application/pdf",
-                "application/msword",
-                "text/plain"
-            ))
+        if (this::filePickerFragmentLauncher.isInitialized) {
+            filePickerFragmentLauncher.launch(arrayOf("*/*"))
+        } else {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                    "application/pdf",
+                    "application/msword",
+                    "text/plain"
+                ))
+            }
+            safeLaunchIntent(intent, folderLauncher, "无法打开文件选择器")
         }
-        safeLaunchIntent(intent, folderLauncher, "无法打开文件选择器")
     }
 
     private fun safeLaunchIntent(

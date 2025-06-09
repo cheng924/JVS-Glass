@@ -18,4 +18,5 @@
     <color name="ai_media_background_line">#BDBCBA</color>
     <color name="ai_icon_text">#6B6B6B</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="gray">#797979</color>
 </resources>

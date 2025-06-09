@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/homeFragment"
+        android:icon="@drawable/ic_home_select"
+        android:title="主页" />
+
+    <item
+        android:id="@+id/aiFragment"
+        android:icon="@drawable/ic_ai_select"
+        android:title="CMG AI" />
+
+    <item
+        android:id="@+id/meFragment"
+        android:icon="@drawable/ic_me_select"
+        android:title="我的" />
+</menu>
