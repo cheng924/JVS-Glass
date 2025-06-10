@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.JVSGlass" parent="Theme.AppCompat.Light.NoActionBar" />
+    <style name="Theme.JVSGlass" parent="Theme.AppCompat.Light.NoActionBar" >
+        <!-- 导航栏背景色 -->
+        <item name="android:navigationBarColor">@color/background</item>
+    </style>
 </resources>

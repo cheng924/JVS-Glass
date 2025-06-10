@@ -17,10 +17,13 @@ object PacketCommandUtils {
 
     /** cmd **/
     const val SWITCH_INTERFACE_COMMAND: Byte = 0x05.toByte()    // 打开界面
+    const val SWITCH_MIC_COMMAND: Byte = 0x09.toByte()    // 控制MIC
 
     /** value **/
     val ENTER_HOME_VALUE = byteArrayOf(0x01, 0x02, 0x00, 0x32, 0x00)          // 打开首页
     val ENTER_TELEPROMPTER_VALUE = byteArrayOf(0x01, 0x02, 0x00, 0x33, 0x00)  // 打开提词
+    val OPEN_MIC = byteArrayOf(0x01, 0x02, 0x00, 0x00, 0x00)      // 打开MIC
+    val CLOSE_MIC = byteArrayOf(0x02, 0x02, 0x00, 0x00, 0x00)     // 关闭MIC
 
     /** 协议固定头部 */
     private const val HEADER: Byte = 0x01.toByte()

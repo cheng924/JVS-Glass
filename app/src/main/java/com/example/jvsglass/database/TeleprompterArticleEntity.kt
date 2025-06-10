@@ -3,7 +3,7 @@ package com.example.jvsglass.database
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.example.jvsglass.activities.teleprompter.FileItem
+import com.example.jvsglass.ui.teleprompter.FileItem
 
 @Entity(tableName = "teleprompter_articles")
 data class TeleprompterArticleEntity(

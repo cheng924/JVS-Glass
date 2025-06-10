@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <!-- 你想要的底色，比如灰色占位 -->
+    <solid android:color="#333333"/>
+
+    <!-- 如果你想强制 size，也可以加： -->
+    <size
+        android:width="64dp"
+        android:height="64dp" />
+</shape>

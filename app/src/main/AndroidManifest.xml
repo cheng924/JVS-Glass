@@ -68,7 +68,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
-            android:name=".activities.MainInterfaceActivity"
+            android:name=".ui.MainInterfaceActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -89,46 +89,46 @@
         </service>
 
         <activity
-            android:name=".activities.notification.FilterSettingsActivity"
+            android:name=".ui.notification.FilterSettingsActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.notification.NotificationDetailActivity"
+            android:name=".ui.notification.NotificationDetailActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.notification.NotificationActivity"
+            android:name=".ui.notification.NotificationActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.bluetooth.BluetoothConnectActivity"
+            android:name=".ui.bt.BluetoothConnectActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.translate.TranslateHistoryItemActivity"
+            android:name=".ui.translate.TranslateHistoryItemActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.translate.TranslateHistoryActivity"
+            android:name=".ui.translate.TranslateHistoryActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.teleprompter.TeleprompterSettingActivity"
+            android:name=".ui.teleprompter.TeleprompterSettingActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.ai.AiHistoryActivity"
+            android:name=".ui.ai.AiHistoryActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.translate.TranslateFileActivity"
+            android:name=".ui.translate.TranslateFileActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.translate.TranslateExchangeActivity"
+            android:name=".ui.translate.TranslateExchangeActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.translate.TranslateRealtimeActivity"
+            android:name=".ui.translate.TranslateRealtimeActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.translate.TranslateActivity"
+            android:name=".ui.translate.TranslateActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.ai.FileViewerActivity"
+            android:name=".ui.ai.FileViewerActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.ai.FullScreenImageActivity"
+            android:name=".ui.ai.FullScreenImageActivity"
             android:exported="false" />
 
         <provider
@@ -143,35 +143,35 @@
         </provider>
 
         <activity
-            android:name=".activities.teleprompter.TeleprompterNewFileActivity"
+            android:name=".ui.teleprompter.TeleprompterNewFileActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.teleprompter.TeleprompterDisplayActivity"
+            android:name=".ui.teleprompter.TeleprompterDisplayActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.DashboardActivity"
+            android:name=".ui.DashboardActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.TranscribeActivity"
+            android:name=".ui.TranscribeActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.ai.JVSAIActivity"
+            android:name=".ui.ai.JVSAIActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan|stateHidden" />
         <activity
-            android:name=".activities.teleprompter.TeleprompterActivity"
+            android:name=".ui.teleprompter.TeleprompterActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.QuickNoteActivity"
+            android:name=".ui.QuickNoteActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.BluetoothStatusActivity"
+            android:name=".ui.BluetoothStatusActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.SettingsActivity"
+            android:name=".ui.SettingsActivity"
             android:exported="false" />
         <activity
-            android:name=".activities.SilentModeActivity"
+            android:name=".ui.SilentModeActivity"
             android:exported="false" />
     </application>
 

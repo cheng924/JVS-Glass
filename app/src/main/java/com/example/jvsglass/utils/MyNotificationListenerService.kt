@@ -5,7 +5,7 @@ import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.example.jvsglass.activities.notification.NotificationRepository
+import com.example.jvsglass.ui.notification.NotificationRepository
 
 class MyNotificationListenerService : NotificationListenerService() {
     override fun onListenerConnected() {

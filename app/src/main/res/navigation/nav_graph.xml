@@ -7,21 +7,21 @@
     <!-- 主页 -->
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.example.jvsglass.navigation.HomeFragment"
+        android:name="com.example.jvsglass.ui.home.HomeFragment"
         android:label="主页"
         tools:layout="@layout/fragment_home" />
 
     <!-- CMG AI -->
     <fragment
         android:id="@+id/aiFragment"
-        android:name="com.example.jvsglass.navigation.AiFragment"
+        android:name="com.example.jvsglass.ui.ai.AiFragment"
         android:label="CMG AI"
         tools:layout="@layout/fragment_ai" />
 
     <!-- 我的 -->
     <fragment
         android:id="@+id/meFragment"
-        android:name="com.example.jvsglass.navigation.MeFragment"
+        android:name="com.example.jvsglass.ui.me.MeFragment"
         android:label="我的"
         tools:layout="@layout/fragment_me" />
 
