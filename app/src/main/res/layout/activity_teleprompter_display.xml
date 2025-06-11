@@ -87,7 +87,7 @@
                 android:layout_height="wrap_content"
                 android:background="@color/background2"
                 android:paddingHorizontal="25dp"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 android:textColor="@color/teleprompter_text"
                 android:lineSpacingMultiplier="1"/>
 

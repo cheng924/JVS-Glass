@@ -4,12 +4,13 @@ import android.view.MotionEvent
 
 object SmartTextScroller {
     data class SplitResult(
-        val totalLines: Int,         // 总行数
+        val totalLines: Int,        // 总行数
         val displayBlock: String,   // 显示的文本块
         val sendBlock: String       // 发送的文本块
     )
 
     private const val MAX_DISPLAY_LINES = 2
+    private const val MAX_CHARACTERS_PER_LINE = 33
 
     fun splitIntoBlocks(content: String, scrollLines: Int): SplitResult {
         val lines = mutableListOf<String>()
@@ -37,8 +38,8 @@ object SmartTextScroller {
             }
 
             when {
-                // 精确匹配30字符
-                charCount + charLength == 30 -> {
+                // 精确匹配字符数量
+                charCount + charLength == MAX_CHARACTERS_PER_LINE -> {
                     buffer.append(currentChar)
                     lines.add(buffer.toString())
                     buffer.clear()
@@ -46,10 +47,10 @@ object SmartTextScroller {
                     position++
                 }
 
-                // 超过30字符需要分割
-                charCount + charLength > 30 -> {
+                // 超过字符数量需要分割
+                charCount + charLength > MAX_CHARACTERS_PER_LINE -> {
                     // 处理双字节字符边界
-                    if ((charLength == 2) && (charCount == 29)) {
+                    if ((charLength == 2) && (charCount == MAX_CHARACTERS_PER_LINE - 1)) {
                         buffer.append(currentChar)
                         lines.add(buffer.toString())
                         buffer.clear()
