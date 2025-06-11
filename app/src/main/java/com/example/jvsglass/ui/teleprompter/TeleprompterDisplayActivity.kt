@@ -9,6 +9,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.GestureDetector
@@ -32,6 +34,7 @@ import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_INTERFACE_COMMAND
 import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TELEPROMPTER_VALUE
 import com.example.jvsglass.bluetooth.BLEClient
+import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
 import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
 import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_MIC_COMMAND
@@ -41,6 +44,7 @@ import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
+import com.example.jvsglass.utils.toHexString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -67,6 +71,8 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private var remoteControl = true
     private var lastProcessedLength = 0
     private var lastSentBlock: String = ""
+
+    private var recordingFilePath: String? = null
 
     private lateinit var scrollView: ScrollView
     private lateinit var tvContent: TextView
@@ -129,6 +135,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         setContentView(R.layout.activity_teleprompter_display)
 
         voiceManager = VoiceManager(this)
+        BluetoothConnectManager.initialize(this, voiceManager)
 
         initSetting()
         initBluetoothConnection()
@@ -136,7 +143,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         initRealtimeAsrClient()
 
         setupClientCallbacks()
-        bleClient.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_TELEPROMPTER_VALUE))
+        BluetoothConnectManager.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_TELEPROMPTER_VALUE))
     }
 
     @RequiresPermission(
@@ -149,7 +156,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         if (lastDeviceAddress != null) {
             val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
             val device = bluetoothAdapter.getRemoteDevice(lastDeviceAddress)
-            bleClient.connectToDevice(device) // 触发自动连接
+            BluetoothConnectManager.reconnectDevice(device) // 触发自动连接
         }
     }
 
@@ -171,7 +178,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         tvRemoteStatus = findViewById(R.id.tv_remote_status)
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
-            bleClient.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_HOME_VALUE))
+            BluetoothConnectManager.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_HOME_VALUE))
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
@@ -253,7 +260,12 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                                 }
                             }).toString()
 
-                            bleClient.sendCommand(createPacket(SWITCH_MIC_COMMAND, OPEN_MIC))
+//                            BluetoothConnectManager.sendCommand(createPacket(SWITCH_MIC_COMMAND, OPEN_MIC))
+////                            voiceManager.startBtRecording()
+//                            BluetoothConnectManager.onAudioStreamReceived = {data ->
+////                                voiceManager.feedBtData(data)
+//                                realtimeAsrClient.sendAudioChunk(data)
+//                            }
                         }
 
                         override fun onNegativeButtonClick() { micControl = true }
@@ -267,11 +279,15 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
                 voiceManager.stopRecording()
                 voiceManager.deleteVoiceFile(currentVoicePath)
+
+//                voiceManager.stopBtRecording()
+
+                BluetoothConnectManager.onAudioStreamReceived = null
                 realtimeAsrClient.disconnect()
 
                 scrollView.setOnTouchListener(manualTouchListener)
 
-                bleClient.sendCommand(createPacket(SWITCH_MIC_COMMAND, CLOSE_MIC))
+                BluetoothConnectManager.sendCommand(createPacket(SWITCH_MIC_COMMAND, CLOSE_MIC))
             }
             micControl = !micControl
         }
@@ -479,7 +495,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun sendMessage(fileContent: String) {
         if (fileContent.isEmpty()) return
-        bleClient.sendMessage(fileContent)
+        BluetoothConnectManager.sendMessage(fileContent)
     }
 
     private fun setupClientCallbacks() {

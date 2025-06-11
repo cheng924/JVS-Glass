@@ -42,11 +42,17 @@ class BLEClient private constructor(context: Context) {
     private var heartbeatHandler: Handler = Handler(Looper.getMainLooper())
     private var lastHeartbeatResponse: Long = 0L
     private var heartbeatRunnable: Runnable? = null
+    private val pendingDescriptors = ArrayDeque<BluetoothGattDescriptor>()
 
     interface MessageListener {
         fun onMessageReceived(value: ByteArray)
     }
     var messageListener: MessageListener? = null
+
+    interface AudioListener {
+        fun onAudioChunk(data: ByteArray)
+    }
+    var audioListener: AudioListener? = null
 
     // GATT客户端回调
     private val gattClientCallback = object : BluetoothGattCallback() {
@@ -94,35 +100,21 @@ class BLEClient private constructor(context: Context) {
                 LogUtils.error("[BLE] 服务发现失败，状态码：$status")
                 return
             }
-
-            // 获取服务
             servicesDiscovered = true
-            val service = gatt.getService(BluetoothConstants.SERVICE_UUID)
-            if (service == null) {
-                LogUtils.error("[BLE] 未找到服务 UUID=${BluetoothConstants.SERVICE_UUID}")
-                return
-            }
 
-            // 通知特征值
-            val notifyCharacteristic = service.getCharacteristic(BluetoothConstants.NOTIFY_CHAR_UUID)
-            if (notifyCharacteristic == null) {
-                LogUtils.error("[BLE] 未找到通知特征值 UUID=${BluetoothConstants.NOTIFY_CHAR_UUID}")
-                return
-            }
+            // 文字
+            gatt.getService(BluetoothConstants.SERVICE_CHAR_UUID)?.let { svc ->
+                svc.getCharacteristic(BluetoothConstants.NOTIFY_CHAR_UUID)?.let { char ->
+                    enqueueEnableNotify(gatt, char)
+                } ?: LogUtils.error("[BLE] 未找到文字 Notify 特征 ${BluetoothConstants.NOTIFY_CHAR_UUID}")
+            } ?: LogUtils.error("[BLE] 未找到文字服务 ${BluetoothConstants.SERVICE_CHAR_UUID}")
 
-            // 启动通知
-            val enableNotify = gatt.setCharacteristicNotification(notifyCharacteristic, true)
-            LogUtils.debug("[BLE] 启用通知结果：$enableNotify")
-
-            // 写入描述符值
-            val descriptor = notifyCharacteristic.getDescriptor(BluetoothConstants.CCCD_UUID)
-            descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-            val writeSuccess = gatt.writeDescriptor(descriptor)
-            LogUtils.info("[BLE] 写入通知状态：$writeSuccess")
-
-            if (!enableNotify || !writeSuccess) {
-                LogUtils.error("[BLE] 通知启用或描述符写入失败")
-            }
+            // 音频
+            gatt.getService(BluetoothConstants.SERVICE_AUDIO_UUID)?.let { svc ->
+                svc.getCharacteristic(BluetoothConstants.NOTIFY_AUDIO_UUID)?.let { char ->
+                    enqueueEnableNotify(gatt, char)
+                } ?: LogUtils.error("[BLE] 未找到音频 Notify 特征 ${BluetoothConstants.NOTIFY_AUDIO_UUID}")
+            } ?: LogUtils.error("[BLE] 未找到音频服务 ${BluetoothConstants.SERVICE_AUDIO_UUID}")
         }
 
         @Deprecated("Deprecated in Java")
@@ -132,14 +124,36 @@ class BLEClient private constructor(context: Context) {
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            if (characteristic.uuid == BluetoothConstants.NOTIFY_CHAR_UUID) {
-                lastHeartbeatResponse = System.currentTimeMillis()
-                Handler(Looper.getMainLooper()).post {
-                    LogUtils.info("[BLE] ${System.currentTimeMillis()} 收到消息：${value.toHexString()}")
-                    messageListener?.onMessageReceived(value)
+            when (characteristic.uuid) {
+                BluetoothConstants.NOTIFY_CHAR_UUID -> {
+                    lastHeartbeatResponse = System.currentTimeMillis()
+                    Handler(Looper.getMainLooper()).post {
+                        LogUtils.info("[BLE] ${System.currentTimeMillis()} 收到消息：${value.toHexString()}")
+                        messageListener?.onMessageReceived(value)
+                    }
                 }
-            } else {
-                LogUtils.warn("[BLE] 收到未知特征的通知：${characteristic.uuid}")
+                BluetoothConstants.NOTIFY_AUDIO_UUID -> {
+                    audioListener?.onAudioChunk(value)
+                }
+                else -> {
+                    LogUtils.warn("[BLE] 收到未知特征的通知：${characteristic.uuid}")
+                }
+            }
+        }
+
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        override fun onDescriptorWrite(
+            gatt: BluetoothGatt,
+            descriptor: BluetoothGattDescriptor,
+            status: Int
+        ) {
+            LogUtils.info("[BLE] onDescriptorWrite ${descriptor.characteristic.uuid}, status=$status")
+            // 移除已完成的
+            pendingDescriptors.removeFirstOrNull()
+            // 如果队列还有，就写下一个
+            pendingDescriptors.firstOrNull()?.let {
+                LogUtils.info("[BLE] 继续写入下一个 ${it.characteristic.uuid}")
+                gatt.writeDescriptor(it)
             }
         }
 
@@ -171,6 +185,29 @@ class BLEClient private constructor(context: Context) {
             }
         }
     }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun enqueueEnableNotify(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+        // 本地打开
+        val enableNotify = gatt.setCharacteristicNotification(characteristic, true)
+        LogUtils.info("[BLE] 启用 ${characteristic.uuid} 通知结果: $enableNotify")
+
+        // 写入描述符值
+        val descriptor = characteristic.getDescriptor(BluetoothConstants.CCCD_UUID)
+            ?: run {
+                LogUtils.error("[BLE] 找不到 CCCD 描述符 ${characteristic.uuid}")
+                return
+            }
+        descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+        pendingDescriptors += descriptor
+        LogUtils.info("[BLE] 已入队 CCCD ${characteristic.uuid}, 队列长度=${pendingDescriptors.size}")
+
+        if (pendingDescriptors.size == 1) {
+            LogUtils.info("[BLE] 立即调用 writeDescriptor for ${descriptor.characteristic.uuid}")
+            gatt.writeDescriptor(descriptor)
+        }
+    }
+
 
     fun isConnected(): Boolean {
         return connectionState == BluetoothProfile.STATE_CONNECTED
@@ -300,7 +337,7 @@ class BLEClient private constructor(context: Context) {
             }
         }
 
-        val service = gatt.getService(BluetoothConstants.SERVICE_UUID) ?: run {
+        val service = gatt.getService(BluetoothConstants.SERVICE_CHAR_UUID) ?: run {
             LogUtils.error("[BLE] 服务不可用")
             isSending = false
             return

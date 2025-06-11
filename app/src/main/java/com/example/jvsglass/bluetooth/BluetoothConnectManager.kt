@@ -63,6 +63,13 @@ object BluetoothConnectManager {
                 )
             )
         }
+        bleClient?.apply {
+            audioListener = object : BLEClient.AudioListener {
+                override fun onAudioChunk(data: ByteArray) {
+                    onAudioStreamReceived?.invoke(data)
+                }
+            }
+        }
 
         classicCallback = object : ClassicClient.BluetoothCallback {
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -131,7 +138,7 @@ object BluetoothConnectManager {
             @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 val uuids = result.scanRecord?.serviceUuids
-                if (uuids?.any { it.uuid == BluetoothConstants.SERVICE_UUID } == true) {
+                if (uuids?.any { it.uuid == BluetoothConstants.SERVICE_CHAR_UUID } == true) {
                     bleScanner.stopScan(this)
                     LogUtils.info("[DualBluetoothManager] 停止扫描，连接设备 ${result.device.address}")
                     onFound(result.device)
@@ -181,7 +188,12 @@ object BluetoothConnectManager {
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun sendText(message: String) {
+    fun sendMessage(message: String) {
         bleClient?.sendMessage(message)
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun sendCommand(command: ByteArray) {
+        bleClient?.sendCommand(command)
     }
 }

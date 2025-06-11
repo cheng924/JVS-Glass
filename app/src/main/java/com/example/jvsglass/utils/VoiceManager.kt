@@ -36,10 +36,15 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
     private var currentPlayingPath: String? = null
     private var isPaused = false
 
+    private var btRecordingFile: RandomAccessFile? = null
+    private var btTotalDataBytes: Long = 0
+    private var btIsRecording: Boolean = false
+
     private var audioTrack: AudioTrack? = null
     private val audioQueue = LinkedBlockingQueue<ByteArray>(100) // 缓冲队列，限制容量为 100
     private var playbackThread: Thread? = null
     private var isPlayingStream = false
+    private val initialBufferPackets = 50
 
     private var isScoOnForRecording = false // 记录是否用过蓝牙SCO录音
     private var onPlaybackCompleteListener: OnPlaybackCompleteListener? = null
@@ -220,6 +225,43 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         return currentAudioPath
     }
 
+    fun startBtRecording(): String? {
+        if (btIsRecording) return null
+        val timestamp = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).format(Date())
+        val fileName = "TEST_$timestamp.wav"
+        val outFile = File(context.getExternalFilesDir(null), fileName)
+        try {
+            // 使用RandomAccessFile写数据，预留44字节头
+            btRecordingFile = RandomAccessFile(outFile, "rw").apply {
+                write(ByteArray(44))
+            }
+            btTotalDataBytes = 0
+
+            val minBuf = AudioTrack.getMinBufferSize(
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT
+            )
+            audioTrack = AudioTrack(
+                AudioManager.STREAM_VOICE_CALL,
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                minBuf * 2,
+                AudioTrack.MODE_STREAM
+            ).apply {
+                play()
+            }
+
+            btIsRecording = true
+            return outFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            btRecordingFile = null
+            return null
+        }
+    }
+
     fun stopRecording() {
         if (isScoOnForRecording) {
             // 停止录音后关闭SCO
@@ -234,9 +276,54 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
             release()
         }
         audioRecord = null
+        audioTrack = null
+        audioQueue.clear()
         recordingThread?.join() // 等待线程结束
         recordingThread = null
         LogUtils.info("[VoiceManager] PCM录音已停止")
+    }
+
+    fun stopBtRecording() {
+        if (!btIsRecording || btRecordingFile == null) return
+        try {
+            // 计算WAV头参数
+            val totalFileLen = btTotalDataBytes + 44
+            val byteRate = sampleRate * 1 * 16 / 8
+            btRecordingFile?.apply {
+                seek(0)
+                writeBytes("RIFF")
+                writeIntLE((totalFileLen - 8).toInt())
+                writeBytes("WAVEfmt ")
+                writeIntLE(16)
+                writeShortLE(1)
+                writeShortLE(1)
+                writeIntLE(sampleRate)
+                writeIntLE(byteRate)
+                writeShortLE((1 * 16 / 8).toShort())
+                writeShortLE(16)
+                writeBytes("data")
+                writeIntLE(btTotalDataBytes.toInt())
+                close()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            audioTrack?.apply {
+                stop()
+                release()
+            }
+            audioTrack = null
+            btIsRecording = false
+            btRecordingFile = null
+            btTotalDataBytes = 0
+        }
+    }
+
+    fun feedBtData(data: ByteArray) {
+        if (!btIsRecording) return
+        btRecordingFile?.write(data)
+        btTotalDataBytes += data.size
+        audioTrack?.write(data, 0, data.size)
     }
 
     // 语音播放
@@ -277,8 +364,11 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
 
     // 流式播放音频数据，适用于实时接收的PCM数据
     fun playStreamingAudio(data: ByteArray) {
-        // 如果 AudioTrack 未初始化，则创建它
-        if (audioTrack == null) {
+        audioQueue.offer(data)
+        if (!isPlayingStream && audioQueue.size >= initialBufferPackets) {
+            isPlayingStream = true
+
+            // 创建并启动AudioTrack
             val bufferSize = AudioTrack.getMinBufferSize(
                 sampleRate,
                 AudioFormat.CHANNEL_OUT_MONO,
@@ -289,22 +379,18 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
                 sampleRate,
                 AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
-                bufferSize,
+                bufferSize * 2,
                 AudioTrack.MODE_STREAM // 流模式
-            )
-            audioTrack?.play() // 开始播放
+            ).apply { play() }
 
             // 创建线程来处理音频数据的播放
-            isPlayingStream = true
             playbackThread = Thread {
                 while (isPlayingStream) {
-                    val audioData = audioQueue.poll() ?: continue // 如果队列为空，继续循环
+                    val audioData = audioQueue.take()
                     audioTrack?.write(audioData, 0, audioData.size)
                 }
             }.apply { start() }
         }
-        // 将接收到的音频数据放入队列
-        audioQueue.offer(data)
     }
 
     private fun stopPlayback() {

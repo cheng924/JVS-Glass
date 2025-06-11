@@ -32,6 +32,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_HISTORY_SIZE
+import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
+import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
+import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_MIC_COMMAND
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.bluetooth.PacketMessageUtils
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.RealtimeAsrClient
@@ -70,6 +74,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
     private val asrTimeoutHandler = Handler(Looper.getMainLooper())
     private val asrTimeoutRunnable = Runnable {
         if (asrConnected) {
+            BluetoothConnectManager.onAudioStreamReceived = null
             realtimeAsrClient.disconnect()
             asrConnected = false
             runOnUiThread {
@@ -189,6 +194,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
             }
         }
         BluetoothConnectManager.onAudioStreamReceived = { data ->
+            LogUtils.info("[DualBluetoothActivity] 接收到音频流数据，长度：${data.size} 字节")
             if (!asrConnected) {
                 realtimeAsrClient.connect()
                 asrConnected = true
@@ -219,9 +225,17 @@ class BluetoothConnectActivity : AppCompatActivity() {
 
         btnSendText.setOnClickListener {
             val text = etMessage.text.toString().trim()
+            if (text == "打开") {
+                BluetoothConnectManager.sendCommand(createPacket(SWITCH_MIC_COMMAND, OPEN_MIC))
+            }
+
+            if (text == "关闭") {
+                BluetoothConnectManager.sendCommand(createPacket(SWITCH_MIC_COMMAND, CLOSE_MIC))
+            }
+
             if (text.isNotEmpty()) {
                 if (hasPermissions(Manifest.permission.BLUETOOTH_CONNECT)) {
-                    BluetoothConnectManager.sendText(text)
+                    BluetoothConnectManager.sendMessage(text)
                     addMessageToHistory("[发送] $text")
                 } else {
                     requestPermissionsIfNeeded()

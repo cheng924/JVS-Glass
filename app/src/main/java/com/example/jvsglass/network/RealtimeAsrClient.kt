@@ -178,7 +178,7 @@ class RealtimeAsrClient(
                 }
                 "conversation.item.input_audio_transcription.result" -> {
                     val transcript = json["transcript"].asString
-                    LogUtils.info("收到部分识别结果: $transcript")
+                    LogUtils.debug("收到部分识别结果: $transcript")
                     callback.onPartialResult(transcript)
                 }
                 "conversation.item.input_audio_transcription.completed" -> {
