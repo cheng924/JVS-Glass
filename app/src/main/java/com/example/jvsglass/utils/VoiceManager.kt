@@ -9,6 +9,8 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
+import okhttp3.internal.notify
+import okhttp3.internal.wait
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -34,7 +36,8 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
     private var mediaPlayer: MediaPlayer? = null
     private var currentAudioPath: String? = null
     private var currentPlayingPath: String? = null
-    private var isPaused = false
+    private var isRecordPaused = false
+    private var isPlayPaused = false
 
     private var btRecordingFile: RandomAccessFile? = null
     private var btTotalDataBytes: Long = 0
@@ -144,6 +147,13 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
                 val buffer = ByteArray(bufferSize)
                 FileOutputStream(outputFile).use { fos ->
                     while (isRecording) {
+                        synchronized(this@VoiceManager) {
+                            while (isRecordPaused) {
+                                try { wait() } catch (e: InterruptedException) {
+                                    LogUtils.error("[VoiceManager] 录音线程中断: ${e.message}")
+                                }
+                            }
+                        }
                         val bytesRead = audioRecord!!.read(buffer, 0, bufferSize)
                         if (bytesRead > 0) {
                             val audioData = buffer.copyOf(bytesRead)
@@ -187,6 +197,13 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
             var totalDataBytes = 0L
             try {
                 while (isRecording) {
+                    synchronized(this@VoiceManager) {
+                        while (isRecordPaused) {
+                            try { wait() } catch (e: InterruptedException) {
+                                LogUtils.error("[VoiceManager] 录音线程中断: ${e.message}")
+                            }
+                        }
+                    }
                     val read = audioRecord!!.read(buffer, 0, bufferSize)
                     if (read > 0) {
                         fos.write(buffer, 0, read)
@@ -326,10 +343,27 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         audioTrack?.write(data, 0, data.size)
     }
 
+    fun pauseRecording() {
+        if (isRecording && !isRecordPaused) {
+            isRecordPaused = true
+            audioRecord?.stop()
+            LogUtils.info("[VoiceManager] 录音已暂停")
+        }
+    }
+
+    fun resumeRecording() {
+        if (isRecording && isRecordPaused) {
+            audioRecord?.startRecording()
+            isRecordPaused = false
+            synchronized(this@VoiceManager) { notify() }
+            LogUtils.info("[VoiceManager] 录音已继续")
+        }
+    }
+
     // 语音播放
     fun playVoiceMessage(filePath: String) {
         LogUtils.info("[VoiceManager] 播放语音: $filePath")
-        if (currentPlayingPath == filePath && isPaused) {
+        if (currentPlayingPath == filePath && isPlayPaused) {
             resumePlayback()
             return
         }
@@ -341,7 +375,7 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
 
         stopPlayback()
         currentPlayingPath = filePath
-        isPaused = false
+        isPlayPaused = false
         if (filePath.endsWith(".pcm")) {
             pcmToWav(filePath)?.let { wav ->
                 currentPlayingPath = wav
@@ -397,7 +431,7 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         mediaPlayer?.release()
         mediaPlayer = null
         currentPlayingPath = null
-        isPaused = false
+        isPlayPaused = false
         LogUtils.info("[VoiceManager] 播放已停止")
     }
 
@@ -406,7 +440,7 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
         mediaPlayer?.let {
             if (it.isPlaying) {
                 it.pause()
-                isPaused = true
+                isPlayPaused = true
                 LogUtils.info("[VoiceManager] 播放已暂停")
             }
         }
@@ -415,9 +449,9 @@ class VoiceManager(private val context: Context): MediaPlayer.OnCompletionListen
     // 继续播放
     private fun resumePlayback() {
         mediaPlayer?.let {
-            if (isPaused) {
+            if (isPlayPaused) {
                 it.start()
-                isPaused = false
+                isPlayPaused = false
                 LogUtils.info("[VoiceManager] 播放已继续")
             }
         }

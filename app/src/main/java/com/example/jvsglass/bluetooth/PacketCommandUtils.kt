@@ -15,13 +15,24 @@ object PacketCommandUtils {
         const val KEY_ERROR = -1    // 错误
     }
 
-    /** cmd **/
-    const val SWITCH_INTERFACE_COMMAND: Byte = 0x05.toByte()    // 打开界面
-    const val SWITCH_MIC_COMMAND: Byte = 0x09.toByte()    // 控制MIC
+    object ReceiveValue {
+        const val FAIL = 0x00.toByte()
+        const val SUCCESS = 0x01.toByte()
+    }
+
+    object CMDKey {
+        const val INTERFACE_COMMAND = 0x05.toByte()     // 打开界面
+        const val SEND_TRANSLATE = 0x07.toByte()        // 发送翻译结果
+        const val SEND_AI = 0x08.toByte()        // 发送AI结果
+        const val MIC_COMMAND = 0x09.toByte()           // 控制MIC
+        const val REMOTE_CONTROL_COMMAND = 0x82.toByte()        // 遥控器控制
+    }
 
     /** value **/
-    val ENTER_HOME_VALUE = byteArrayOf(0x01, 0x02, 0x00, 0x32, 0x00)          // 打开首页
-    val ENTER_TELEPROMPTER_VALUE = byteArrayOf(0x01, 0x02, 0x00, 0x33, 0x00)  // 打开提词
+    val ENTER_HOME = byteArrayOf(0x01, 0x02, 0x00, 0x32, 0x00)            // 打开首页
+    val ENTER_TELEPROMPTER = byteArrayOf(0x01, 0x02, 0x00, 0x33, 0x00)    // 打开提词
+    val ENTER_TRANSLATE = byteArrayOf(0x01, 0x02, 0x00, 0x3A, 0x00)       // 打开翻译
+    val ENTER_AI = byteArrayOf(0x01, 0x02, 0x00, 0x35, 0x00)              // 打开AI
     val OPEN_MIC = byteArrayOf(0x01, 0x02, 0x00, 0x00, 0x00)      // 打开MIC
     val CLOSE_MIC = byteArrayOf(0x02, 0x02, 0x00, 0x00, 0x00)     // 关闭MIC
 
@@ -32,6 +43,7 @@ object PacketCommandUtils {
     private const val CMD_SEND_MESSAGE_REMINDER: Byte = 0x03.toByte()
 
     /** 内层 TLV 类型定义 */
+    private const val INNER_TLV_TYPE: Byte  = 0x01.toByte()
     private const val TLV_MSG_NAME: Byte  = 0x01.toByte()
     private const val TLV_MSG_TITLE: Byte = 0x02.toByte()
     private const val TLV_MSG_TEXT: Byte  = 0x03.toByte()
@@ -66,6 +78,76 @@ object PacketCommandUtils {
         buf.put(tlvValue)
 
         return buf.array()
+    }
+
+    fun createTranslationPacket(text: String): List<ByteArray> {
+        val textBytes = text.toByteArray(Charsets.UTF_8)
+        // 整体小于或等于200字节，直接构造单包
+        if (textBytes.size <= 200) {
+            val messageBytes = byteArrayOf(0x5a, 0x6b) + text.toByteArray(Charsets.UTF_8)
+            val tlv = buildTlv(INNER_TLV_TYPE, messageBytes)
+            return listOf(createPacket(CMDKey.SEND_TRANSLATE, tlv))
+        }
+
+        val MAX_CHUNK_SIZE = 200
+        val HEADER = byteArrayOf(0x5A, 0x5A)
+        val FOOTER = byteArrayOf(0x6B, 0x6B)
+        val MIDDLE_HEADER = byteArrayOf(0x7C, 0x7C)
+
+        // 将文本按 MAX_CHUNK_SIZE 大小分片
+        val chunks = mutableListOf<ByteArray>()
+        var offset = 0
+        while (offset < textBytes.size) {
+            val end = (offset + MAX_CHUNK_SIZE).coerceAtMost(textBytes.size)
+            chunks += textBytes.copyOfRange(offset, end)
+            offset = end
+        }
+
+        // 为每片数据构造完整的包
+        return chunks.mapIndexed { index, chunk ->
+            // 加上标识头/尾/中间头
+            val payload = when (index) {
+                0 -> buildTlv(INNER_TLV_TYPE, HEADER + chunk)
+                chunks.lastIndex -> buildTlv(INNER_TLV_TYPE, FOOTER + chunk)
+                else -> buildTlv(INNER_TLV_TYPE, MIDDLE_HEADER + chunk)
+            }
+            createPacket(CMDKey.SEND_TRANSLATE, payload)
+        }
+    }
+
+    fun createAIPacket(text: String): List<ByteArray> {
+        val textBytes = text.toByteArray(Charsets.UTF_8)
+        // 整体小于或等于200字节，直接构造单包
+        if (textBytes.size <= 200) {
+            val messageBytes = byteArrayOf(0x5a, 0x6b) + text.toByteArray(Charsets.UTF_8)
+            val tlv = buildTlv(INNER_TLV_TYPE, messageBytes)
+            return listOf(createPacket(CMDKey.SEND_AI, tlv))
+        }
+
+        val MAX_CHUNK_SIZE = 200
+        val HEADER = byteArrayOf(0x5A, 0x5A)
+        val FOOTER = byteArrayOf(0x6B, 0x6B)
+        val MIDDLE_HEADER = byteArrayOf(0x7C, 0x7C)
+
+        // 将文本按 MAX_CHUNK_SIZE 大小分片
+        val chunks = mutableListOf<ByteArray>()
+        var offset = 0
+        while (offset < textBytes.size) {
+            val end = (offset + MAX_CHUNK_SIZE).coerceAtMost(textBytes.size)
+            chunks += textBytes.copyOfRange(offset, end)
+            offset = end
+        }
+
+        // 为每片数据构造完整的包
+        return chunks.mapIndexed { index, chunk ->
+            // 加上标识头/尾/中间头
+            val payload = when (index) {
+                0 -> buildTlv(INNER_TLV_TYPE, HEADER + chunk)
+                chunks.lastIndex -> buildTlv(INNER_TLV_TYPE, FOOTER + chunk)
+                else -> buildTlv(INNER_TLV_TYPE, MIDDLE_HEADER + chunk)
+            }
+            createPacket(CMDKey.SEND_AI, payload)
+        }
     }
 
     /**
@@ -113,13 +195,31 @@ object PacketCommandUtils {
      * cmd = 0x82，inner TLV 类型为 0x01
      */
     fun parseKeyValuePacket(packet: ByteArray): Int {
-        val parsed = parsePacket(packet) ?: return RemoteControlKeyValue.KEY_ERROR
-        if (parsed.cmd != 0x82.toByte()) return RemoteControlKeyValue.KEY_ERROR
+        if (packet.size < 8 || packet[0] != HEADER) return RemoteControlKeyValue.KEY_ERROR
 
-        val keyTlv = parsed.tlvs.find { it.type == 0x01.toByte() } ?: return RemoteControlKeyValue.KEY_ERROR
-        if (keyTlv.value.size != 1) return RemoteControlKeyValue.KEY_ERROR
+        val buf = ByteBuffer.wrap(packet).order(ByteOrder.LITTLE_ENDIAN)
+        buf.position(1)
 
-        return when (keyTlv.value[0].toInt() and 0xFF) {
+        // cmd
+        val cmd = buf.get()
+        if (cmd != CMDKey.REMOTE_CONTROL_COMMAND) return RemoteControlKeyValue.KEY_ERROR
+
+        // 外层TLV type
+        val outerType = buf.get()
+        if (outerType != OUTER_TLV_TYPE) return RemoteControlKeyValue.KEY_ERROR
+
+        // 外层TLV length
+        val outerLen = buf.short.toInt() and 0xFFFF
+        if (packet.size < 1 + 1 + 1 + 2 + outerLen) return RemoteControlKeyValue.KEY_ERROR
+
+        // 内层TLV
+        val innerType = buf.get()
+        val innerLen = buf.short.toInt() and 0xFFFF
+        if (innerType != INNER_TLV_TYPE || innerLen != 1) {
+            return RemoteControlKeyValue.KEY_ERROR
+        }
+
+        return when (buf.get().toInt() and 0xFF) {
             0x00 -> RemoteControlKeyValue.KEY_NULL
             0x09 -> RemoteControlKeyValue.KEY_NEXT
             0x0B -> RemoteControlKeyValue.KEY_PREV
@@ -129,6 +229,31 @@ object PacketCommandUtils {
             0X1B -> RemoteControlKeyValue.KEY_ESC
             else -> RemoteControlKeyValue.KEY_ERROR
         }
+    }
+
+    /**
+     * 解析消息包，检查操作是否成功
+     * @param packet 接收到的数据包
+     * @return Pair<Byte, Boolean>? 操作指令和操作是否成功，若解析失败则返回 null
+     */
+    fun parseValuePacket(packet: ByteArray): Pair<Byte, Boolean>? {
+        val parsed = parsePacket(packet) ?: return null
+
+        if (parsed.cmd != 0x80.toByte()) return null
+
+        // 提取tlv_result_cmd
+        val tlvResultCmd = parsed.tlvs.find { it.type == 0x01.toByte() } ?: return null
+        if (tlvResultCmd.value.size != 1) return null
+        val operationCmd = tlvResultCmd.value[0]
+
+        // 提取tlv_result_code
+        val tlvResultCode = parsed.tlvs.find { it.type == 0x02.toByte() } ?: return null
+        if (tlvResultCode.value.size != 1) return null
+        val resultCode = tlvResultCode.value[0]
+
+        val isSuccess = resultCode == ReceiveValue.SUCCESS
+
+        return Pair(operationCmd, isSuccess)
     }
 
     /**

@@ -28,6 +28,17 @@ import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
 import androidx.lifecycle.lifecycleScope
+import com.example.jvsglass.bluetooth.BluetoothConnectManager
+import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
+import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
+import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TRANSLATE
+import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createAIPacket
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createTranslationPacket
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class TranslateRealtimeActivity : AppCompatActivity() {
@@ -63,12 +74,15 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    @RequiresPermission(
+        allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
+    )
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_translate_realtime)
 
         voiceManager = VoiceManager(this)
+        BluetoothConnectManager.initialize(this, voiceManager)
         setupUI()
         setupRecyclerView()
         setupButtonStyle()
@@ -81,6 +95,9 @@ class TranslateRealtimeActivity : AppCompatActivity() {
         }
 
         initClasiClient()
+
+        BluetoothConnectManager.sendCommand(createPacket(CMDKey.INTERFACE_COMMAND, ENTER_TRANSLATE))
+//        BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, OPEN_MIC))
     }
 
     private fun setupUI() {
@@ -102,7 +119,9 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    @RequiresPermission(
+        allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
+    )
     private fun setupButtonStyle() {
         findViewById<LinearLayout>(R.id.ll_stop).setOnClickListener {
             WarningDialog.showDialog(
@@ -125,6 +144,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
                         overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
                     }
                 })
+            BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, CLOSE_MIC))
         }
 
         findViewById<ImageView>(R.id.iv_convert).setOnClickListener {
@@ -178,13 +198,13 @@ class TranslateRealtimeActivity : AppCompatActivity() {
                     if (!clasiClient.isConnected()) {
                         clasiClient.connect()
                     }
-                    startRecording()
+                    voiceManager.resumeRecording()
                 }
                 1 -> {
                     isManualPause = true
                     ivTranslateState.setImageResource(R.drawable.ic_continue)
                     tvTranslateState.text = "继续"
-                    stopRecording()
+                    voiceManager.pauseRecording()
                     clasiClient.setShouldReconnect(false)
                 }
             }
@@ -204,6 +224,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
             sourceLang = languageConvert(tvSourceLanguage.text.toString()),
             targetLang = languageConvert(tvTargetLanguage.text.toString()),
             callback = object : RealtimeClasiClient.ClasiCallback {
+                @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 override fun onTranscriptUpdate(text: String) {
                     runOnUiThread {
                         currentSourceText += text
@@ -211,6 +232,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
                     }
                 }
 
+                @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 override fun onTranslationUpdate(text: String) {
                     runOnUiThread {
                         currentTargetText += text
@@ -219,7 +241,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
                 }
 
                 override fun onFinalResult(transcript: String, translation: String) {
-                    runOnUiThread {
+                    runOnUiThread  {
                         LogUtils.info("收到实时语音识别结果：$transcript, 翻译结果：$translation")
                         addTranslationResult(transcript, translation)
                         currentSourceText = ""
@@ -278,6 +300,8 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun startRecording() {
         if (!clasiClient.isConnected()) {
+            clasiClient.disconnect()
+            clasiClient.connect()
             LogUtils.error("连接未就绪，请稍后重试")
             translateState = 1
             return
@@ -312,8 +336,26 @@ class TranslateRealtimeActivity : AppCompatActivity() {
      * 调用 adapter.updatePartialPair 将当前组（累积的 currentSourceText 与 currentTargetText）显示出来；
      * 检查两侧是否都以标点结尾，若是则认为当前组完成，调用 addTranslationResult 固定显示，并重置累积变量。
      */
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun updatePartialDisplay() {
         translationAdapter.updatePartialPair(currentSourceText, currentTargetText)
+
+        var message = ""
+        when (languageStyleState) {
+            0 -> { message = currentSourceText + "\n" + currentTargetText + "\n" }
+            1 -> { message = currentSourceText + "\n" }
+            2 -> { message = currentTargetText + "\n" }
+        }
+        LogUtils.info("发送蓝牙消息：$message")
+
+        val packets = createTranslationPacket(message)
+        CoroutineScope(Dispatchers.IO).launch {
+            for (packet in packets) {
+                BluetoothConnectManager.sendCommand(packet)
+                delay(10)
+            }
+        }
+
         // 检查当前累积的文本是否都以标点结束
         if (endsWithPunctuation(currentSourceText) && endsWithPunctuation(currentTargetText)) {
             currentSourceText = ""

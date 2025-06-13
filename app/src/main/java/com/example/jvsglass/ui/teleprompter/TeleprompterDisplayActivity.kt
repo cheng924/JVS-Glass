@@ -9,8 +9,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.GestureDetector
@@ -29,22 +27,19 @@ import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.PacketCommandUtils
-import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_HOME_VALUE
+import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_HOME
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
-import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_INTERFACE_COMMAND
-import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TELEPROMPTER_VALUE
+import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
+import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TELEPROMPTER
 import com.example.jvsglass.bluetooth.BLEClient
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
-import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
-import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_MIC_COMMAND
 import com.example.jvsglass.dialog.WarningDialog
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
-import com.example.jvsglass.utils.toHexString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -143,7 +138,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         initRealtimeAsrClient()
 
         setupClientCallbacks()
-        BluetoothConnectManager.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_TELEPROMPTER_VALUE))
+        BluetoothConnectManager.sendCommand(createPacket(CMDKey.INTERFACE_COMMAND, ENTER_TELEPROMPTER))
     }
 
     @RequiresPermission(
@@ -178,7 +173,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         tvRemoteStatus = findViewById(R.id.tv_remote_status)
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener {
-            BluetoothConnectManager.sendCommand(createPacket(SWITCH_INTERFACE_COMMAND, ENTER_HOME_VALUE))
+            BluetoothConnectManager.sendCommand(createPacket(CMDKey.INTERFACE_COMMAND, ENTER_HOME))
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
@@ -260,7 +255,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                                 }
                             }).toString()
 
-//                            BluetoothConnectManager.sendCommand(createPacket(SWITCH_MIC_COMMAND, OPEN_MIC))
+//                            BluetoothConnectManager.sendCommand(createPacket(CMDKey.SWITCH_MIC_COMMAND, OPEN_MIC))
 ////                            voiceManager.startBtRecording()
 //                            BluetoothConnectManager.onAudioStreamReceived = {data ->
 ////                                voiceManager.feedBtData(data)
@@ -287,7 +282,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
                 scrollView.setOnTouchListener(manualTouchListener)
 
-                BluetoothConnectManager.sendCommand(createPacket(SWITCH_MIC_COMMAND, CLOSE_MIC))
+                BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, CLOSE_MIC))
             }
             micControl = !micControl
         }
@@ -333,6 +328,20 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 llContinueScroll.isClickable = false
 
                 scrollView.setOnTouchListener(disabledTouchListener)
+
+//                val value = byteArrayOf(0x01, 0x82.toByte(), 0x80.toByte(), 0x04, 0x00, 0x01, 0x01, 0x00, 0x09)
+//                val command = PacketCommandUtils.parseKeyValuePacket(value)
+//                LogUtils.info("[TeleprompterDisplayActivity] command类型：$command")
+//                when (command) {
+//                    PacketCommandUtils.RemoteControlKeyValue.KEY_PREV -> {
+//                        scrollLines = (scrollLines - 1).coerceAtLeast(0)
+//                        updateDisplay()
+//                    }
+//                    PacketCommandUtils.RemoteControlKeyValue.KEY_NEXT -> {
+//                        scrollLines = (scrollLines + 1).coerceAtMost(totalLines - 1)
+//                        updateDisplay()
+//                    }
+//                }
             } else {
                 tvRemoteStatus.text = "遥控滚动"
                 ivRemoteStatus.setImageResource(R.drawable.ic_remote_on)

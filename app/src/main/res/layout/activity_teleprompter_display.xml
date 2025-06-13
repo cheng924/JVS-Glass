@@ -70,7 +70,7 @@
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="630dp"
+        android:layout_height="530dp"
         android:orientation="vertical"
         android:layout_marginHorizontal="20dp"
         android:layout_marginBottom="10dp">

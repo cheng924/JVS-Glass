@@ -32,9 +32,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_HISTORY_SIZE
+import com.example.jvsglass.bluetooth.PacketCommandUtils
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
 import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
-import com.example.jvsglass.bluetooth.PacketCommandUtils.SWITCH_MIC_COMMAND
+import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.bluetooth.PacketMessageUtils
 import com.example.jvsglass.network.NetworkManager
@@ -42,6 +43,7 @@ import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
+import com.example.jvsglass.utils.toHexString
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -178,8 +180,20 @@ class BluetoothConnectActivity : AppCompatActivity() {
             }
         }
         BluetoothConnectManager.onMessageReceived = { msg ->
-            val message = PacketMessageUtils.processPacket(msg)
-            addMessageToHistory("[收到] $message")
+            LogUtils.info("[DualBluetoothActivity] 接收到消息：${msg.toHexString()}")
+            val result = PacketCommandUtils.parseValuePacket(msg)
+            if (result != null) {
+                val (operationCmd, isSuccess) = result
+                if (isSuccess) {
+                    LogUtils.info("操作成功，指令: 0x${operationCmd.toString(16)}")
+                } else {
+                    LogUtils.info("操作失败，指令: 0x${operationCmd.toString(16)}")
+                }
+            } else {
+                LogUtils.info("解析数据包失败")
+//                val message = PacketMessageUtils.processPacket(msg)
+//                addMessageToHistory("[收到] $message")
+            }
         }
         BluetoothConnectManager.onVoiceReceived = { data ->
             val timestamp = System.currentTimeMillis()
@@ -226,11 +240,11 @@ class BluetoothConnectActivity : AppCompatActivity() {
         btnSendText.setOnClickListener {
             val text = etMessage.text.toString().trim()
             if (text == "打开") {
-                BluetoothConnectManager.sendCommand(createPacket(SWITCH_MIC_COMMAND, OPEN_MIC))
+                BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, OPEN_MIC))
             }
 
             if (text == "关闭") {
-                BluetoothConnectManager.sendCommand(createPacket(SWITCH_MIC_COMMAND, CLOSE_MIC))
+                BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, CLOSE_MIC))
             }
 
             if (text.isNotEmpty()) {

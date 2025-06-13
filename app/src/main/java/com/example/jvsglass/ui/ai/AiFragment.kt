@@ -31,6 +31,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
+import com.example.jvsglass.bluetooth.BluetoothConnectManager
+import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
+import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_AI
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createAIPacket
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.database.AiConversationEntity
 import com.example.jvsglass.database.AiMessageEntity
 import com.example.jvsglass.database.AppDatabase
@@ -45,7 +50,9 @@ import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.SystemFileOpener
 import com.example.jvsglass.utils.VoiceManager
 import io.reactivex.disposables.Disposable
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -73,6 +80,8 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
     private var currentVoicePath = ""
     private var currentConversationId: String? = null
     private var isLoadedFromHistory = false
+
+    private var sendBTMessage = ""
 
     private lateinit var tvConversationTitle: TextView
     private lateinit var rvMessages: RecyclerView
@@ -114,6 +123,7 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
         voiceManager = VoiceManager(requireContext())
         fileOpener = SystemFileOpener(requireContext())
         fileOpener.registerLaunchers(this, this)
+        BluetoothConnectManager.initialize(requireContext(), voiceManager)
 
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
@@ -146,6 +156,8 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
             messageAdapter.notifyDataSetChanged()
             loadConversation(convId)
         }
+
+        BluetoothConnectManager.sendCommand(createPacket(CMDKey.INTERFACE_COMMAND, ENTER_AI))
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
@@ -383,6 +395,8 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
         }
     }
 
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun sendMessage(messageText: String? = null) {
         var finalMessageText = messageText
         tempMessageId?.let { tempId ->
@@ -586,6 +600,17 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
     }
 
     private fun sendTextToCozeModelStream(userMessage: String) {
+//        if (userMessage == "100") {
+//            val packets = createAIPacket("目前暂未获取到2025年6月19日至6月25日深圳的天气情况。通常天气预测的时间范围较短，提前这么久的天气情况难以准确获取，你可以临近该日期时通过天气预报网站（如中国天气网、彩云天气等）或相关天气APP查询最新的天气信息。目前暂未获取到2025年6月19日至6月25日深圳的天气情况。通常天气预测的时间范围较短，提前这么久的天气情况难以准确获取，你可以临近该日期时通过天气预报网站（如中国天气网、彩云天气等）或相关天气APP查询最新的天气信息。")
+//            CoroutineScope(Dispatchers.IO).launch  {
+//                for (packet in packets) {
+//                    BluetoothConnectManager.sendCommand(packet)
+//                    delay(50)
+//                }
+//            }
+//            return
+//        }
+
         val thinkingMessage = addMessage("思考中...", false)
         val fullResponse = StringBuilder()
         val userMsg = ChatRequest.Message(role = "user", content = userMessage)
@@ -597,11 +622,21 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
                 override fun onNewMessage(text: String) {
                     fullResponse.append(text)
                     LogUtils.info("收到消息：$text")
+                    sendBTMessage += text
                     updateMessage(thinkingMessage.id, fullResponse.toString())
                 }
 
+                @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 override fun onCompleted() {
                     LogUtils.info("对话结束")
+                    val packets = createAIPacket(sendBTMessage)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        for (packet in packets) {
+                            BluetoothConnectManager.sendCommand(packet)
+                            delay(10)
+                        }
+                    }
+                    sendBTMessage = ""
                     if (fullResponse.isEmpty()) updateMessage(thinkingMessage.id, "未收到有效回复")
                 }
 

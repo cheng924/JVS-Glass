@@ -44,6 +44,9 @@ class BLEClient private constructor(context: Context) {
     private var heartbeatRunnable: Runnable? = null
     private val pendingDescriptors = ArrayDeque<BluetoothGattDescriptor>()
 
+    private val packetQueue = ArrayDeque<ByteArray>()
+    private var isWritingPacket = false
+
     interface MessageListener {
         fun onMessageReceived(value: ByteArray)
     }
@@ -176,13 +179,15 @@ class BLEClient private constructor(context: Context) {
             status: Int
         ) {
             LogUtils.info("[BLE] onCharacteristicWrite 状态码：$status")
+            isWritingPacket = false
             if (status == BluetoothGatt.GATT_SUCCESS) {
+                packetQueue.removeFirstOrNull()
                 LogUtils.debug("[BLE] 数据包已成功发送")
-                isSending = false
             } else {
                 LogUtils.error("[BLE] 数据包发送失败，状态码：$status")
-                isSending = false
             }
+            isSending = false
+            writeNextPacket()
         }
     }
 
@@ -289,7 +294,9 @@ class BLEClient private constructor(context: Context) {
             return
         }
         LogUtils.info("[BLE] 发送指令：${command.toHexString()}")
-        sendPacket(command)
+//        sendPacket(command)
+        packetQueue += command
+        writeNextPacket()
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -298,6 +305,45 @@ class BLEClient private constructor(context: Context) {
         LogUtils.info("[BLE] 发送消息 $message")
         sendPacket(packet)
     }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun writeNextPacket() {
+        if (isWritingPacket || packetQueue.isEmpty() || bluetoothGatt == null) return
+        val packet = packetQueue.first()
+        isWritingPacket = true
+
+        val service = bluetoothGatt!!.getService(BluetoothConstants.SERVICE_CHAR_UUID) ?: run {
+            LogUtils.error("[BLE] 服务不可用")
+            isWritingPacket = false
+            return
+        }
+        val characteristic = service.getCharacteristic(BluetoothConstants.WRITE_CHAR_UUID) ?: run {
+            LogUtils.error("[BLE] 特征值不可用")
+            isWritingPacket = false
+            return
+        }
+
+        // 保持原有写类型选择逻辑
+        when {
+            characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE != 0 ->
+                characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE != 0 ->
+                characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+        }
+
+        LogUtils.info("[BLE] 发送数据包：${packet.toHexString()}")
+        characteristic.value = packet
+        val ok = bluetoothGatt!!.writeCharacteristic(characteristic)
+        if (!ok) {
+            LogUtils.error("[BLE] 写出错，稍后重试本包")
+            // 简单延迟一会儿再试
+            Handler(Looper.getMainLooper()).postDelayed({
+                isWritingPacket = false
+                writeNextPacket()
+            }, RETRY_INTERVAL)
+        }
+    }
+
 
     // 分包发送逻辑
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
