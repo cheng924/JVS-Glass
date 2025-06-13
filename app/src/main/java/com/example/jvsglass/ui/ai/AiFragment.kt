@@ -395,8 +395,6 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
         }
     }
 
-
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun sendMessage(messageText: String? = null) {
         var finalMessageText = messageText
         tempMessageId?.let { tempId ->
@@ -600,17 +598,6 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
     }
 
     private fun sendTextToCozeModelStream(userMessage: String) {
-//        if (userMessage == "100") {
-//            val packets = createAIPacket("目前暂未获取到2025年6月19日至6月25日深圳的天气情况。通常天气预测的时间范围较短，提前这么久的天气情况难以准确获取，你可以临近该日期时通过天气预报网站（如中国天气网、彩云天气等）或相关天气APP查询最新的天气信息。目前暂未获取到2025年6月19日至6月25日深圳的天气情况。通常天气预测的时间范围较短，提前这么久的天气情况难以准确获取，你可以临近该日期时通过天气预报网站（如中国天气网、彩云天气等）或相关天气APP查询最新的天气信息。")
-//            CoroutineScope(Dispatchers.IO).launch  {
-//                for (packet in packets) {
-//                    BluetoothConnectManager.sendCommand(packet)
-//                    delay(50)
-//                }
-//            }
-//            return
-//        }
-
         val thinkingMessage = addMessage("思考中...", false)
         val fullResponse = StringBuilder()
         val userMsg = ChatRequest.Message(role = "user", content = userMessage)

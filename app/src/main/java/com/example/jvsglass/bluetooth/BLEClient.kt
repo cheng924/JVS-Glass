@@ -12,6 +12,7 @@ import com.example.jvsglass.bluetooth.BluetoothConstants.MAX_RETRY
 import com.example.jvsglass.bluetooth.BluetoothConstants.RETRY_INTERVAL
 import com.example.jvsglass.bluetooth.BluetoothConstants.HEARTBEAT_INTERVAL
 import com.example.jvsglass.bluetooth.BluetoothConstants.HEARTBEAT_TIMEOUT
+import com.example.jvsglass.bluetooth.PacketCommandUtils.parseDbClickPacket
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.toHexString
 import java.lang.ref.WeakReference
@@ -132,7 +133,17 @@ class BLEClient private constructor(context: Context) {
                     lastHeartbeatResponse = System.currentTimeMillis()
                     Handler(Looper.getMainLooper()).post {
                         LogUtils.info("[BLE] ${System.currentTimeMillis()} 收到消息：${value.toHexString()}")
-                        messageListener?.onMessageReceived(value)
+                        if (value[1] == 0x86.toByte()) {
+                            val key = parseDbClickPacket(value)
+                            when (key) {
+                                PacketCommandUtils.DbClickKeyValue.STATUS_START -> { LogUtils.info("[BLE] 双击开始") }
+                                PacketCommandUtils.DbClickKeyValue.STATUS_STOP -> { LogUtils.info("[BLE] 双击停止") }
+                                PacketCommandUtils.DbClickKeyValue.STATUS_CLOSE -> { LogUtils.info("[BLE] 双击关闭") }
+                                else -> { LogUtils.error("[BLE] 未知的双击动作：${value.toHexString()}") }
+                            }
+                        } else {
+                            messageListener?.onMessageReceived(value)
+                        }
                     }
                 }
                 BluetoothConstants.NOTIFY_AUDIO_UUID -> {

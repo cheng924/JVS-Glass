@@ -15,6 +15,13 @@ object PacketCommandUtils {
         const val KEY_ERROR = -1    // 错误
     }
 
+    object DbClickKeyValue {
+        const val STATUS_START = 1  // 开始
+        const val STATUS_STOP  = 2  // 停止
+        const val STATUS_CLOSE = 3  // 关闭
+        const val STATUS_ERROR = -1 // 错误
+    }
+
     object ReceiveValue {
         const val FAIL = 0x00.toByte()
         const val SUCCESS = 0x01.toByte()
@@ -26,6 +33,7 @@ object PacketCommandUtils {
         const val SEND_AI = 0x08.toByte()        // 发送AI结果
         const val MIC_COMMAND = 0x09.toByte()           // 控制MIC
         const val REMOTE_CONTROL_COMMAND = 0x82.toByte()        // 遥控器控制
+        const val DOUBLE_CLICK_COMMAND = 0x86.toByte()   // 双击操作
     }
 
     /** value **/
@@ -254,6 +262,30 @@ object PacketCommandUtils {
         val isSuccess = resultCode == ReceiveValue.SUCCESS
 
         return Pair(operationCmd, isSuccess)
+    }
+
+    fun parseDbClickPacket(packet: ByteArray): Int {
+        if (packet.size < 1 + 1 + 1 + 2 + 1 + 2 + 2) return DbClickKeyValue.STATUS_ERROR
+        if (packet[0] != HEADER) return DbClickKeyValue.STATUS_ERROR
+
+        val buf = ByteBuffer.wrap(packet).order(ByteOrder.LITTLE_ENDIAN)
+        buf.position(1)
+
+        val cmd = buf.get()
+        if (cmd != CMDKey.DOUBLE_CLICK_COMMAND) return DbClickKeyValue.STATUS_ERROR
+
+        val outerType = buf.get()
+        if (outerType != OUTER_TLV_TYPE) return DbClickKeyValue.STATUS_ERROR
+        val outerLen = buf.short.toInt() and 0xFFFF
+        if (packet.size < 1 + 1 + 1 + 2 + outerLen) return DbClickKeyValue.STATUS_ERROR
+
+        val innerType = buf.get().toInt() and 0xFF
+        return when (innerType) {
+            0x01 -> DbClickKeyValue.STATUS_START
+            0x02  -> DbClickKeyValue.STATUS_STOP
+            0x03 -> DbClickKeyValue.STATUS_CLOSE
+            else -> DbClickKeyValue.STATUS_ERROR
+        }
     }
 
     /**

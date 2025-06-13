@@ -80,7 +80,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
             realtimeAsrClient.disconnect()
             asrConnected = false
             runOnUiThread {
-                LogUtils.info("[DualBluetoothActivity] ASR已断开：超过5秒未收到音频")
+                LogUtils.info("[BluetoothConnectActivity] ASR已断开：超过5秒未收到音频")
             }
         }
     }
@@ -114,7 +114,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
             if (intent?.action == ACTION_BOND_STATE_CHANGED) {
                 val dev = intent.getParcelableExtra<BluetoothDevice>(EXTRA_DEVICE) ?: return
                 val state = intent.getIntExtra(EXTRA_BOND_STATE, BOND_NONE)
-                LogUtils.info("[DualBluetoothActivity] 设备: ${dev.address}, 配对状态: $state")
+                LogUtils.info("[BluetoothConnectActivity] 设备: ${dev.address}, 配对状态: $state")
                 if (state == BOND_BONDED) {
                     BluetoothAdapter.getDefaultAdapter().cancelDiscovery()
                     BluetoothConnectManager.connectClassic(dev)
@@ -180,7 +180,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
             }
         }
         BluetoothConnectManager.onMessageReceived = { msg ->
-            LogUtils.info("[DualBluetoothActivity] 接收到消息：${msg.toHexString()}")
+            LogUtils.info("[BluetoothConnectActivity] 接收到消息：${msg.toHexString()}")
             val result = PacketCommandUtils.parseValuePacket(msg)
             if (result != null) {
                 val (operationCmd, isSuccess) = result
@@ -201,18 +201,18 @@ class BluetoothConnectActivity : AppCompatActivity() {
             try {
                 audioFile.writeBytes(data)
                 addMessageToHistory("[收到] 语音 ${data.size} 字节", audioFile.absolutePath)
-                LogUtils.info("[DualBluetoothActivity] 语音路径：${audioFile.absolutePath}")
+                LogUtils.info("[BluetoothConnectActivity] 语音路径：${audioFile.absolutePath}")
             } catch (e: IOException) {
-                LogUtils.error("[DualBluetoothActivity] 保存接收音频失败: ${e.message}")
+                LogUtils.error("[BluetoothConnectActivity] 保存接收音频失败: ${e.message}")
                 runOnUiThread { ToastUtils.show(this, "保存接收音频失败: ${e.message}") }
             }
         }
         BluetoothConnectManager.onAudioStreamReceived = { data ->
-            LogUtils.info("[DualBluetoothActivity] 接收到音频流数据，长度：${data.size} 字节")
+            LogUtils.info("[BluetoothConnectActivity] 接收到音频流数据，长度：${data.size} 字节")
             if (!asrConnected) {
                 realtimeAsrClient.connect()
                 asrConnected = true
-                LogUtils.info("[DualBluetoothActivity] ASR连接已建立，开始发送音频数据")
+                LogUtils.info("[BluetoothConnectActivity] ASR连接已建立，开始发送音频数据")
             }
             // 发送当前音频块
             realtimeAsrClient.sendAudioChunk(data)
@@ -290,7 +290,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
 
                 override fun onFinalResult(text: String) {
                     runOnUiThread {
-                        LogUtils.info("[DualBluetoothActivity] ASR结果：$text")
+                        LogUtils.info("[BluetoothConnectActivity] ASR结果：$text")
                     }
                 }
 
@@ -344,7 +344,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 0)
         } else {
-            LogUtils.info("[DualBluetoothActivity] 所有权限已授予")
+            LogUtils.info("[BluetoothConnectActivity] 所有权限已授予")
         }
     }
 
