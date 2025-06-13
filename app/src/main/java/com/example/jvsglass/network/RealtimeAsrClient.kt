@@ -10,13 +10,14 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
 class RealtimeAsrClient(
     private val apiKey: String,
     private val callback: RealtimeAsrCallback
 ) : WebSocketListener() {
-    private val tag = "RealtimeAsrClient"
+    private val tag = "[RealtimeAsrClient]"
     private val gson = Gson()
     private var webSocket: WebSocket? = null
     private var isSessionConfigured = false
@@ -27,6 +28,8 @@ class RealtimeAsrClient(
     private var disconnectRunnable: Runnable? = null
     var shouldReconnect = true
     private var reconnectionScheduled = false
+    private val FRAME_SIZE = 1280
+    private val frameBuffer = ByteArrayOutputStream()
 
     private val client = OkHttpClient.Builder()
         .pingInterval(10, TimeUnit.SECONDS)  // 保持长连接
@@ -56,7 +59,6 @@ class RealtimeAsrClient(
             .build()
 
         webSocket = client.newWebSocket(request, this)
-//        callback.onConnectionChanged(true)
     }
 
     fun resetSession() {
@@ -74,12 +76,30 @@ class RealtimeAsrClient(
         connect()
     }
 
+    fun appendAudio(data: ByteArray) {
+        if (!isSessionConfigured) {
+            LogUtils.warn("$tag 会话未配置完成")
+            return
+        }
+        frameBuffer.write(data)
+
+        while (frameBuffer.size() >= FRAME_SIZE) {
+            val bufferBytes = frameBuffer.toByteArray()
+            val chunk = bufferBytes.copyOfRange(0, FRAME_SIZE)
+            sendAudioChunk(chunk)
+            // 剩余数据复位
+            frameBuffer.reset()
+            frameBuffer.write(bufferBytes.copyOfRange(FRAME_SIZE, bufferBytes.size))
+        }
+    }
+
     fun sendAudioChunk(chunk: ByteArray) {
         if (!isSessionConfigured) {
             LogUtils.warn("$tag 会话未配置完成")
             return
         }
         LogUtils.debug("发送音频块: ${chunk.size}字节")
+
         val message = JsonObject().apply {
             addProperty("type", "input_audio_buffer.append")
             addProperty("audio", Base64.encodeToString(chunk, Base64.NO_WRAP))

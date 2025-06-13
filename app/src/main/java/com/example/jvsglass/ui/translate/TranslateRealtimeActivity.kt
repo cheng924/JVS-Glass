@@ -67,6 +67,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     private var isManualPause = false
     private var isUpdatingLanguages = false
 
+    private var sendMessage = ""
     private val timestamp = System.currentTimeMillis()
 
     private val audioManager by lazy {
@@ -340,20 +341,22 @@ class TranslateRealtimeActivity : AppCompatActivity() {
     private fun updatePartialDisplay() {
         translationAdapter.updatePartialPair(currentSourceText, currentTargetText)
 
-        var message = ""
         when (languageStyleState) {
-            0 -> { message = currentSourceText + "\n" + currentTargetText + "\n" }
-            1 -> { message = currentSourceText + "\n" }
-            2 -> { message = currentTargetText + "\n" }
+            0 -> { sendMessage = currentSourceText + "\n" + currentTargetText + "\n" }
+            1 -> { sendMessage = currentSourceText + "\n" }
+            2 -> { sendMessage = currentTargetText + "\n" }
         }
-        LogUtils.info("发送蓝牙消息：$message")
+        LogUtils.info("发送蓝牙消息：$sendMessage")
 
-        val packets = createTranslationPacket(message)
-        CoroutineScope(Dispatchers.IO).launch {
-            for (packet in packets) {
-                BluetoothConnectManager.sendCommand(packet)
-                delay(10)
+        if (sendMessage.replace("\\R".toRegex(), "").isNotEmpty()) {
+            val packets = createTranslationPacket(sendMessage)
+            CoroutineScope(Dispatchers.IO).launch {
+                for (packet in packets) {
+                    BluetoothConnectManager.sendCommand(packet)
+                    delay(10)
+                }
             }
+            sendMessage = ""
         }
 
         // 检查当前累积的文本是否都以标点结束

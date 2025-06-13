@@ -208,7 +208,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
             }
         }
         BluetoothConnectManager.onAudioStreamReceived = { data ->
-            LogUtils.info("[BluetoothConnectActivity] 接收到音频流数据，长度：${data.size} 字节")
+            LogUtils.debug("[BluetoothConnectActivity] 接收到音频流数据，长度：${data.size} 字节")
             if (!asrConnected) {
                 realtimeAsrClient.connect()
                 asrConnected = true

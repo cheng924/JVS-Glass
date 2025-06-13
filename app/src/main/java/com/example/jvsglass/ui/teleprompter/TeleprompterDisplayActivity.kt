@@ -6,7 +6,6 @@ import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -22,7 +21,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
@@ -34,6 +32,7 @@ import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TELEPROMPTER
 import com.example.jvsglass.bluetooth.BLEClient
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
+import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
 import com.example.jvsglass.dialog.WarningDialog
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.RealtimeAsrClient
@@ -46,6 +45,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import kotlin.math.abs
 
 class TeleprompterDisplayActivity : AppCompatActivity() {
@@ -81,6 +81,8 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     private lateinit var llRemoteScroll: LinearLayout
     private lateinit var ivRemoteStatus: ImageView
     private lateinit var tvRemoteStatus: TextView
+
+    private val frameSize = 1280
 
     @SuppressLint("ClickableViewAccessibility")
     private val manualTouchListener = View.OnTouchListener { _, event ->
@@ -225,8 +227,11 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                     positiveButtonText = "开始使用",
                     negativeButtonText = "暂不使用",
                     listener = object : WarningDialog.DialogButtonClickListener {
-                        @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+                        @RequiresPermission(
+                            allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
+                        )
                         override fun onPositiveButtonClick() {
+                            BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, OPEN_MIC))
                             tvMicControl.text = "停止滚动"
                             ivMicControl.setImageResource(R.drawable.ic_mic_off)
                             llVoiceControl.setBackgroundResource(R.drawable.rounded_button_selected)
@@ -239,28 +244,28 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                             scrollView.setOnTouchListener(disabledTouchListener)
 
                             val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
-                            if (ActivityCompat.checkSelfPermission(
-                                    this@TeleprompterDisplayActivity,
-                                    Manifest.permission.BLUETOOTH_CONNECT
-                                ) == PackageManager.PERMISSION_GRANTED
-                            ) {
-                                sendMessage(currentSplit.sendBlock)
-                            } else {
-                                LogUtils.warn("缺少 BLUETOOTH_CONNECT 权限，无法发送 teleprompter 内容")
-                            }
+                            sendMessage(currentSplit.sendBlock)
 
-                            currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
-                                override fun onAudioData(data: ByteArray) {
-                                    realtimeAsrClient.sendAudioChunk(data)
+//                            currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
+//                                override fun onAudioData(data: ByteArray) {
+//                                    realtimeAsrClient.sendAudioChunk(data)
+//                                }
+//                            }).toString()
+
+                            val buffer = ByteArrayOutputStream()
+                            BluetoothConnectManager.onAudioStreamReceived = {data ->
+//                                realtimeAsrClient.appendAudio(data)
+
+                                buffer.write(data)
+                                while (buffer.size() >= frameSize) {
+                                    val chunk = buffer.toByteArray().copyOfRange(0, frameSize)
+                                    realtimeAsrClient.sendAudioChunk(chunk)
+
+                                    val leftover = buffer.toByteArray().copyOfRange(frameSize, buffer.size())
+                                    buffer.reset()
+                                    buffer.write(leftover)
                                 }
-                            }).toString()
-
-//                            BluetoothConnectManager.sendCommand(createPacket(CMDKey.SWITCH_MIC_COMMAND, OPEN_MIC))
-////                            voiceManager.startBtRecording()
-//                            BluetoothConnectManager.onAudioStreamReceived = {data ->
-////                                voiceManager.feedBtData(data)
-//                                realtimeAsrClient.sendAudioChunk(data)
-//                            }
+                            }
                         }
 
                         override fun onNegativeButtonClick() { micControl = true }
@@ -272,10 +277,8 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 llContinueScroll.isClickable = true
                 llRemoteScroll.isClickable = true
 
-                voiceManager.stopRecording()
-                voiceManager.deleteVoiceFile(currentVoicePath)
-
-//                voiceManager.stopBtRecording()
+//                voiceManager.stopRecording()
+//                voiceManager.deleteVoiceFile(currentVoicePath)
 
                 BluetoothConnectManager.onAudioStreamReceived = null
                 realtimeAsrClient.disconnect()
@@ -328,20 +331,6 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 llContinueScroll.isClickable = false
 
                 scrollView.setOnTouchListener(disabledTouchListener)
-
-//                val value = byteArrayOf(0x01, 0x82.toByte(), 0x80.toByte(), 0x04, 0x00, 0x01, 0x01, 0x00, 0x09)
-//                val command = PacketCommandUtils.parseKeyValuePacket(value)
-//                LogUtils.info("[TeleprompterDisplayActivity] command类型：$command")
-//                when (command) {
-//                    PacketCommandUtils.RemoteControlKeyValue.KEY_PREV -> {
-//                        scrollLines = (scrollLines - 1).coerceAtLeast(0)
-//                        updateDisplay()
-//                    }
-//                    PacketCommandUtils.RemoteControlKeyValue.KEY_NEXT -> {
-//                        scrollLines = (scrollLines + 1).coerceAtMost(totalLines - 1)
-//                        updateDisplay()
-//                    }
-//                }
             } else {
                 tvRemoteStatus.text = "遥控滚动"
                 ivRemoteStatus.setImageResource(R.drawable.ic_remote_on)
