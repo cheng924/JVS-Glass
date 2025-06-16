@@ -28,8 +28,8 @@ class RealtimeAsrClient(
     private var disconnectRunnable: Runnable? = null
     var shouldReconnect = true
     private var reconnectionScheduled = false
-    private val FRAME_SIZE = 1280
-    private val frameBuffer = ByteArrayOutputStream()
+    private val frameSize = 1280
+    private val buffer = ByteArrayOutputStream()
 
     private val client = OkHttpClient.Builder()
         .pingInterval(10, TimeUnit.SECONDS)  // 保持长连接
@@ -76,28 +76,23 @@ class RealtimeAsrClient(
         connect()
     }
 
-    fun appendAudio(data: ByteArray) {
-        if (!isSessionConfigured) {
-            LogUtils.warn("$tag 会话未配置完成")
-            return
-        }
-        frameBuffer.write(data)
-
-        while (frameBuffer.size() >= FRAME_SIZE) {
-            val bufferBytes = frameBuffer.toByteArray()
-            val chunk = bufferBytes.copyOfRange(0, FRAME_SIZE)
-            sendAudioChunk(chunk)
-            // 剩余数据复位
-            frameBuffer.reset()
-            frameBuffer.write(bufferBytes.copyOfRange(FRAME_SIZE, bufferBytes.size))
-        }
-    }
-
     fun sendAudioChunk(chunk: ByteArray) {
         if (!isSessionConfigured) {
             LogUtils.warn("$tag 会话未配置完成")
             return
         }
+
+        buffer.write(chunk)
+        while (buffer.size() >= frameSize) {
+            val data = buffer.toByteArray().copyOfRange(0, frameSize)
+            sendAudio(data)
+            // 剩余数据复位
+            buffer.reset()
+            buffer.write(buffer.toByteArray().copyOfRange(frameSize, buffer.size()))
+        }
+    }
+
+    fun sendAudio(chunk: ByteArray) {
         LogUtils.debug("发送音频块: ${chunk.size}字节")
 
         val message = JsonObject().apply {

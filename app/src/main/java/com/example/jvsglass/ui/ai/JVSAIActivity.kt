@@ -234,7 +234,7 @@ class JVSAIActivity : AppCompatActivity(), SystemFileOpener.FileResultCallback {
                     currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
                         override fun onAudioData(data: ByteArray) {
                             if (!isCanceled) {
-                                realtimeAsrClient.sendAudioChunk(data) // 实时发送音频块
+                                realtimeAsrClient.sendAudio(data) // 实时发送音频块
                                 LogUtils.debug("实时发送音频块，大小=${data.size}字节")
                             }
                         }

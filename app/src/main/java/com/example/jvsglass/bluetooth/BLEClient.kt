@@ -346,7 +346,7 @@ class BLEClient private constructor(context: Context) {
         characteristic.value = packet
         val ok = bluetoothGatt!!.writeCharacteristic(characteristic)
         if (!ok) {
-            LogUtils.error("[BLE] 写出错，稍后重试本包")
+            LogUtils.error("[BLE] ${packet.toHexString()}  写出错，稍后重试本包")
             // 简单延迟一会儿再试
             Handler(Looper.getMainLooper()).postDelayed({
                 isWritingPacket = false

@@ -120,6 +120,8 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        LogUtils.info("----- AI Fragment Created -----")
+
         voiceManager = VoiceManager(requireContext())
         fileOpener = SystemFileOpener(requireContext())
         fileOpener.registerLaunchers(this, this)
@@ -266,7 +268,7 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
                     currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
                         override fun onAudioData(data: ByteArray) {
                             if (!isCanceled) {
-                                realtimeAsrClient.sendAudioChunk(data)
+                                realtimeAsrClient.sendAudio(data)
                                 LogUtils.debug("实时发送音频块，大小=${data.size}字节")
                             }
                         }

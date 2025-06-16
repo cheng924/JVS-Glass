@@ -48,6 +48,8 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        LogUtils.info("----- Home Fragment Created -----")
         checkPermissions()
 
         // 初始化功能列表

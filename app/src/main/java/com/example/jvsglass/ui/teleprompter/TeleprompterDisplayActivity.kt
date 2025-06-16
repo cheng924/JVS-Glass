@@ -246,26 +246,31 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                             val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
                             sendMessage(currentSplit.sendBlock)
 
-//                            currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
-//                                override fun onAudioData(data: ByteArray) {
-//                                    realtimeAsrClient.sendAudioChunk(data)
-//                                }
-//                            }).toString()
-
-                            val buffer = ByteArrayOutputStream()
-                            BluetoothConnectManager.onAudioStreamReceived = {data ->
-//                                realtimeAsrClient.appendAudio(data)
-
-                                buffer.write(data)
-                                while (buffer.size() >= frameSize) {
-                                    val chunk = buffer.toByteArray().copyOfRange(0, frameSize)
-                                    realtimeAsrClient.sendAudioChunk(chunk)
-
-                                    val leftover = buffer.toByteArray().copyOfRange(frameSize, buffer.size())
-                                    buffer.reset()
-                                    buffer.write(leftover)
+                            currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
+                                override fun onAudioData(data: ByteArray) {
+                                    realtimeAsrClient.sendAudio(data)
                                 }
-                            }
+                            }).toString()
+
+//                            val file = voiceManager.startBtRecording()
+//                            LogUtils.info("start recording, file: $file")
+//
+//                            val buffer = ByteArrayOutputStream()
+//                            BluetoothConnectManager.onAudioStreamReceived = {data ->
+////                                realtimeAsrClient.appendAudio(data)
+//
+//                                voiceManager.feedBtData(data)
+//
+//                                buffer.write(data)
+//                                while (buffer.size() >= frameSize) {
+//                                    val chunk = buffer.toByteArray().copyOfRange(0, frameSize)
+//                                    realtimeAsrClient.sendAudio(chunk)
+//
+//                                    val leftover = buffer.toByteArray().copyOfRange(frameSize, buffer.size())
+//                                    buffer.reset()
+//                                    buffer.write(leftover)
+//                                }
+//                            }
                         }
 
                         override fun onNegativeButtonClick() { micControl = true }
@@ -277,10 +282,12 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 llContinueScroll.isClickable = true
                 llRemoteScroll.isClickable = true
 
-//                voiceManager.stopRecording()
-//                voiceManager.deleteVoiceFile(currentVoicePath)
+                voiceManager.stopRecording()
+                voiceManager.deleteVoiceFile(currentVoicePath)
 
-                BluetoothConnectManager.onAudioStreamReceived = null
+//                voiceManager.stopBtRecording()
+//
+//                BluetoothConnectManager.onAudioStreamReceived = null
                 realtimeAsrClient.disconnect()
 
                 scrollView.setOnTouchListener(manualTouchListener)

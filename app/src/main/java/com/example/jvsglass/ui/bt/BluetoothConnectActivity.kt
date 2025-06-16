@@ -37,7 +37,6 @@ import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
 import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
-import com.example.jvsglass.bluetooth.PacketMessageUtils
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.utils.LogUtils
@@ -215,7 +214,7 @@ class BluetoothConnectActivity : AppCompatActivity() {
                 LogUtils.info("[BluetoothConnectActivity] ASR连接已建立，开始发送音频数据")
             }
             // 发送当前音频块
-            realtimeAsrClient.sendAudioChunk(data)
+            realtimeAsrClient.sendAudio(data)
 
             asrTimeoutHandler.removeCallbacks(asrTimeoutRunnable)
             asrTimeoutHandler.postDelayed(asrTimeoutRunnable, 5_000L)
