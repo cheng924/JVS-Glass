@@ -13,6 +13,8 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
@@ -37,6 +39,25 @@ class HomeFragment : Fragment() {
     private var isConnected = false
     private var deviceName = ""
     private var deviceAddress = ""
+
+    private val btConnectLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == AppCompatActivity.RESULT_OK) {
+            val connected = result.data?.getStringExtra("CONNECTED_DEVICE")
+            if (!connected.isNullOrBlank()) {
+                isConnected = true
+                deviceName = connected
+            } else {
+                isConnected = false
+                deviceName = ""
+            }
+        } else {
+            isConnected = false
+            deviceName = ""
+        }
+        updateBluetoothStatus()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -85,13 +106,15 @@ class HomeFragment : Fragment() {
                 putExtra("isConnected", isConnected)
                 putExtra("deviceName", deviceName)
             }
-            startActivity(intent)
+            btConnectLauncher.launch(intent)
         }
 
         view.findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {
             ToastUtils.show(requireContext(), getString(R.string.development_tips))
             return@setOnClickListener
         }
+
+        updateBluetoothStatus()
     }
 
     override fun onStart() {
@@ -102,6 +125,14 @@ class HomeFragment : Fragment() {
     override fun onStop() {
         super.onStop()
         EventBus.getDefault().unregister(this)
+    }
+
+    private fun updateBluetoothStatus() {
+        val statusText1 = if (isConnected) "已连接" else "未连接"
+        view?.findViewById<TextView>(R.id.tv_bluetooth_status)?.text = statusText1
+
+        val statusText2 = if (isConnected) "蓝牙已连接\n${deviceName}" else "蓝牙未连接"
+        view?.findViewById<TextView>(R.id.btn_bluetooth)?.text = statusText2
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
