@@ -88,13 +88,13 @@ object PacketCommandUtils {
         return buf.array()
     }
 
-    fun createTranslationPacket(text: String): List<ByteArray> {
+    fun createMessagePacket(command: Byte, text: String): List<ByteArray> {
         val textBytes = text.toByteArray(Charsets.UTF_8)
         // 整体小于或等于200字节，直接构造单包
         if (textBytes.size <= 200) {
             val messageBytes = byteArrayOf(0x5a, 0x6b) + text.toByteArray(Charsets.UTF_8)
             val tlv = buildTlv(INNER_TLV_TYPE, messageBytes)
-            return listOf(createPacket(CMDKey.SEND_TRANSLATE, tlv))
+            return listOf(createPacket(command, tlv))
         }
 
         val maxChunkSize = 200
@@ -116,39 +116,7 @@ object PacketCommandUtils {
                 chunks.lastIndex -> buildTlv(INNER_TLV_TYPE, terminalPacketHeader + chunk)
                 else -> buildTlv(INNER_TLV_TYPE, segmentPacketHeader + chunk)
             }
-            createPacket(CMDKey.SEND_TRANSLATE, payload)
-        }
-    }
-
-    fun createAIPacket(text: String): List<ByteArray> {
-        val textBytes = text.toByteArray(Charsets.UTF_8)
-        // 整体小于或等于200字节，直接构造单包
-        if (textBytes.size <= 200) {
-            val messageBytes = byteArrayOf(0x5a, 0x6b) + text.toByteArray(Charsets.UTF_8)
-            val tlv = buildTlv(INNER_TLV_TYPE, messageBytes)
-            return listOf(createPacket(CMDKey.SEND_AI, tlv))
-        }
-
-        val maxChunkSize = 200
-        val leaderPacketHeader = byteArrayOf(0x5A, 0x5A)
-        val terminalPacketHeader = byteArrayOf(0x6B, 0x6B)
-        val segmentPacketHeader = byteArrayOf(0x7C, 0x7C)
-
-        val chunks = mutableListOf<ByteArray>()
-        var offset = 0
-        while (offset < textBytes.size) {
-            val end = (offset + maxChunkSize).coerceAtMost(textBytes.size)
-            chunks += textBytes.copyOfRange(offset, end)
-            offset = end
-        }
-
-        return chunks.mapIndexed { index, chunk ->
-            val payload = when (index) {
-                0 -> buildTlv(INNER_TLV_TYPE, leaderPacketHeader + chunk)
-                chunks.lastIndex -> buildTlv(INNER_TLV_TYPE, terminalPacketHeader + chunk)
-                else -> buildTlv(INNER_TLV_TYPE, segmentPacketHeader + chunk)
-            }
-            createPacket(CMDKey.SEND_AI, payload)
+            createPacket(command, payload)
         }
     }
 
@@ -328,7 +296,7 @@ object PacketCommandUtils {
         val tlvText  = buildTlv(TLV_MSG_TEXT,  textBytes)
         val tlvDate  = buildTlv(TLV_MSG_DATE,  dateBytes)
 
-        val innerTlv = tlvName + tlvTitle + tlvText + tlvDate
+        val innerTlv = tlvName + tlvTitle + tlvDate + tlvText
         return createPacket(CMD_SEND_MESSAGE_REMINDER, innerTlv)
     }
 }

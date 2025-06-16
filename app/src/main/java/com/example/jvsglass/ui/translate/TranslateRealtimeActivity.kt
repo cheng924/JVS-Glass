@@ -33,9 +33,8 @@ import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
 import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TRANSLATE
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
-import com.example.jvsglass.bluetooth.PacketCommandUtils.createAIPacket
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createMessagePacket
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
-import com.example.jvsglass.bluetooth.PacketCommandUtils.createTranslationPacket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -349,7 +348,7 @@ class TranslateRealtimeActivity : AppCompatActivity() {
         LogUtils.info("发送蓝牙消息：$sendMessage")
 
         if (sendMessage.replace("\\R".toRegex(), "").isNotEmpty()) {
-            val packets = createTranslationPacket(sendMessage)
+            val packets = createMessagePacket(CMDKey.SEND_TRANSLATE, sendMessage)
             CoroutineScope(Dispatchers.IO).launch {
                 for (packet in packets) {
                     BluetoothConnectManager.sendCommand(packet)

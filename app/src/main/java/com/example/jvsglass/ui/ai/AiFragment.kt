@@ -34,7 +34,7 @@ import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
 import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_AI
-import com.example.jvsglass.bluetooth.PacketCommandUtils.createAIPacket
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createMessagePacket
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.database.AiConversationEntity
 import com.example.jvsglass.database.AiMessageEntity
@@ -618,7 +618,7 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
                 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 override fun onCompleted() {
                     LogUtils.info("对话结束")
-                    val packets = createAIPacket(sendBTMessage)
+                    val packets = createMessagePacket(CMDKey.SEND_AI, sendBTMessage)
                     CoroutineScope(Dispatchers.IO).launch {
                         for (packet in packets) {
                             BluetoothConnectManager.sendCommand(packet)
