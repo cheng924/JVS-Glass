@@ -114,7 +114,7 @@ class FileAdapter : ListAdapter<FileItem, FileAdapter.ViewHolder>(FileItemDiffCa
     }
 
     private fun openDetailActivity(context: android.content.Context, item: FileItem) {
-        Intent(context, TeleprompterDisplayActivity::class.java).apply {
+        Intent(context, TeleprompterMainActivity::class.java).apply {
             putExtra("fileName", item.fileName)
             putExtra("fileDate", item.fileDate)
             putExtra("fileContent", item.fileContent)

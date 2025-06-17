@@ -3,7 +3,6 @@ package com.example.jvsglass.ui.teleprompter
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -11,8 +10,10 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.GestureDetector
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -20,15 +21,14 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GestureDetectorCompat
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
 import com.example.jvsglass.bluetooth.PacketCommandUtils
-import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_HOME
 import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
-import com.example.jvsglass.bluetooth.PacketCommandUtils.ENTER_TELEPROMPTER
 import com.example.jvsglass.bluetooth.BLEClient
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
@@ -47,13 +47,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
-class TeleprompterDisplayActivity : AppCompatActivity() {
+class TeleprompterContentFragment : Fragment() {
+    companion object {
+        fun newInstance(name: String, date: String, content: String) = TeleprompterContentFragment().apply {
+            arguments = Bundle().apply {
+                putString("fileName", name)
+                putString("fileDate", date)
+                putString("fileContent", content)
+            }
+        }
+    }
+
     private lateinit var voiceManager: VoiceManager
     private lateinit var realtimeAsrClient: RealtimeAsrClient
+    private val vm: TeleprompterViewModel by activityViewModels()
 
     private var currentVoicePath = ""
-    private val bleClient by lazy { BLEClient.getInstance(this) }
-    private val vibrator by lazy { getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
+    private val bleClient by lazy { BLEClient.getInstance(requireContext()) }
+    private val vibrator by lazy { requireContext().getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
     private var totalLines = 0
     private var scrollLines = 0
     private var fileContent = ""
@@ -100,7 +111,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             // 新建/编辑保存成功，自己finish掉，回到上一个界面
-            finish()
+            requireActivity().finish()
         }
     }
 
@@ -111,6 +122,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
             val newMs = result.data?.getLongExtra("scrollIntervalMs", scrollIntervalMs)
             if (newMs != null) scrollIntervalMs = newMs
         }
+        vm.clearRequestSettings()
     }
 
     @SuppressLint("MissingPermission")
@@ -128,94 +140,79 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     )
     override fun onCreate(savedInstanceState : Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_teleprompter_display)
 
-        voiceManager = VoiceManager(this)
-        BluetoothConnectManager.initialize(this, voiceManager)
+        voiceManager = VoiceManager(requireContext())
+        BluetoothConnectManager.initialize(requireContext(), voiceManager)
 
         initSetting()
-//        initBluetoothConnection()
-        initView()
         initRealtimeAsrClient()
 
         setupClientCallbacks()
-        BluetoothConnectManager.sendCommand(createPacket(CMDKey.INTERFACE_COMMAND, ENTER_TELEPROMPTER))
     }
 
-    @RequiresPermission(
-        allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN]
-    )
-    private fun initBluetoothConnection() {
-        // 检查是否有保存的设备地址，并尝试自动连接
-        val prefs = getSharedPreferences("ble_prefs", MODE_PRIVATE)
-        val lastDeviceAddress = prefs.getString("last_connected_device_address", null)
-        if (lastDeviceAddress != null) {
-            val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
-            val device = bluetoothAdapter.getRemoteDevice(lastDeviceAddress)
-            BluetoothConnectManager.reconnectDevice(device) // 触发自动连接
-        }
-    }
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View = inflater.inflate(R.layout.fragment_teleprompter_content, container, false)
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(
         allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
     )
     @SuppressLint("ClickableViewAccessibility")
-    private fun initView() {
-        llVoiceControl = findViewById(R.id.ll_voice_control)
-        ivMicControl = findViewById(R.id.iv_mic_control)
-        tvMicControl = findViewById(R.id.tv_mic_control)
-        llContinueScroll = findViewById(R.id.ll_continue_scroll)
-        ivScrollStatus = findViewById(R.id.iv_scroll_status)
-        tvScrollStatus = findViewById(R.id.tv_scroll_status)
-        llRemoteScroll = findViewById(R.id.ll_remote_scroll)
-        ivRemoteStatus = findViewById(R.id.iv_remote_status)
-        tvRemoteStatus = findViewById(R.id.tv_remote_status)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-        findViewById<ImageView>(R.id.btnBack).setOnClickListener {
-            BluetoothConnectManager.sendCommand(createPacket(CMDKey.INTERFACE_COMMAND, ENTER_HOME))
-            finish()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-        }
+        llVoiceControl = view.findViewById(R.id.ll_voice_control)
+        ivMicControl = view.findViewById(R.id.iv_mic_control)
+        tvMicControl = view.findViewById(R.id.tv_mic_control)
+        llContinueScroll = view.findViewById(R.id.ll_continue_scroll)
+        ivScrollStatus = view.findViewById(R.id.iv_scroll_status)
+        tvScrollStatus = view.findViewById(R.id.tv_scroll_status)
+        llRemoteScroll = view.findViewById(R.id.ll_remote_scroll)
+        ivRemoteStatus = view.findViewById(R.id.iv_remote_status)
+        tvRemoteStatus = view.findViewById(R.id.tv_remote_status)
 
-        findViewById<TextView>(R.id.tv_title).text = intent.getStringExtra("fileName") ?: ""
-        findViewById<TextView>(R.id.tv_date).text = intent.getStringExtra("fileDate") ?: ""
-        fileContent = intent.getStringExtra("fileContent") ?: ""
+        view.findViewById<TextView>(R.id.tv_title).text = requireArguments().getString("fileName").orEmpty()
+        view.findViewById<TextView>(R.id.tv_date).text = requireArguments().getString("fileDate").orEmpty()
+        fileContent = requireArguments().getString("fileContent").orEmpty()
 
-        tvContent = findViewById(R.id.tv_content)
+        tvContent = view.findViewById(R.id.tv_content)
         val splitResult = SmartTextScroller.splitIntoBlocks(fileContent, 0)
         tvContent.text = splitResult.displayBlock
         totalLines = splitResult.totalLines
 
-        gestureDetector = GestureDetectorCompat(this, object : GestureDetector.SimpleOnGestureListener() {
+        gestureDetector = GestureDetectorCompat(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
                 super.onLongPress(e)
-                val intent = Intent(this@TeleprompterDisplayActivity, TeleprompterNewFileActivity::class.java).apply {
-                    putExtra("fileName", findViewById<TextView>(R.id.tv_title).text.toString())
-                    putExtra("fileDate", findViewById<TextView>(R.id.tv_date).text.toString())
+                val intent = Intent(requireContext(), TeleprompterNewFileActivity::class.java).apply {
+                    putExtra("fileName", view.findViewById<TextView>(R.id.tv_title).text.toString())
+                    putExtra("fileDate", view.findViewById<TextView>(R.id.tv_date).text.toString())
                     putExtra("fileContent", fileContent)
                 }
                 editFileLauncher.launch(intent)
             }
         })
 
-        scrollView = findViewById(R.id.scrollView)
+        scrollView = view.findViewById(R.id.scrollView)
         scrollView.setOnTouchListener(manualTouchListener)
 
-        findViewById<ImageView>(R.id.teleprompter_settings).setOnClickListener {
+        vm.requestSettings.observe(viewLifecycleOwner) { req ->
+            if (req == null) return@observe
             if (autoScrollJob?.isActive == true || !micControl) {
-                ToastUtils.show(this, "请先“停止滚动”")
-                return@setOnClickListener
+                ToastUtils.show(requireContext(), "请先“停止滚动”")
+            } else {
+                val intent = Intent(requireContext(), TeleprompterSettingActivity::class.java)
+                    .putExtra("scrollIntervalMs", scrollIntervalMs)
+                settingLauncher.launch(intent)
             }
-            val intent = Intent(this, TeleprompterSettingActivity::class.java)
-                .putExtra("scrollIntervalMs", scrollIntervalMs)
-            settingLauncher.launch(intent)
         }
 
         llVoiceControl.setOnClickListener {
             if (micControl) {
                 WarningDialog.showDialog(
-                    context = this@TeleprompterDisplayActivity,
+                    context = requireContext(),
                     title = "动态滚动使用提示",
                     message = """
                         本功能依赖语音识别技术，环境噪音或口音可能导致偶发误识别。
@@ -322,7 +319,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
                 scrollView.setOnTouchListener(disabledTouchListener)
                 startAutoScroll(scrollIntervalMs)
-                ToastUtils.show(this, "开始滚动 ${scrollIntervalMs/1000} 秒/行")
+                ToastUtils.show(requireContext(), "开始滚动 ${scrollIntervalMs/1000} 秒/行")
                 tvScrollStatus.text = "停止滚动"
                 ivScrollStatus.setImageResource(R.drawable.ic_suspend)
                 llContinueScroll.setBackgroundResource(R.drawable.rounded_button_selected)
@@ -354,7 +351,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
     }
 
     private fun initSetting() {
-        val prefs = getSharedPreferences("teleprompter_setting", Context.MODE_PRIVATE)
+        val prefs = requireActivity().getSharedPreferences("teleprompter_setting", Context.MODE_PRIVATE)
         scrollIntervalMs = prefs.getLong("speed", 15_000L)
     }
 
@@ -363,15 +360,15 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
             .createRealtimeAsrClient(object : RealtimeAsrClient.RealtimeAsrCallback {
                 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 override fun onPartialResult(text: String) {
-                    runOnUiThread { handleDynamicScroll(text) }
+                    requireActivity().runOnUiThread { handleDynamicScroll(text) }
                 }
 
                 override fun onFinalResult(text: String) {
-                    runOnUiThread { voiceManager.deleteVoiceFile(currentVoicePath) }
+                    requireActivity().runOnUiThread { voiceManager.deleteVoiceFile(currentVoicePath) }
                 }
 
                 override fun onError(error: String) {
-                    runOnUiThread { LogUtils.error(error) }
+                    requireActivity().runOnUiThread { LogUtils.error(error) }
                 }
 
                 override fun onConnectionChanged(connected: Boolean) {
@@ -404,7 +401,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                 if (scrollLines == totalLines - 1) {
                     withContext(Dispatchers.Main) {
                         scrollView.setOnTouchListener(manualTouchListener)
-                        ToastUtils.show(this@TeleprompterDisplayActivity, "已滚动到末尾")
+                        ToastUtils.show(requireContext(), "已滚动到末尾")
                         tvScrollStatus.text = "匀速滚动"
                         ivScrollStatus.setImageResource(R.drawable.ic_continue)
                         llContinueScroll.setBackgroundResource(R.drawable.rounded_button)

@@ -150,7 +150,7 @@ class TeleprompterActivity : AppCompatActivity(), FileHandler.FileReadResultCall
 
         saveToDatabase(fileName, fileDate, content)
 
-        val intent = Intent(this, TeleprompterDisplayActivity::class.java).apply {
+        val intent = Intent(this, TeleprompterMainActivity::class.java).apply {
             putExtra("fileName", fileName)
             putExtra("fileDate", fileDate)
             putExtra("fileContent", content)

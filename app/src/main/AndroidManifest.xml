@@ -68,6 +68,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
+            android:name=".ui.teleprompter.TeleprompterMainActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.meeting.MeetingAssistantActivity"
             android:exported="false" />
         <activity
@@ -147,9 +150,6 @@
 
         <activity
             android:name=".ui.teleprompter.TeleprompterNewFileActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ui.teleprompter.TeleprompterDisplayActivity"
             android:exported="false" />
         <activity
             android:name=".ui.DashboardActivity"
