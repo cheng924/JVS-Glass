@@ -6,7 +6,6 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
-import androidx.core.view.updatePadding
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.example.jvsglass.R
@@ -26,7 +25,6 @@ class MainInterfaceActivity : AppCompatActivity() {
         bottomNav.itemIconTintList = null
 
         val initialMargin = (bottomNav.layoutParams as ConstraintLayout.LayoutParams).bottomMargin
-        val initialPadding = bottomNav.paddingBottom
 
         ViewCompat.setOnApplyWindowInsetsListener(bottomNav) { view, insets ->
             LogUtils.info("Applying WindowInsets: $insets")
@@ -38,7 +36,6 @@ class MainInterfaceActivity : AppCompatActivity() {
             view.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 bottomMargin = initialMargin + navBarInsets.bottom
             }
-            view.updatePadding(bottom = initialPadding + navBarInsets.bottom)
             insets
         }
 

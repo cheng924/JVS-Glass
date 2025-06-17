@@ -3,9 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:layout_marginBottom="50dp"
     android:paddingBottom="120dp"
-    android:background="@color/button_background">
+    android:background="@color/background">
 
     <RelativeLayout
         android:id="@+id/rl_ai_bar"
@@ -41,7 +40,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="@color/button_background"/>
+        android:background="@color/background"/>
 
     <LinearLayout
         android:id="@+id/llImageAdd"

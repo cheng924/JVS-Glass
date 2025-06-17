@@ -34,9 +34,10 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:layout_marginTop="15dp"
+        android:layout_marginHorizontal="24dp"
         android:paddingHorizontal="20dp"
         android:paddingVertical="20dp"
-        android:background="@color/background2">
+        android:background="@drawable/rounded_button">
 
         <TextView
             android:layout_width="match_parent"
@@ -91,6 +92,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:layout_marginHorizontal="24dp"
         android:paddingHorizontal="20dp"
         android:paddingBottom="20dp"
         android:background="@color/background2"

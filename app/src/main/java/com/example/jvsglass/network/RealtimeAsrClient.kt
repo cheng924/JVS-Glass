@@ -93,7 +93,7 @@ class RealtimeAsrClient(
     }
 
     fun sendAudio(chunk: ByteArray) {
-        LogUtils.debug("发送音频块: ${chunk.size}字节")
+        LogUtils.info("发送音频块: ${chunk.size}字节")
 
         val message = JsonObject().apply {
             addProperty("type", "input_audio_buffer.append")

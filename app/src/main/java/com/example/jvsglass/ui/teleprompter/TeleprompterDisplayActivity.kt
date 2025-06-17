@@ -45,7 +45,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import kotlin.math.abs
 
 class TeleprompterDisplayActivity : AppCompatActivity() {
@@ -135,7 +134,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
         BluetoothConnectManager.initialize(this, voiceManager)
 
         initSetting()
-        initBluetoothConnection()
+//        initBluetoothConnection()
         initView()
         initRealtimeAsrClient()
 
@@ -159,8 +158,7 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(
-        allOf = [Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.BLUETOOTH_CONNECT]
+        allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
     )
     @SuppressLint("ClickableViewAccessibility")
     private fun initView() {
@@ -231,7 +229,6 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
                             allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
                         )
                         override fun onPositiveButtonClick() {
-                            BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, OPEN_MIC))
                             tvMicControl.text = "停止滚动"
                             ivMicControl.setImageResource(R.drawable.ic_mic_off)
                             llVoiceControl.setBackgroundResource(R.drawable.rounded_button_selected)
@@ -243,9 +240,14 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
                             scrollView.setOnTouchListener(disabledTouchListener)
 
-                            val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
-                            sendMessage(currentSplit.sendBlock)
+                            lifecycleScope.launch {
+                                BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, OPEN_MIC))
 
+                                delay(300)
+
+                                val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+                                sendMessage(currentSplit.sendBlock)
+                            }
                             currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
                                 override fun onAudioData(data: ByteArray) {
                                     realtimeAsrClient.sendAudio(data)
@@ -254,10 +256,11 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
 //                            val file = voiceManager.startBtRecording()
 //                            LogUtils.info("start recording, file: $file")
-//
+////
 //                            val buffer = ByteArrayOutputStream()
 //                            BluetoothConnectManager.onAudioStreamReceived = {data ->
 ////                                realtimeAsrClient.appendAudio(data)
+//                                LogUtils.info("audio data, size: ${data.size}, data: ${data.toHexString()}")
 //
 //                                voiceManager.feedBtData(data)
 //
@@ -284,10 +287,9 @@ class TeleprompterDisplayActivity : AppCompatActivity() {
 
                 voiceManager.stopRecording()
                 voiceManager.deleteVoiceFile(currentVoicePath)
-
 //                voiceManager.stopBtRecording()
-//
 //                BluetoothConnectManager.onAudioStreamReceived = null
+
                 realtimeAsrClient.disconnect()
 
                 scrollView.setOnTouchListener(manualTouchListener)

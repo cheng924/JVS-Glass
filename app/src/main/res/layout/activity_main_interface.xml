@@ -25,6 +25,8 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:menu="@menu/bottom_nav_menu"
+        app:itemPaddingBottom="10dp"
+        app:itemPaddingTop="10dp"
         app:itemIconSize="24dp"
         app:itemIconTint="@null"
         app:itemTextColor="@color/nav_text_color"
