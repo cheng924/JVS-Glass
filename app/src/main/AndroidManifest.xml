@@ -68,6 +68,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JVSGlass">
         <activity
+            android:name=".ui.meeting.MeetingAssistantActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.MainInterfaceActivity"
             android:exported="true">
             <intent-filter>

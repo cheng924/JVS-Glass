@@ -27,6 +27,7 @@ import com.example.jvsglass.ui.teleprompter.TeleprompterActivity
 import com.example.jvsglass.ui.translate.TranslateActivity
 import com.example.jvsglass.bluetooth.BluetoothConstants
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
+import com.example.jvsglass.ui.meeting.MeetingAssistantActivity
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.MyNotificationListenerService
 import com.example.jvsglass.utils.ToastUtils
@@ -75,13 +76,10 @@ class HomeFragment : Fragment() {
 
         // 初始化功能列表
         val functions = listOf(
-            FunctionItem(R.drawable.ic_translate, getString(R.string.translate), TranslateActivity::class.java),
-            FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompter), TeleprompterActivity::class.java),
-            FunctionItem(R.drawable.ic_ai_normal, getString(R.string.ai_beta), JVSAIActivity::class.java),
-            FunctionItem(R.drawable.ic_notification, "消息通知", NotificationActivity::class.java)
-//            FunctionItem(R.drawable.ic_transcribe, getString(R.string.transcribe), TranscribeActivity::class.java),
-//            FunctionItem(R.drawable.ic_dash_board, getString(R.string.dashboard), DashboardActivity::class.java),
-//            FunctionItem(R.drawable.ic_quicknote, getString(R.string.quick_note), QuickNoteActivity::class.java)
+            FunctionItem(R.drawable.ic_translate, getString(R.string.translate), "实时翻译", TranslateActivity::class.java),
+            FunctionItem(R.drawable.ic_teleprompt, getString(R.string.teleprompter), "智能提醒", TeleprompterActivity::class.java),
+            FunctionItem(R.drawable.ic_meeting_assistant, "会议助手", "远程协作", MeetingAssistantActivity::class.java),
+            FunctionItem(R.drawable.ic_notification, "智慧提醒", "N条未读", NotificationActivity::class.java)
         )
 
         val recyclerView: RecyclerView = view.findViewById(R.id.rv_functions)
@@ -109,11 +107,6 @@ class HomeFragment : Fragment() {
             btConnectLauncher.launch(intent)
         }
 
-        view.findViewById<LinearLayout>(R.id.ll_silent_mode).setOnClickListener {
-            ToastUtils.show(requireContext(), getString(R.string.development_tips))
-            return@setOnClickListener
-        }
-
         updateBluetoothStatus()
     }
 
@@ -128,6 +121,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun updateBluetoothStatus() {
+        LogUtils.info("[HomeFragment] $isConnected $deviceName $deviceAddress")
         val statusText1 = if (isConnected) "已连接" else "未连接"
         view?.findViewById<TextView>(R.id.tv_bluetooth_status)?.text = statusText1
 
@@ -140,7 +134,7 @@ class HomeFragment : Fragment() {
         isConnected = event.isConnected
         deviceName = event.deviceName.toString()
         deviceAddress = event.deviceAddress.toString()
-        LogUtils.debug("[MainActivity] $isConnected $deviceName $deviceAddress")
+        LogUtils.debug("[HomeFragment] $isConnected $deviceName $deviceAddress")
         val statusText = if (isConnected) "已连接" else "未连接"
         view?.findViewById<TextView>(R.id.tv_bluetooth_status)?.text = statusText
 

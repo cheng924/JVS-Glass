@@ -2,7 +2,7 @@
     android:shape="rectangle">
 
     <!-- 圆角半径（数值越大越圆） -->
-    <corners android:radius="5dp" />
+    <corners android:radius="10dp" />
 
     <!-- 背景颜色 -->
     <solid android:color="@color/button_background" />

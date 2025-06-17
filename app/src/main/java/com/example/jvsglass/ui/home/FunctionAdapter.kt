@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
 import com.example.jvsglass.ui.ai.JVSAIActivity
+import com.example.jvsglass.ui.meeting.MeetingAssistantActivity
 import com.example.jvsglass.ui.notification.NotificationActivity
 import com.example.jvsglass.ui.teleprompter.TeleprompterActivity
 import com.example.jvsglass.ui.translate.TranslateActivity
@@ -20,6 +21,7 @@ class FunctionAdapter(private val items: List<FunctionItem>) :
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val icon: ImageView = view.findViewById(R.id.iv_icon)
         val function: TextView = view.findViewById(R.id.tv_function)
+        val description: TextView = view.findViewById(R.id.tv_description)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -35,22 +37,27 @@ class FunctionAdapter(private val items: List<FunctionItem>) :
         // 设置图标和文本
         holder.icon.setImageResource(item.iconRes)
         holder.function.text = item.title
+        holder.description.text = item.description
 
         // 点击事件处理
         holder.itemView.setOnClickListener {
             when (item.targetActivity) {
+                TranslateActivity::class.java -> {
+                    context.startActivity(Intent(context, item.targetActivity))
+                }
                 TeleprompterActivity::class.java -> {
                     context.startActivity(Intent(context, item.targetActivity))
                 }
-                JVSAIActivity::class.java -> {
-                    context.startActivity(Intent(context, item.targetActivity))
-                }
-                TranslateActivity::class.java -> {
-                    context.startActivity(Intent(context, item.targetActivity))
+                MeetingAssistantActivity::class.java -> {
+//                    context.startActivity(Intent(context, item.targetActivity))
+                    ToastUtils.show(context, context.getString(R.string.development_tips))
                 }
                 NotificationActivity::class.java -> {
                     context.startActivity(Intent(context, item.targetActivity))
                 }
+//                JVSAIActivity::class.java -> {
+//                    context.startActivity(Intent(context, item.targetActivity))
+//                }
                 else -> {
                     // 其他功能
                     ToastUtils.show(context, context.getString(R.string.development_tips))

@@ -1,163 +1,112 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/background">
 
-    <!-- 顶部栏 -->
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_marginTop="50dp">
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline_top"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.051"/>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/app_name"
-            android:textSize="20sp"
-            android:textColor="@color/button_text"
-            android:layout_centerVertical="true"
-            android:layout_marginStart="16dp"/>
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.064"/>
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.936"/>
+
+    <LinearLayout
+        android:id="@+id/ll_top_bar"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="horizontal"
+        app:layout_constraintStart_toStartOf="@id/guideline_left"
+        app:layout_constraintEnd_toEndOf="@id/guideline_right"
+        app:layout_constraintTop_toBottomOf="@id/guideline_top"
+        app:layout_constraintHeight_percent="0.035">
+
+        <ImageView
+            android:layout_width="61dp"
+            android:layout_height="29dp"
+            android:layout_marginStart="27dp"
+            android:src="@drawable/ic_stub"/>
 
         <ImageView
             android:id="@+id/iv_settings"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_centerVertical="true"
-            android:layout_alignParentEnd="true"
-            android:layout_marginEnd="16dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="35dp"
             android:src="@drawable/ic_settings"
             android:background="@null"/>
-    </RelativeLayout>
+    </LinearLayout>
 
-    <androidx.core.widget.NestedScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true">
+    <Button
+        android:id="@+id/btn_bluetooth"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintStart_toStartOf="@id/guideline_left"
+        app:layout_constraintEnd_toEndOf="@id/guideline_right"
+        app:layout_constraintTop_toBottomOf="@id/ll_top_bar"
+        app:layout_constraintWidth_percent="0.872"
+        app:layout_constraintHeight_percent="0.241"
+        android:layout_marginTop="8dp"
+        android:text="蓝牙未连接"
+        android:textColor="@color/button_text"
+        android:textSize="20sp"
+        android:textAllCaps="false"
+        android:background="@drawable/rounded_button"/>
 
-        <LinearLayout
-            android:layout_width="match_parent"
+    <LinearLayout
+        android:id="@+id/ll_bluetooth_connect"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        app:layout_constraintStart_toStartOf="@id/guideline_left"
+        app:layout_constraintEnd_toEndOf="@id/guideline_right"
+        app:layout_constraintTop_toBottomOf="@id/btn_bluetooth"
+        app:layout_constraintWidth_percent="0.872"
+        app:layout_constraintHeight_percent="0.139"
+        android:gravity="center_horizontal"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/rounded_button">
+
+        <TextView
+            android:id="@+id/tv_bluetooth_status"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_marginTop="9dp"
+            android:text="未连接"
+            android:textColor="@color/button_text"
+            android:textSize="15sp"/>
 
-            <!-- 蓝牙连接状态 -->
-            <Button
-                android:id="@+id/btn_bluetooth"
-                android:layout_width="match_parent"
-                android:layout_height="230dp"
-                android:layout_marginTop="10dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:text="蓝牙未连接"
-                android:textColor="@color/button_text"
-                android:textSize="20sp"
-                android:textAllCaps="false"
-                android:background="@drawable/rounded_button"
-                android:visibility="visible"/>
+        <ImageView
+            android:layout_width="110dp"
+            android:layout_height="80dp"
+            android:src="@drawable/ic_glasses"/>
+    </LinearLayout>
 
-            <GridLayout
-                android:layout_width="match_parent"
-                android:layout_height="150dp"
-                android:columnCount="2"
-                android:rowCount="1"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:layout_marginTop="6dp"
-                android:columnOrderPreserved="false"
-                android:visibility="visible">
+    <!-- 功能列表 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_functions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@id/guideline_left"
+        app:layout_constraintEnd_toEndOf="@id/guideline_right"
+        app:layout_constraintTop_toBottomOf="@id/ll_bluetooth_connect"
+        android:paddingHorizontal="22dp"/>
 
-                <!-- 左列区域 -->
-                <LinearLayout
-                    android:id="@+id/ll_bluetooth_connect"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_columnWeight="1"
-                    android:orientation="vertical"
-                    android:layout_marginEnd="3dp"
-                    android:background="@drawable/rounded_button">
-
-                    <TextView
-                        android:id="@+id/tv_bluetooth_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="20dp"
-                        android:layout_marginStart="20dp"
-                        android:text="未连接"
-                        android:textColor="@color/button_text"
-                        android:textSize="15sp"/>
-
-                    <ImageView
-                        android:layout_width="110dp"
-                        android:layout_height="80dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_glasses"
-                        android:layout_marginTop="10dp"/>
-                </LinearLayout>
-
-                <!-- 右列区域 -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_columnWeight="1"
-                    android:orientation="vertical"
-                    android:layout_marginStart="3dp">
-
-                    <!-- 上半部分 -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/rounded_button">
-
-                        <ImageView
-                            android:layout_width="30dp"
-                            android:layout_height="30dp"
-                            android:layout_gravity="center_vertical"
-                            android:layout_marginStart="20dp"
-                            android:src="@drawable/ic_warning"/>
-
-                    </LinearLayout>
-
-                    <!-- 下半部分 -->
-                    <LinearLayout
-                        android:id="@+id/ll_silent_mode"
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:layout_marginTop="6dp"
-                        android:gravity="center_vertical"
-                        android:background="@drawable/rounded_button">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:layout_marginStart="20dp"
-                            android:src="@drawable/ic_slient_mode"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/button_text"
-                            android:textSize="16sp"
-                            android:layout_marginStart="8dp" />
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </GridLayout>
-
-            <!-- 功能列表 -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_functions"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginBottom="120dp"
-                android:paddingStart="13dp"
-                android:paddingEnd="13dp"/>
-
-        </LinearLayout>
-
-    </androidx.core.widget.NestedScrollView>
-
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
