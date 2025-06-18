@@ -43,6 +43,9 @@ android {
         buildConfigField("String", "TOS_ACCESS_KEY", "\"$tosAk\"")
         val tosSk = localProperties.getProperty("TOS_SECRET_KEY") ?: ""
         buildConfigField("String", "TOS_SECRET_KEY", "\"$tosSk\"")
+
+        val owmKey = localProperties.getProperty("OPEN_WEATHER_MAP_KEY") ?: ""
+        buildConfigField("String", "OPEN_WEATHER_MAP_KEY", "\"$owmKey\"")
     }
 
     buildTypes {
@@ -120,4 +123,6 @@ dependencies {
 
     implementation(libs.navigation.fragment.ktx)
     implementation(libs.navigation.ui.ktx)
+
+    implementation(libs.play.services.location)
 }
