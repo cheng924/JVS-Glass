@@ -577,7 +577,7 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
     }
 
     private fun generateConversationTitle(firstMessage: String) {
-        val titlePrompt = "请为以下用户提问生成一个不超过7个字的简洁会话标题，不能叫\"AI助手\"：\n“$firstMessage”"
+        val titlePrompt = "请为以下用户提问生成一个不超过7个字的简洁会话标题，直接输出标题即可，不能叫\"AI助手\"：\n“$firstMessage”"
         NetworkManager.getInstance().chatTextCompletion(
             messages = listOf(ChatRequest.Message(role = "user", content = titlePrompt)),
             temperature = 0.7,
@@ -585,10 +585,18 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
                 override fun onSuccess(result: ChatResponse) {
                     val title = result.choices.firstOrNull()?.message?.content?.trim()
                     requireActivity().runOnUiThread {
-                        if (!title.isNullOrEmpty() && title.length <= 7) {
-                            tvConversationTitle.text = title
-                        } else {
-                            LogUtils.error("生成超长标题：$title")
+                        if (!title.isNullOrEmpty()) {
+                            if (title.length <= 7)
+                                tvConversationTitle.text = title
+                            else {
+                                LogUtils.error("生成超长内容：$title")
+                                if (title.contains(":")) {
+                                    val s = title.substringAfterLast("\n")
+                                    if (s.length <= 7) {
+                                        tvConversationTitle.text = s
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -1,12 +1,16 @@
 package com.example.jvsglass.ui.home
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Geocoder
 import android.location.Location
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -15,7 +19,6 @@ import android.widget.SeekBar
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
 import com.example.jvsglass.BuildConfig
 import com.example.jvsglass.R
 import com.example.jvsglass.network.WeatherService
@@ -33,27 +36,34 @@ import java.util.Locale
 import java.util.Timer
 import java.util.TimerTask
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 class ClockControlFragment : Fragment() {
     private val tag = "[ClockControlFragment]"
+    private var cityName = "Shenzhen,cn"
 
     private lateinit var flClock: View
     private lateinit var llZoomControl: LinearLayout
-    private lateinit var seekZoom: SeekBar
     private lateinit var seekPan: SeekBar
     private lateinit var tvTime: TextView
     private lateinit var tvDate: TextView
     private lateinit var ivWeather: ImageView
     private lateinit var tvWeatherTemp: TextView
     private lateinit var ivMove: ImageView
+    private lateinit var tvHeight: TextView
 
     private var isMove: Boolean = true
+    private var dragStartTranslationY = 0f
+    private var dragStartRawY = 0f
+    private var lastDragProgress = -1
 
-    // 缩放范围
-    private val minScale = 0.5f
+    private val minScale = 1.0f
     private val maxScale = 1.5f
+    private val usableRatio = 0.5f
 
-    private var cityName = "Shenzhen,cn"
+    private lateinit var seekDistance: SeekBar
+    private lateinit var tvDistance: TextView
+    private var lastPos = -1
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -68,73 +78,120 @@ class ClockControlFragment : Fragment() {
 
         flClock = view.findViewById(R.id.fl_clock)
         llZoomControl = view.findViewById(R.id.ll_zoom_control)
-        seekZoom = view.findViewById(R.id.seek_scale)
+        seekDistance = view.findViewById(R.id.seek_distance)
+        tvDistance = view.findViewById(R.id.tvDistance)
         seekPan = view.findViewById(R.id.sb_pan_control)
         tvTime = view.findViewById(R.id.tv_time)
         tvDate = view.findViewById(R.id.tv_date)
         ivWeather = view.findViewById(R.id.iv_weather)
         tvWeatherTemp = view.findViewById(R.id.tv_weather_temp)
         ivMove = view.findViewById(R.id.iv_move)
+        tvHeight = view.findViewById(R.id.tv_height)
 
         setView()
         setupScaleSeekBar()
+        setupFlClockDrag()
         setupTranslateSeekBar()
         startClockAndDateTicker()
 
         getCity()
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
             while (isActive) {
-                delay(1_000L * 60 * 15)
-                getCity()
+                delay(1_000L * 60 * 30)
+                fetchWeather()
             }
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun setView() {
         ivMove.setOnClickListener {
             if (isMove) {
                 llZoomControl.visibility = View.VISIBLE
                 seekPan.visibility = View.VISIBLE
+                tvHeight.visibility = View.VISIBLE
             } else {
                 llZoomControl.visibility = View.INVISIBLE
                 seekPan.visibility = View.INVISIBLE
+                tvHeight.visibility = View.INVISIBLE
             }
             isMove = !isMove
         }
     }
 
     private fun setupScaleSeekBar() {
-        seekZoom.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                val frac = progress / seekBar.max.toFloat()
+        seekDistance.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
+            @SuppressLint("SetTextI18n")
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser || progress == lastPos) return
+                lastPos = progress
+
+                vibrationAction()
+
+                tvDistance.text = "${(progress + 1) * 0.5 + 0.5}m"
+
+                val frac  = progress / 8f
                 val scale = minScale + (maxScale - minScale) * frac
                 flClock.scaleX = scale
                 flClock.scaleY = scale
-                clampTranslationY()
             }
-            override fun onStartTrackingTouch(seekBar: SeekBar) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
         })
     }
 
     private fun setupTranslateSeekBar() {
         seekPan.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                val frac = progress / seekBar.max.toFloat()
-                val parentH = (flClock.parent as View).height
-                val maxTy = parentH - flClock.height * flClock.scaleY
-                flClock.translationY = maxTy * frac
+                if (!fromUser) return
+                if (progress in 3..9 ) {
+                    vibrationAction()
+
+                    val parentH = (flClock.parent as View).height
+                    val maxTy = (parentH - flClock.height * flClock.scaleY) * usableRatio
+                    val frac = (progress - 3) / 6f
+                    val desiredY = -maxTy / 2 + frac * maxTy
+                    flClock.translationY = desiredY.coerceIn(-maxTy / 2, maxTy / 2)
+                } else {
+                    if (progress < 3) {seekBar.progress = 3}
+                    if (progress > 9) {seekBar.progress = 9}
+                }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
         })
     }
 
-    private fun clampTranslationY() {
-        val ty = flClock.translationY
-        val parentH = (flClock.parent as View).height
-        val maxTy = parentH - flClock.height * flClock.scaleY
-        flClock.translationY = ty.coerceIn(0f, maxTy)
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupFlClockDrag() {
+        flClock.setOnTouchListener { v, ev ->
+            val parentH = (flClock.parent as View).height
+            val maxTy = (parentH - flClock.height * flClock.scaleY) * usableRatio
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragStartRawY = ev.rawY
+                    dragStartTranslationY = flClock.translationY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = ev.rawY - dragStartRawY
+                    val newTy = (dragStartTranslationY + dy).coerceIn(-maxTy/2, maxTy/2)
+                    flClock.translationY = newTy
+
+                    val frac = (newTy + maxTy/2) / maxTy
+                    val prog = (frac * 6f).roundToInt().coerceIn(0,6) + 3
+                    if (prog != lastDragProgress) {
+                        vibrationAction()
+                        lastDragProgress = prog
+                    }
+                    seekPan.progress = prog
+                    true
+                }
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> { true }
+                else -> false
+            }
+        }
     }
 
     private fun startClockAndDateTicker() {
@@ -199,10 +256,9 @@ class ClockControlFragment : Fragment() {
                         tvWeatherTemp.text = tempInt?.let { "$it℃" } ?: "–°"
 
                         body.weather.firstOrNull()?.icon?.let { iconCode ->
-                            val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@2x.png"
-                            Glide.with(this@ClockControlFragment)
-                                .load(iconUrl)
-                                .into(ivWeather)
+                            ivWeather.setImageResource(getWeatherIcon(iconCode))
+//                            val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@2x.png"
+//                            Glide.with(this@ClockControlFragment).load(iconUrl).into(ivWeather)
                         }
 
                         LogUtils.info("$tag 天气解析成功：$body")
@@ -227,5 +283,25 @@ class ClockControlFragment : Fragment() {
                 as ConnectivityManager
         val cap = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
         return cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun vibrationAction() {
+        val v = requireContext().getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+    }
+
+    private fun getWeatherIcon(iconCode: String): Int {
+        return when (iconCode.substring(0, 2)) {
+            "01" -> R.drawable.ic_weather_clear_sky
+            "02" -> R.drawable.ic_weather_few_clouds
+            "03" -> R.drawable.ic_weather_scattered_clouds
+            "04" -> R.drawable.ic_weather_broken_clouds
+            "09" -> R.drawable.ic_weather_shower_rain
+            "10" -> R.drawable.ic_weather_rain
+            "11" -> R.drawable.ic_weather_thunderstorm
+            "13" -> R.drawable.ic_weather_snow
+            "50" -> R.drawable.ic_weather_mist
+            else -> R.drawable.ic_weather_clear_sky
+        }
     }
 }
