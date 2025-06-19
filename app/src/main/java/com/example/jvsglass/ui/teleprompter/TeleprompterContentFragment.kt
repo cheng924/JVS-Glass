@@ -14,8 +14,6 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,13 +24,13 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import com.example.jvsglass.R
-import com.example.jvsglass.bluetooth.PacketCommandUtils
-import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
-import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
 import com.example.jvsglass.bluetooth.BLEClient
 import com.example.jvsglass.bluetooth.BluetoothConnectManager
+import com.example.jvsglass.bluetooth.PacketCommandUtils
 import com.example.jvsglass.bluetooth.PacketCommandUtils.CLOSE_MIC
+import com.example.jvsglass.bluetooth.PacketCommandUtils.CMDKey
 import com.example.jvsglass.bluetooth.PacketCommandUtils.OPEN_MIC
+import com.example.jvsglass.bluetooth.PacketCommandUtils.createPacket
 import com.example.jvsglass.dialog.WarningDialog
 import com.example.jvsglass.network.NetworkManager
 import com.example.jvsglass.network.RealtimeAsrClient
@@ -47,7 +45,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
-class TeleprompterContentFragment : Fragment() {
+interface TeleprompterControl {
+    fun toggleVoiceControl()
+    fun toggleAutoScroll()
+    fun toggleRemoteControl()
+}
+
+interface ControlUiCallback {
+    fun onAutoFinished()
+    fun onVoiceScrollStarted(isStart: Boolean)
+    fun onUniformScrollStarted(isStart: Boolean)
+    fun onRemoteScrollStarted(isStart: Boolean)
+}
+
+class TeleprompterContentFragment : Fragment(), TeleprompterControl {
     companion object {
         fun newInstance(name: String, date: String, content: String) = TeleprompterContentFragment().apply {
             arguments = Bundle().apply {
@@ -76,21 +87,12 @@ class TeleprompterContentFragment : Fragment() {
     private var remoteControl = true
     private var lastProcessedLength = 0
     private var lastSentBlock: String = ""
+    private var uiCb: ControlUiCallback? = null
 
     private var recordingFilePath: String? = null
 
     private lateinit var scrollView: ScrollView
     private lateinit var tvContent: TextView
-
-    private lateinit var llVoiceControl: LinearLayout
-    private lateinit var ivMicControl: ImageView
-    private lateinit var tvMicControl: TextView
-    private lateinit var llContinueScroll: LinearLayout
-    private lateinit var ivScrollStatus: ImageView
-    private lateinit var tvScrollStatus: TextView
-    private lateinit var llRemoteScroll: LinearLayout
-    private lateinit var ivRemoteStatus: ImageView
-    private lateinit var tvRemoteStatus: TextView
 
     private val frameSize = 1280
 
@@ -130,6 +132,126 @@ class TeleprompterContentFragment : Fragment() {
         showScrollResult(deltaY)
     }
 
+    @SuppressLint("ClickableViewAccessibility")
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override fun toggleVoiceControl() {
+        if (micControl) {
+            WarningDialog.showDialog(
+                context = requireContext(),
+                title = "动态滚动使用提示",
+                message = """
+                        本功能依赖语音识别技术，环境噪音或口音可能导致偶发误识别。
+                        建议在相对安静的环境下使用，并尽量保持吐字清晰。
+                        我们将持续优化体验，感谢理解与支持！
+                    """.trimIndent(),
+                positiveButtonText = "开始使用",
+                negativeButtonText = "暂不使用",
+                listener = object : WarningDialog.DialogButtonClickListener {
+                    @SuppressLint("ClickableViewAccessibility")
+                    @RequiresPermission(
+                        allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
+                    )
+                    override fun onPositiveButtonClick() {
+                        uiCb?.onVoiceScrollStarted(true)
+
+                        realtimeAsrClient.connect()
+                        realtimeAsrClient.keepConnectionOpen()
+
+                        scrollView.setOnTouchListener(disabledTouchListener)
+
+                        lifecycleScope.launch {
+                            BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, OPEN_MIC))
+
+                            delay(300)
+
+                            val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+                            sendMessage(currentSplit.sendBlock)
+                        }
+                        currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
+                            override fun onAudioData(data: ByteArray) {
+                                realtimeAsrClient.sendAudio(data)
+                            }
+                        }).toString()
+
+//                            val file = voiceManager.startBtRecording()
+//                            LogUtils.info("start recording, file: $file")
+////
+//                            val buffer = ByteArrayOutputStream()
+//                            BluetoothConnectManager.onAudioStreamReceived = {data ->
+////                                realtimeAsrClient.appendAudio(data)
+//                                LogUtils.info("audio data, size: ${data.size}, data: ${data.toHexString()}")
+//
+//                                voiceManager.feedBtData(data)
+//
+//                                buffer.write(data)
+//                                while (buffer.size() >= frameSize) {
+//                                    val chunk = buffer.toByteArray().copyOfRange(0, frameSize)
+//                                    realtimeAsrClient.sendAudio(chunk)
+//
+//                                    val leftover = buffer.toByteArray().copyOfRange(frameSize, buffer.size())
+//                                    buffer.reset()
+//                                    buffer.write(leftover)
+//                                }
+//                            }
+                    }
+
+                    override fun onNegativeButtonClick() { micControl = true }
+                })
+        } else {
+            uiCb?.onVoiceScrollStarted(false)
+
+            voiceManager.stopRecording()
+            voiceManager.deleteVoiceFile(currentVoicePath)
+//                voiceManager.stopBtRecording()
+//                BluetoothConnectManager.onAudioStreamReceived = null
+
+            realtimeAsrClient.disconnect()
+
+            scrollView.setOnTouchListener(manualTouchListener)
+
+            BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, CLOSE_MIC))
+        }
+        micControl = !micControl
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @SuppressLint("ClickableViewAccessibility")
+    override fun toggleAutoScroll() {
+        if (autoScrollJob?.isActive == true) {
+            autoScrollJob?.cancel()
+            scrollView.setOnTouchListener(manualTouchListener)
+            uiCb?.onUniformScrollStarted(false)
+        } else {
+            if (scrollLines == totalLines - 1) {
+                scrollLines = 0
+                // 重置文本块
+                val split0 = SmartTextScroller.splitIntoBlocks(fileContent, 0)
+                tvContent.text = split0.displayBlock
+                scrollView.scrollTo(0, 0)
+                sendMessage(split0.sendBlock)
+            }
+            val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
+            sendMessage(currentSplit.sendBlock)
+
+            scrollView.setOnTouchListener(disabledTouchListener)
+            startAutoScroll(scrollIntervalMs)
+            ToastUtils.show(requireContext(), "开始滚动 ${scrollIntervalMs/1000} 秒/行")
+            uiCb?.onUniformScrollStarted(true)
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun toggleRemoteControl() {
+        if (remoteControl) {
+            scrollView.setOnTouchListener(disabledTouchListener)
+            uiCb?.onRemoteScrollStarted(true)
+        } else {
+            scrollView.setOnTouchListener(manualTouchListener)
+            uiCb?.onRemoteScrollStarted(false)
+        }
+        remoteControl = !remoteControl
+    }
+
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresPermission(
         allOf = [
@@ -164,16 +286,6 @@ class TeleprompterContentFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        llVoiceControl = view.findViewById(R.id.ll_voice_control)
-        ivMicControl = view.findViewById(R.id.iv_mic_control)
-        tvMicControl = view.findViewById(R.id.tv_mic_control)
-        llContinueScroll = view.findViewById(R.id.ll_continue_scroll)
-        ivScrollStatus = view.findViewById(R.id.iv_scroll_status)
-        tvScrollStatus = view.findViewById(R.id.tv_scroll_status)
-        llRemoteScroll = view.findViewById(R.id.ll_remote_scroll)
-        ivRemoteStatus = view.findViewById(R.id.iv_remote_status)
-        tvRemoteStatus = view.findViewById(R.id.tv_remote_status)
-
         view.findViewById<TextView>(R.id.tv_title).text = requireArguments().getString("fileName").orEmpty()
         view.findViewById<TextView>(R.id.tv_date).text = requireArguments().getString("fileDate").orEmpty()
         fileContent = requireArguments().getString("fileContent").orEmpty()
@@ -207,146 +319,6 @@ class TeleprompterContentFragment : Fragment() {
                     .putExtra("scrollIntervalMs", scrollIntervalMs)
                 settingLauncher.launch(intent)
             }
-        }
-
-        llVoiceControl.setOnClickListener {
-            if (micControl) {
-                WarningDialog.showDialog(
-                    context = requireContext(),
-                    title = "动态滚动使用提示",
-                    message = """
-                        本功能依赖语音识别技术，环境噪音或口音可能导致偶发误识别。
-                        建议在相对安静的环境下使用，并尽量保持吐字清晰。
-                        我们将持续优化体验，感谢理解与支持！
-                    """.trimIndent(),
-                    positiveButtonText = "开始使用",
-                    negativeButtonText = "暂不使用",
-                    listener = object : WarningDialog.DialogButtonClickListener {
-                        @RequiresPermission(
-                            allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.BLUETOOTH_CONNECT]
-                        )
-                        override fun onPositiveButtonClick() {
-                            tvMicControl.text = "停止滚动"
-                            ivMicControl.setImageResource(R.drawable.ic_mic_off)
-                            llVoiceControl.setBackgroundResource(R.drawable.rounded_button_selected)
-                            llContinueScroll.isClickable = false
-                            llRemoteScroll.isClickable = false
-
-                            realtimeAsrClient.connect()
-                            realtimeAsrClient.keepConnectionOpen()
-
-                            scrollView.setOnTouchListener(disabledTouchListener)
-
-                            lifecycleScope.launch {
-                                BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, OPEN_MIC))
-
-                                delay(300)
-
-                                val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
-                                sendMessage(currentSplit.sendBlock)
-                            }
-                            currentVoicePath = voiceManager.startRecording(object : VoiceManager.AudioRecordCallback {
-                                override fun onAudioData(data: ByteArray) {
-                                    realtimeAsrClient.sendAudio(data)
-                                }
-                            }).toString()
-
-//                            val file = voiceManager.startBtRecording()
-//                            LogUtils.info("start recording, file: $file")
-////
-//                            val buffer = ByteArrayOutputStream()
-//                            BluetoothConnectManager.onAudioStreamReceived = {data ->
-////                                realtimeAsrClient.appendAudio(data)
-//                                LogUtils.info("audio data, size: ${data.size}, data: ${data.toHexString()}")
-//
-//                                voiceManager.feedBtData(data)
-//
-//                                buffer.write(data)
-//                                while (buffer.size() >= frameSize) {
-//                                    val chunk = buffer.toByteArray().copyOfRange(0, frameSize)
-//                                    realtimeAsrClient.sendAudio(chunk)
-//
-//                                    val leftover = buffer.toByteArray().copyOfRange(frameSize, buffer.size())
-//                                    buffer.reset()
-//                                    buffer.write(leftover)
-//                                }
-//                            }
-                        }
-
-                        override fun onNegativeButtonClick() { micControl = true }
-                    })
-            } else {
-                tvMicControl.text = "动态滚动"
-                ivMicControl.setImageResource(R.drawable.ic_mic_on)
-                llVoiceControl.setBackgroundResource(R.drawable.rounded_button)
-                llContinueScroll.isClickable = true
-                llRemoteScroll.isClickable = true
-
-                voiceManager.stopRecording()
-                voiceManager.deleteVoiceFile(currentVoicePath)
-//                voiceManager.stopBtRecording()
-//                BluetoothConnectManager.onAudioStreamReceived = null
-
-                realtimeAsrClient.disconnect()
-
-                scrollView.setOnTouchListener(manualTouchListener)
-
-                BluetoothConnectManager.sendCommand(createPacket(CMDKey.MIC_COMMAND, CLOSE_MIC))
-            }
-            micControl = !micControl
-        }
-
-        llContinueScroll.setOnClickListener {
-            if (autoScrollJob?.isActive == true) {
-                autoScrollJob?.cancel()
-                scrollView.setOnTouchListener(manualTouchListener)
-                tvScrollStatus.text = "匀速滚动"
-                ivScrollStatus.setImageResource(R.drawable.ic_continue)
-                llContinueScroll.setBackgroundResource(R.drawable.rounded_button)
-                llVoiceControl.isClickable = true
-                llRemoteScroll.isClickable = true
-            } else {
-                if (scrollLines == totalLines - 1) {
-                    scrollLines = 0
-                    // 重置文本块
-                    val split0 = SmartTextScroller.splitIntoBlocks(fileContent, 0)
-                    tvContent.text = split0.displayBlock
-                    scrollView.scrollTo(0, 0)
-                    sendMessage(split0.sendBlock)
-                }
-                val currentSplit = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
-                sendMessage(currentSplit.sendBlock)
-
-                scrollView.setOnTouchListener(disabledTouchListener)
-                startAutoScroll(scrollIntervalMs)
-                ToastUtils.show(requireContext(), "开始滚动 ${scrollIntervalMs/1000} 秒/行")
-                tvScrollStatus.text = "停止滚动"
-                ivScrollStatus.setImageResource(R.drawable.ic_suspend)
-                llContinueScroll.setBackgroundResource(R.drawable.rounded_button_selected)
-                llVoiceControl.isClickable = false
-                llRemoteScroll.isClickable = false
-            }
-        }
-
-        llRemoteScroll.setOnClickListener {
-            if (remoteControl) {
-                tvRemoteStatus.text = "停止遥控"
-                ivRemoteStatus.setImageResource(R.drawable.ic_remote_off)
-                llRemoteScroll.setBackgroundResource(R.drawable.rounded_button_selected)
-                llVoiceControl.isClickable = false
-                llContinueScroll.isClickable = false
-
-                scrollView.setOnTouchListener(disabledTouchListener)
-            } else {
-                tvRemoteStatus.text = "遥控滚动"
-                ivRemoteStatus.setImageResource(R.drawable.ic_remote_on)
-                llRemoteScroll.setBackgroundResource(R.drawable.rounded_button)
-                llVoiceControl.isClickable = true
-                llContinueScroll.isClickable = true
-
-                scrollView.setOnTouchListener(manualTouchListener)
-            }
-            remoteControl = !remoteControl
         }
     }
 
@@ -402,10 +374,7 @@ class TeleprompterContentFragment : Fragment() {
                     withContext(Dispatchers.Main) {
                         scrollView.setOnTouchListener(manualTouchListener)
                         ToastUtils.show(requireContext(), "已滚动到末尾")
-                        tvScrollStatus.text = "匀速滚动"
-                        ivScrollStatus.setImageResource(R.drawable.ic_continue)
-                        llContinueScroll.setBackgroundResource(R.drawable.rounded_button)
-                        llVoiceControl.isClickable = true
+                        uiCb?.onAutoFinished()
                     }
                     break
                 }
@@ -529,5 +498,15 @@ class TeleprompterContentFragment : Fragment() {
         val splitResult = SmartTextScroller.splitIntoBlocks(fileContent, scrollLines)
         tvContent.text = splitResult.displayBlock
         sendMessage(splitResult.sendBlock)
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        if (context is ControlUiCallback) uiCb = context
+    }
+
+    override fun onDetach() {
+        super.onDetach()
+        uiCb = null
     }
 }
