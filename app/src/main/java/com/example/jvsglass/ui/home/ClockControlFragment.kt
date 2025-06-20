@@ -25,6 +25,7 @@ import com.example.jvsglass.network.WeatherService
 import com.example.jvsglass.utils.LocationHelper
 import com.example.jvsglass.utils.LocationListener
 import com.example.jvsglass.utils.LogUtils
+import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -60,6 +61,7 @@ class ClockControlFragment : Fragment() {
     private val minScale = 1.0f
     private val maxScale = 1.5f
     private val usableRatio = 0.5f
+    private val updateWeatherInterval = 1_000L * 60 * 30
 
     private lateinit var seekDistance: SeekBar
     private lateinit var tvDistance: TextView
@@ -93,11 +95,12 @@ class ClockControlFragment : Fragment() {
         setupFlClockDrag()
         setupTranslateSeekBar()
         startClockAndDateTicker()
+        getMoveData()
 
         getCity()
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
             while (isActive) {
-                delay(1_000L * 60 * 30)
+                delay(updateWeatherInterval)
                 fetchWeather()
             }
         }
@@ -114,6 +117,7 @@ class ClockControlFragment : Fragment() {
                 llZoomControl.visibility = View.INVISIBLE
                 seekPan.visibility = View.INVISIBLE
                 tvHeight.visibility = View.INVISIBLE
+                saveMoveData()
             }
             isMove = !isMove
         }
@@ -302,6 +306,36 @@ class ClockControlFragment : Fragment() {
             "13" -> R.drawable.ic_weather_snow
             "50" -> R.drawable.ic_weather_mist
             else -> R.drawable.ic_weather_clear_sky
+        }
+    }
+
+    private fun saveMoveData() {
+        val mmkv = MMKV.defaultMMKV()
+        mmkv.encode("horizontalData", seekDistance.progress)
+        mmkv.encode("verticalData", seekPan.progress)
+    }
+
+    private fun getMoveData() {
+        val mmkv = MMKV.defaultMMKV()
+        val horizontalProgress = mmkv.decodeInt("horizontalData", 0)
+        val verticalProgress = mmkv.decodeInt("verticalData", 6)
+
+        seekDistance.progress = horizontalProgress
+        seekPan.progress = verticalProgress
+
+        flClock.post {
+            // 更新flClock的缩放
+            val frac = horizontalProgress / 8f
+            val scale = minScale + (maxScale - minScale) * frac
+            flClock.scaleX = scale
+            flClock.scaleY = scale
+
+            // 更新flClock的位置
+            val parentH = (flClock.parent as View).height
+            val maxTy = (parentH - flClock.height * scale) * usableRatio
+            val fracY = (verticalProgress - 3) / 6f
+            val desiredY = -maxTy / 2 + fracY * maxTy
+            flClock.translationY = desiredY.coerceIn(-maxTy / 2, maxTy / 2)
         }
     }
 }
