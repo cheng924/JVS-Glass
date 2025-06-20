@@ -40,6 +40,16 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 class ClockControlFragment : Fragment() {
+    companion object {
+        private const val KEY_CITY = "last_weather_city"
+        private const val KEY_TIME = "last_weather_time"
+        private const val KEY_TEMP = "last_weather_temp"
+        private const val KEY_ICON = "last_weather_icon"
+        private const val UPDATE_WEATHER_INTERVAL = 1_000L * 60 * 30
+    }
+
+    private val mmkv = MMKV.defaultMMKV()
+
     private val tag = "[ClockControlFragment]"
     private var cityName = "Shenzhen,cn"
 
@@ -49,7 +59,7 @@ class ClockControlFragment : Fragment() {
     private lateinit var tvTime: TextView
     private lateinit var tvDate: TextView
     private lateinit var ivWeather: ImageView
-    private lateinit var tvWeatherTemp: TextView
+    private lateinit var tvWeather: TextView
     private lateinit var ivMove: ImageView
     private lateinit var tvHeight: TextView
 
@@ -61,7 +71,6 @@ class ClockControlFragment : Fragment() {
     private val minScale = 1.0f
     private val maxScale = 1.5f
     private val usableRatio = 0.5f
-    private val updateWeatherInterval = 1_000L * 60 * 30
 
     private lateinit var seekDistance: SeekBar
     private lateinit var tvDistance: TextView
@@ -86,7 +95,7 @@ class ClockControlFragment : Fragment() {
         tvTime = view.findViewById(R.id.tv_time)
         tvDate = view.findViewById(R.id.tv_date)
         ivWeather = view.findViewById(R.id.iv_weather)
-        tvWeatherTemp = view.findViewById(R.id.tv_weather_temp)
+        tvWeather = view.findViewById(R.id.tv_weather)
         ivMove = view.findViewById(R.id.iv_move)
         tvHeight = view.findViewById(R.id.tv_height)
 
@@ -97,11 +106,11 @@ class ClockControlFragment : Fragment() {
         startClockAndDateTicker()
         getMoveData()
 
-        getCity()
+        loadWeatherFromCacheOrNetwork()
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
             while (isActive) {
-                delay(updateWeatherInterval)
-                fetchWeather()
+                delay(UPDATE_WEATHER_INTERVAL)
+                getCity()
             }
         }
     }
@@ -222,27 +231,31 @@ class ClockControlFragment : Fragment() {
                     val city = addr.locality ?: addr.adminArea ?: ""
                     val country = addr.countryCode?.lowercase(Locale.getDefault()) ?: ""
                     if (city.isNotEmpty() && country.isNotEmpty()) {
-                        cityName = "$city,$country"
                         LogUtils.info("$tag GPS 定位成功: $cityName")
-                        fetchWeather()
+                        cityName = "$city,$country"
+                        mmkv.putString(KEY_CITY, cityName)
                     } else {
                         LogUtils.error("$tag GPS 定位成功，但地址信息不完整")
+                        cityName = "shenzhen,cn"
                     }
                 } else {
                     LogUtils.error("$tag GPS 定位成功，但 Geocoder 未返回地址")
+                    cityName = "shenzhen,cn"
                 }
+                fetchWeatherAndCache()
             }
 
             override fun onError(reason: String) {
                 LogUtils.error("$tag GPS 定位失败: $reason")
-                fetchWeather()
+                cityName = "shenzhen,cn"
+                fetchWeatherAndCache()
             }
         })
     }
 
-    private fun fetchWeather() {
+    private fun fetchWeatherAndCache() {
         if (!isNetworkAvailable()) {
-            tvWeatherTemp.text = "–°"
+            tvWeather.text = "–℃"
             return
         }
 
@@ -257,27 +270,32 @@ class ClockControlFragment : Fragment() {
                     val body = response.body()
                     if (body != null) {
                         val tempInt = body.main.temp?.toInt()
-                        tvWeatherTemp.text = tempInt?.let { "$it℃" } ?: "–°"
+                        tvWeather.text = tempInt?.let { "$it℃" } ?: "–℃"
+                        if (tempInt != null) {
+                            mmkv.putInt(KEY_TEMP, tempInt)
+                        }
 
                         body.weather.firstOrNull()?.icon?.let { iconCode ->
                             ivWeather.setImageResource(getWeatherIcon(iconCode))
+                            mmkv.putString(KEY_ICON, iconCode)
 //                            val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@2x.png"
 //                            Glide.with(this@ClockControlFragment).load(iconUrl).into(ivWeather)
                         }
 
+                        mmkv.putLong(KEY_TIME, System.currentTimeMillis())
                         LogUtils.info("$tag 天气解析成功：$body")
                     } else {
                         LogUtils.warn("$tag 响应 body 为空")
-                        tvWeatherTemp.text = "–°"
+                        tvWeather.text = "–℃"
                     }
                 } else {
                     val err = response.errorBody()?.string()
                     LogUtils.warn("$tag 天气 API 错误：code=${response.code()} body=$err")
-                    tvWeatherTemp.text = "–°"
+                    tvWeather.text = "–℃"
                 }
             } catch (e: Exception) {
                 LogUtils.error("获取天气失败", e)
-                tvWeatherTemp.text = "–°"
+                tvWeather.text = "–℃"
             }
         }
     }
@@ -292,6 +310,28 @@ class ClockControlFragment : Fragment() {
     private fun vibrationAction() {
         val v = requireContext().getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun loadWeatherFromCacheOrNetwork() {
+        val lastTime = mmkv.getLong(KEY_TIME, 0L)
+        val now = System.currentTimeMillis()
+
+        val hasCache = mmkv.contains(KEY_TEMP) && mmkv.contains(KEY_ICON) && mmkv.contains(KEY_CITY)
+        val notExpired = now - lastTime < UPDATE_WEATHER_INTERVAL
+
+        if (hasCache && notExpired) {
+            cityName = mmkv.getString(KEY_CITY, "shenzhen,cn") ?: ""
+            val temp = mmkv.getInt(KEY_TEMP, Int.MIN_VALUE)
+            val icon = mmkv.getString(KEY_ICON, "") ?: ""
+            if (temp != Int.MIN_VALUE) {
+                tvWeather.text = "$temp℃"
+                ivWeather.setImageResource(getWeatherIcon(icon))
+            }
+        } else {
+            // 缓存过期或不存在，联网拉取并缓存
+            getCity()
+        }
     }
 
     private fun getWeatherIcon(iconCode: String): Int {
