@@ -1,7 +1,8 @@
-package com.example.jvsglass.ui.ai;
+package com.example.jvsglass.ui.ai
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.net.Uri
@@ -23,6 +24,7 @@ import android.widget.ViewSwitcher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
@@ -80,6 +82,7 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
     private var currentVoicePath = ""
     private var currentConversationId: String? = null
     private var isLoadedFromHistory = false
+    private var skipSaveOnPause = false
 
     private var sendBTMessage = ""
 
@@ -106,6 +109,17 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
     private lateinit var ivCamera: ImageView
     private lateinit var ivFile: ImageView
     private lateinit var ivCall: ImageView
+
+    private val historyLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == AppCompatActivity.RESULT_OK) {
+            val data = result.data ?: return@registerForActivityResult
+            val convId = data.getStringExtra("conversationId") ?: return@registerForActivityResult
+            val fromHistory = data.getBooleanExtra("fromHistory", false)
+            processHistory(convId, fromHistory)
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -146,18 +160,7 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
         setupClickListeners()
         initRealtimeAsrClient()
 
-        // 处理来自导航的 Arguments
-        arguments?.getString("conversationId")?.let { convId ->
-            val fromHistory = arguments?.getBoolean("fromHistory", false) ?: false
-            if (fromHistory && messageList.isNotEmpty()) {
-                saveConversationToDb()
-            }
-            currentConversationId = convId
-            isLoadedFromHistory = true
-            messageList.clear()
-            messageAdapter.notifyDataSetChanged()
-            loadConversation(convId)
-        }
+        handleHistoryIntent()
 
         BluetoothConnectManager.sendCommand(createPacket(CMDKey.INTERFACE_COMMAND, ENTER_AI))
     }
@@ -190,8 +193,8 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
         ivCall = view.findViewById(R.id.ivCall)
 
         view.findViewById<ImageView>(R.id.ivAiHistory).setOnClickListener {
-            // 导航到历史记录 Fragment 或 Activity
-            // 例如：NavHostFragment.findNavController(this).navigate(R.id.action_to_history)
+            skipSaveOnPause = true
+            historyLauncher.launch(Intent(requireContext(), AiHistoryActivity::class.java))
         }
 
         etMessage.addTextChangedListener(object : TextWatcher {
@@ -854,6 +857,25 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
         }
     }
 
+    private fun handleHistoryIntent() {
+        arguments?.getString("conversationId")?.let { convId ->
+            val fromHistory = arguments?.getBoolean("fromHistory") ?: false
+            processHistory(convId, fromHistory)
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private fun processHistory(conversationId: String, fromHistory: Boolean) {
+        if (fromHistory && messageList.isNotEmpty()) {
+            saveConversationToDb()
+        }
+        currentConversationId = conversationId
+        isLoadedFromHistory = true
+        messageList.clear()
+        messageAdapter.notifyDataSetChanged()
+        loadConversation(conversationId)
+    }
+
     @SuppressLint("NotifyDataSetChanged")
     private fun loadConversation(conversationId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
@@ -919,6 +941,16 @@ class AiFragment : Fragment(), SystemFileOpener.FileResultCallback {
         NetworkManager.getInstance().dispose()
         realtimeAsrClient.shouldReconnect = false
         realtimeAsrClient.disconnect()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (skipSaveOnPause) {
+            skipSaveOnPause = false
+        } else {
+            LogUtils.info("已切换到其他界面")
+            saveConversationToDb()
+        }
     }
 
     override fun onError(errorMessage: String) {

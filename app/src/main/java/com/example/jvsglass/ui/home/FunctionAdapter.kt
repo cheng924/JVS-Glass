@@ -8,7 +8,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
-import com.example.jvsglass.ui.ai.JVSAIActivity
 import com.example.jvsglass.ui.meeting.MeetingAssistantActivity
 import com.example.jvsglass.ui.notification.NotificationActivity
 import com.example.jvsglass.ui.teleprompter.TeleprompterActivity

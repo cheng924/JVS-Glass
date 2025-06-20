@@ -83,12 +83,11 @@ class AiHistoryActivity : AppCompatActivity() {
                     adapter = AiHistoryAdapter(
                         list,
                         onItemClick = { conv ->
-                            val intent = Intent(this@AiHistoryActivity, JVSAIActivity::class.java).apply {
+                            val data = Intent().apply {
                                 putExtra("conversationId", conv.conversationId)
                                 putExtra("fromHistory", true)
-                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                             }
-                            startActivity(intent)
+                            setResult(RESULT_OK, data)
                             finish()
                             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
                         },
