@@ -1,13 +1,14 @@
 package com.example.jvsglass.ui.notification
 
 import android.content.Context
+import com.tencent.mmkv.MMKV
 
 object NotificationRepository {
     val notifications = mutableListOf<NotificationModel>()
 
     fun addNotification(context: Context, packageName: String, sender: String, message: String, timestamp: Long, notificationKey: String) {
-        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val enabledPackages = prefs.getStringSet("enabled_packages", emptySet()) ?: emptySet()
+        val mmkv = MMKV.defaultMMKV()
+        val enabledPackages = mmkv.decodeStringSet("enabled_packages") ?: emptySet()
 
         if (enabledPackages.contains(packageName)) {
             val appName = try {

@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.jvsglass.R
+import com.tencent.mmkv.MMKV
 
 class FilterSettingsActivity : AppCompatActivity() {
     private lateinit var appItems: MutableList<AppItem>
@@ -17,10 +18,10 @@ class FilterSettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_filter_settings)
 
+        val mmkv = MMKV.defaultMMKV()
+        val enabledPackages = mmkv.decodeStringSet("enabled_packages") ?: emptySet()
         val packageManager = packageManager
         val apps = packageManager.getInstalledApplications(0)
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val enabledPackages = prefs.getStringSet("enabled_packages", emptySet())?.toSet() ?: emptySet()
 
         appItems = apps.filter { appInfo ->
             (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 // 只保留非系统应用
@@ -40,7 +41,7 @@ class FilterSettingsActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_apply).setOnClickListener {
             val enabledPackageNames = appItems.filter { it.isEnabled }.map { it.packageName }.toSet()
-            prefs.edit().putStringSet("enabled_packages", enabledPackageNames).apply()
+            mmkv.encode("enabled_packages", enabledPackageNames)
             finish()
         }
     }

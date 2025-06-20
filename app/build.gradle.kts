@@ -125,4 +125,5 @@ dependencies {
     implementation(libs.navigation.ui.ktx)
 
     implementation(libs.play.services.location)
+    implementation(libs.mmkv)
 }

@@ -15,6 +15,7 @@ import com.example.jvsglass.bluetooth.BluetoothConstants.HEARTBEAT_TIMEOUT
 import com.example.jvsglass.bluetooth.PacketCommandUtils.parseDbClickPacket
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.toHexString
+import com.tencent.mmkv.MMKV
 import java.lang.ref.WeakReference
 
 class BLEClient private constructor(context: Context) {
@@ -47,6 +48,8 @@ class BLEClient private constructor(context: Context) {
 
     private val packetQueue = ArrayDeque<ByteArray>()
     private var isWritingPacket = false
+
+    private val mmkv = MMKV.defaultMMKV()
 
     interface MessageListener {
         fun onMessageReceived(value: ByteArray)
@@ -470,18 +473,15 @@ class BLEClient private constructor(context: Context) {
     // 存储/读取设备地址
     @SuppressLint("UseKtx")
     private fun saveDeviceAddress(address: String) {
-        contextRef.get()?.getSharedPreferences("ble_prefs", Context.MODE_PRIVATE)?.edit()
-            ?.putString("last_connected_device", address)?.apply()
+        mmkv.encode("last_connected_device", address)
     }
 
     fun getDeviceAddress(): String? {
-        return contextRef.get()?.getSharedPreferences("ble_prefs", Context.MODE_PRIVATE)
-            ?.getString("last_connected_device", null)
+        return mmkv.decodeString("last_connected_device")
     }
 
     @SuppressLint("UseKtx")
     private fun clearSavedDeviceAddress() {
-        contextRef.get()?.getSharedPreferences("ble_prefs", Context.MODE_PRIVATE)?.edit()
-            ?.putString("last_connected_device", null)?.apply()
+        mmkv.encode("last_connected_device", "")
     }
 }

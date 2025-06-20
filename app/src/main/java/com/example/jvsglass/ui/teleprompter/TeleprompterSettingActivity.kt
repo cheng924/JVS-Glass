@@ -2,7 +2,6 @@ package com.example.jvsglass.ui.teleprompter
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Context
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
@@ -10,7 +9,7 @@ import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.jvsglass.R
-import java.lang.ref.WeakReference
+import com.tencent.mmkv.MMKV
 
 class TeleprompterSettingActivity : AppCompatActivity() {
 
@@ -20,7 +19,7 @@ class TeleprompterSettingActivity : AppCompatActivity() {
         const val LOW = 20_000L     // 低速
     }
 
-    private val contextRef = WeakReference(this@TeleprompterSettingActivity)
+    private val mmkv = MMKV.defaultMMKV()
     private var currentSpeed: Long = Speed.MEDIUM
     private var selectedSpeed: Long = Speed.MEDIUM
 
@@ -42,7 +41,7 @@ class TeleprompterSettingActivity : AppCompatActivity() {
         currentSpeed = if (intentMs == Speed.LOW || intentMs == Speed.MEDIUM || intentMs == Speed.HIGH) {
             intentMs
         } else {
-            getTeleprompterSpeed() ?: Speed.MEDIUM
+            getTeleprompterSpeed()
         }
         selectedSpeed = currentSpeed
 
@@ -84,12 +83,10 @@ class TeleprompterSettingActivity : AppCompatActivity() {
     // 存储/读取设备地址
     @SuppressLint("UseKtx")
     private fun saveTeleprompterSpeed(speed: Long) {
-        contextRef.get()?.getSharedPreferences("teleprompter_setting", Context.MODE_PRIVATE)?.edit()
-            ?.putLong("speed", speed)?.apply()
+        mmkv.encode("scrollIntervalMs", speed)
     }
 
-    private fun getTeleprompterSpeed(): Long? {
-        return contextRef.get()?.getSharedPreferences("teleprompter_setting", Context.MODE_PRIVATE)
-            ?.getLong("speed", 15_000L)
+    private fun getTeleprompterSpeed(): Long {
+        return mmkv.decodeLong("scrollIntervalMs", Speed.MEDIUM)
     }
 }

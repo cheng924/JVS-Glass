@@ -37,6 +37,7 @@ import com.example.jvsglass.network.RealtimeAsrClient
 import com.example.jvsglass.utils.LogUtils
 import com.example.jvsglass.utils.ToastUtils
 import com.example.jvsglass.utils.VoiceManager
+import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -90,6 +91,7 @@ class TeleprompterContentFragment : Fragment(), TeleprompterControl {
     private var uiCb: ControlUiCallback? = null
 
     private var recordingFilePath: String? = null
+    private val mmkv = MMKV.defaultMMKV()
 
     private lateinit var scrollView: ScrollView
     private lateinit var tvContent: TextView
@@ -323,8 +325,7 @@ class TeleprompterContentFragment : Fragment(), TeleprompterControl {
     }
 
     private fun initSetting() {
-        val prefs = requireActivity().getSharedPreferences("teleprompter_setting", Context.MODE_PRIVATE)
-        scrollIntervalMs = prefs.getLong("speed", 15_000L)
+        scrollIntervalMs = mmkv.decodeLong("scrollIntervalMs")
     }
 
     private fun initRealtimeAsrClient() {

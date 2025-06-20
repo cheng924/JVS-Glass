@@ -10,6 +10,7 @@ import com.example.jvsglass.bluetooth.BluetoothConnectManager
 import com.example.jvsglass.bluetooth.BLEClient
 import com.example.jvsglass.database.AppDatabaseProvider
 import com.example.jvsglass.utils.VoiceManager
+import com.tencent.mmkv.MMKV
 
 class MyApp : Application() {
     private lateinit var voiceManager: VoiceManager
@@ -21,8 +22,8 @@ class MyApp : Application() {
         super.onCreate()
 
         AppDatabaseProvider.init(this) // 数据库初始化
+        MMKV.initialize(this)
         voiceManager = VoiceManager(this)
-
         BluetoothConnectManager.initialize(this, voiceManager)
         autoConnect()
     }
